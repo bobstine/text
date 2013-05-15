@@ -1,0 +1,41 @@
+include ../c_flags
+
+###########################################################################
+#
+#   Note on special forms
+#      $^ are prereq    $@ is target    $* is stem
+#
+#   Examples of depending on libaries
+#        LDLIBS =  -lthing -lregression 
+#        libs_used =  ../lib/libthing.a ../lib/libregression.a 
+# 
+###########################################################################
+
+
+PROJECT_NAME = text
+
+# OPT = -O3 -std=c++0x -DNDEBUG
+
+OPT = -O3  -std=c++0x
+
+
+USES = utils
+
+level_1 = 
+level_2 = 
+level_3 = 
+
+##################
+
+text_file = text_src/tom_sawyer_74.txt
+
+tagger = edu.stanford.nlp.tagger.maxent.MaxentTagger -model models/bidirectional-wsj-0-18.tagger
+##################
+
+tokens.txt:
+	java -mx300m -classpath stanford-postagger.jar $(tagger) -textFile $(text_file)  > tokens.txt
+
+
+
+###########################################################################
+include ../rules_for_makefiles
