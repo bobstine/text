@@ -64,19 +64,6 @@ int main(int, char **)
   const int nTokens ((int)tokenMap.size());
 
 
-  {
-    using std::clog;
-    using std::endl;
-    
-    Matrix m = Matrix::Random(3,2);
-    clog << "Here is the matrix m:" << endl << m << endl;
-    Eigen::JacobiSVD<Matrix> svd(m, Eigen::ComputeThinU | Eigen::ComputeThinV);
-    clog << "Its singular values are:" << endl << svd.singularValues() << endl;
-    clog << "Its left singular vectors are the columns of the thin U matrix:" << endl << svd.matrixU() << endl;
-    clog << "Its right singular vectors are the columns of the thin V matrix:" << endl << svd.matrixV() << endl;
-
-  }
-  
   // sort map by values by inserting into multimap; note sign reversed so descends
   // then assign unique integer id to tokens
   startTime = clock();
@@ -137,27 +124,37 @@ int main(int, char **)
     Matrix R = Matrix::Random(B.cols(),nProjections);
     RP = norms.asDiagonal() * (B * R);
   }
-  print_time(std::clog, "Compute scaled random projection", startTime, clock());
+  ss << "Compute scaled random projection RP[" << RP.rows() << "x" << RP.cols() << "]" << std::endl;
+  print_time(std::clog, ss.str(), startTime, clock());
+  ss.str("");
+  std::clog << " RP row 1 norm: " << RP.row(1).norm() << std::endl;
+  std::clog << " RP row 9 norm: " << RP.row(9).norm() << std::endl;
   std::clog << " RP matrix : \n"
-	    << RP.topLeftCorner(10,nProjections) << "\n  ...\n"
-	    << RP.bottomLeftCorner(10,nProjections) << std::endl;
-  write_matrix_to_file("random_projection.txt", RP);
+	    << RP.topLeftCorner(5,nProjections) << "\n  ...\n"
+	    << RP.bottomLeftCorner(5,nProjections) << std::endl;
 
+  const int useRows = 4000;
+  
+  write_matrix_to_file("random_projection.txt", RP.topLeftCorner(useRows,10));
+
+  std::clog << "ODD row is " << RP.row(3987) << std::endl;
+  
   // SVD of random projection array
   startTime = clock();
-  Eigen::JacobiSVD<Matrix, Eigen::HouseholderQRPreconditioner> svd(RP, Eigen::ComputeThinU);
+  Eigen::JacobiSVD<Matrix, Eigen::HouseholderQRPreconditioner> svd(RP.topLeftCorner(useRows,10), Eigen::ComputeThinU);
   Matrix U = svd.matrixU(); // * svd.singularValues().asDiagonal();
   std::clog << " U matrix : \n" << U.topLeftCorner(10,10) << std::endl;
   std::clog << "Singular values: \n    " << svd.singularValues().transpose().head(10) << std::endl;
   print_time(std::clog, "Compute SVD and extract U*D", startTime, clock());
 
   // write u matrix to file
-  write_matrix_to_file("svd.ud", U);
+  // write_matrix_to_file("svd.ud", U);
 
   // print first items in the map
-  for(auto it = sortedTokenMap.begin(); it != sortedTokenMap.end(); ++it)
+  /*
+    for(auto it = sortedTokenMap.begin(); it != sortedTokenMap.end(); ++it)
     std::cout << it->second << " " << -it->first << std::endl;  
-  
+  */
   return 0;
 }
 
