@@ -20,7 +20,7 @@ OPT = -O3  -std=c++0x
 
 USES = utils
 
-level_1 = 
+level_1 = k_means.o
 level_2 = 
 level_3 = 
 
