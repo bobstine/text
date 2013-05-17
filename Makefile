@@ -18,7 +18,6 @@ PROJECT_NAME = text
 
 OPT = -O3  -std=c++0x
 
-
 USES = utils
 
 level_1 = 
@@ -41,9 +40,10 @@ tag_model  = -model $(tag_path)models/wsj-0-18-bidirectional-nodistsim.tagger
 clean_txt:
 	rm -f tokens.txt
 
-# script deletes blank tokens (in call to sed, $$ converts in Make to $)
+# script converts to lower case, deletes blank tokens (in call to sed, $$ converts in Make to $)
 tokens.txt:
-	java -mx2g $(cls_path) $(tagger) $(tag_model) -nthreads 4 -textFile $(text_file) -outputFormat tsv  | sed '/^$$/d' > tokens.txt
+	tr '[:upper:]' '[:lower:]' < $(text_file) > tmp.txt
+	java -mx2g $(cls_path) $(tagger) $(tag_model) -nthreads 4 -textFile tmp.txt -outputFormat tsv  | sed '/^$$/d' > tokens.txt
 
 # compute svd of random projected bigram matrix
 bigram.o: bigram.cc
@@ -52,7 +52,7 @@ bigram: bigram.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
 bigram.prj: tokens.txt bigram
-	./bigram tokens.txt > bigram.prj
+	./bigram < tokens.txt >> bigram.prj
 
 
 
