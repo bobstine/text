@@ -1,3 +1,18 @@
+/*
+  R Code for check/comparison of SVD
+ 
+  X <- read.table("/Users/bob/C/text/random_projection.txt")
+
+  udv <- svd (X)
+
+  udv$d
+
+  for(j in 1:10) {
+  cat(j,"  ",any(is.nan(X[,j])),"  \n")
+  cat(which (is.nan(X[,j])), "  \n");
+  }
+*/
+
 #include "eigen_utils.h"
 
 #include <Eigen/Core>
