@@ -6,10 +6,35 @@
 
 #include <vector>
 #include <map>
+#include <iostream>
 
-typedef std::map<int, std::vector<int>>  ClusterMap;
+class KMeansClusters
+{
+  typedef Eigen::MatrixXf                  Matrix;
+  typedef std::map<int, std::vector<int>>  Map;
+  typedef Eigen::RowVectorXf               Row;
 
-ClusterMap k_means_cluster_map(Eigen::MatrixXf const& data, int nClusters);
+  Matrix const&      mData;
+  int                mNClusters;
+  Matrix             mClusterCenters;
+  std::vector<int>   mClusterTags;
+
+ public:
+  KMeansClusters (Matrix const& data, int nClusters, int maxIterations = 10)
+    : mData(data), mNClusters(nClusters), mClusterCenters(Matrix::Zero(nClusters,data.cols())), mClusterTags(data.rows())
+    { find_clusters(maxIterations); }
+
+  Map              cluster_map  ()  const;
+  std::vector<int> cluster_tags ()  const;
+
+  void             find_clusters(int maxIterations);
+
+  void             print_to_stream (std::ostream& os) const;
+
+ private:
+  int    closest_cluster (int row) const;
+  double relative_squared_distance (Matrix const& newCenters) const;
+};
 
 #endif
 

@@ -1,29 +1,28 @@
 #include "k_means.h"
+#include "eigen_utils.h"
 
 #include <iostream>
+#include <fstream>
 
-const int nRows = 10;
-const int nCols =  3;
+const int nRows = 100;
+const int nCols =   3;
 
 using std::cout;
 using std::endl;
 
 int main (void)
 {
-  
-  Eigen::MatrixXf data = Eigen::MatrixXf::Random(nRows,nCols);
+  Eigen::MatrixXf data = Eigen::MatrixXf::Random(nRows,nCols+1);
 
   cout << "TEST: Random data is \n" << data << endl;
 
   int nClusters = 3;
-  
-  ClusterMap clusters = k_means_cluster_map(data,nClusters);
+  KMeansClusters clusters(data.topLeftCorner(nRows,nCols),nClusters);
+  clusters.print_to_stream(std::cout);
 
+  std::vector<int> ids = clusters.cluster_tags();
+  for (int i=0; i<nRows; ++i)
+    data(i,nCols) = ids[i];
 
-  for(int i=0; i<nClusters; ++i)
-  { cout << "Cluster " << i << ": ";
-    for(int j=0; j<(int)clusters[i].size(); ++j)
-      cout << " " << clusters[i][j];
-    cout << endl;
-  }
+  write_matrix_to_file("/Users/bob/Desktop/cluster_test.txt", data);
 }
