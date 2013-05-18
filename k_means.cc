@@ -1,51 +1,80 @@
 #include "k_means.h"
+#include <iostream>
 
-typedef Eigen::MatrixXf Matrix;
-typedef Eigen::VectorXf Vector;
+
+
+KMeansClusters::Map
+KMeansClusters::cluster_map() const
+{
+  KMeansClusters::Map m;
+  for(int i=0; i<(int)mClusterTags.size(); ++i)
+    m[mClusterTags[i]].push_back(i);
+  return m;
+}
+
+std::vector<int>
+KMeansClusters::cluster_tags () const
+{
+  return mClusterTags;
+}
+
 
 int
-closest_cluster (Eigen::RowVectorXf const&x, Matrix const& centers)
+KMeansClusters::closest_cluster (int row) const
 {
-  float minD = (x - centers.row(0)).squaredNorm();
+  float minD = (mData.row(row) - mClusterCenters.row(0)).squaredNorm();
   int   minI = 0;
-  for (int i=1; i<centers.rows(); ++i)
-  { float d = (x - centers.row(i)).squaredNorm();
+  for (int i=1; i<mClusterCenters.rows(); ++i)
+  { float d = (mData.row(row) - mClusterCenters.row(i)).squaredNorm();
     if (d < minD) { minD = d; minI = i; }
   }
   return minI;
 }
 
-
-ClusterMap
-k_means_cluster_map(Matrix const& data, int nClusters)
+double
+KMeansClusters::relative_squared_distance (Matrix const& newCenters) const
 {
-  // init cluster centers to top rows
-  Matrix centers = data.topLeftCorner(nClusters, data.cols());
+  // avg squared distance relative to avg squared size
+  double dist = (mClusterCenters.array() - newCenters.array()).matrix().squaredNorm()/mClusterCenters.squaredNorm();
+  std::clog << "KMCS: disance = " << dist << std::endl;
+  return dist;
+}
 
-  std::vector<int> clusters (data.rows());
+void
+KMeansClusters::find_clusters(int maxIterations)
+{
+  // init new cluster centers to top rows
+  Matrix centersNew = mData.topLeftCorner(mNClusters, mData.cols());
+  mClusterCenters   = Matrix::Zero       (mNClusters, mData.cols());
 
-  // assign to clusters
-  for(int i=0; i<data.rows(); ++i)
-    clusters[i] = closest_cluster(data.row(i), centers);
-
-  // find new cluster centers
-  centers = Matrix::Zero(centers.rows(), centers.cols());
-  std::vector<int> counts (nClusters);
-  
-  for(int i=0; i<data.rows(); ++i)
-  { centers.row(clusters[i]) += data.row(i);
-    ++counts[clusters[i]];
+  std::vector<int> counts   (mNClusters);
+  int itCount = 0;
+  while ((relative_squared_distance(centersNew) > 0.01) && (++itCount < maxIterations))
+  { mClusterCenters = centersNew;
+    // assign cases to clusters
+    for(int i=0; i<mData.rows(); ++i)
+      mClusterTags[i] = closest_cluster(i);
+    // calculate new centers of clusters
+    centersNew = Matrix::Zero(centersNew.rows(), centersNew.cols());
+    for(int i=0; i<mData.rows(); ++i)
+    { centersNew.row(mClusterTags[i]) += mData.row(i);
+      ++counts[mClusterTags[i]];
+    }
+    for(int i=0; i<centersNew.rows(); ++i)
+      centersNew.row(i).array() /= counts[i];
   }
-  for(int i=0; i<centers.rows(); ++i)
-    centers.row(i).array() /= counts[i];
-
-  // repeat <<<<<<<<<<--------------
-
-  // return as map of vectors
-  std::map<int, std::vector<int>> clusterMap;
-  for(int i=0; i<(int)clusters.size(); ++i)
-    clusterMap[clusters[i]].push_back(i);
-  return clusterMap;
 }
   
 
+void
+KMeansClusters::print_to_stream (std::ostream& os) const
+{
+  Map m (cluster_map());
+  for(int i=0; i<mNClusters; ++i)
+  { os << "Cluster " << i << ": ";
+    for(int j=0; j<(int)m[i].size(); ++j)
+      os << " " << m[i][j];
+    os << std::endl;
+  }
+}
+  
