@@ -51,26 +51,32 @@ operator<< (std::ostream& os, Vector const& x)
   
 int main(int, char **)
 {
-  const int nProjections = 10;
+  const int nProjections = 30;
 
+  using std::string;
+  
   std::ostringstream ss;
   
   // read tokens as first string in file, one item per line
-  std::list<std::string>    tokenList;
-  std::list<std::string>    goldPOSList;
-  std::map<std::string,int> tokenMap;
+  std::list<string>    tokenList;
+  std::list<string>    goldPOSList;
+  // maps hold token assignments, counts
+  std::map<string, std::map<string,int>> tokenPOSMap;
+  std::map<string,int> tokenMap;
   
   clock_t startTime;
 
   startTime = clock();
   while (std::cin)
-  { std::string s;
-    std::cin >> s;
-    if (s.empty()) break;   // end of file
-    tokenList.push_back(s);
-    ++tokenMap[s];
-    std::cin >> s;
-    goldPOSList.push_back(s);
+  { std::string token;
+    std::cin >> token;
+    if (token.empty()) break;   // end of file
+    tokenList.push_back(token);
+    ++tokenMap[token];
+    std::string pos;
+    std::cin >> pos;
+    goldPOSList.push_back(pos);
+    ++tokenPOSMap[token][pos];
   }
   ss << "Read " << tokenMap.size() << " unique tokens from input of length " << tokenList.size() << ".";
   print_time(std::clog, ss.str(), startTime, clock());
@@ -145,20 +151,39 @@ int main(int, char **)
 	    << RP.topLeftCorner(5,nProjections) << "\n  ...\n"
 	    << RP.bottomLeftCorner(5,nProjections) << std::endl;
 
-  //  write_matrix_to_file("random_projection.txt", RP.topLeftCorner(useRows,10));
+  // cluster tokens using k-means
+  const int nClusters = 10;
+  KMeansClusters clusters (RP, 20);
+
+  // write data and clusters
+  {
+    std::ios_base::openmode mode = (append) ? std::ios_base::app : std::ios_base::trunc;
+    std::ofstream output (fileName.c_str(), mode);
+    if (! output)
+      std::cerr << "ERROR: Cannot open output text file for writing matrix to file " << fileName << std::endl;
+    else
+    { std::vector<int> group = cluster.tags();
+      for (i=0; i<RP.rows(); ++i)
+      { output << RP.row(i) << " " << group(i) << " " << 
+  }
+
+
+
 
   // SVD of random projection array
-  startTime = clock();
-  Eigen::JacobiSVD<Matrix, Eigen::HouseholderQRPreconditioner> svd(RP, Eigen::ComputeThinU);
-  Matrix UD = svd.matrixU() * svd.singularValues().asDiagonal();
-  std::clog << " U matrix      : \n" << UD.topLeftCorner(10,nProjections) << std::endl;
-  std::clog << "Singular values: \n" << svd.singularValues().transpose().head(nProjections) << std::endl;
-  print_time(std::clog, "Compute SVD and extract U*D.", startTime, clock());
-
-  // write u matrix to file
-  // write_matrix_to_file("svd.ud", U);
-
-  // print first items in the map
+  if (false)
+  { startTime = clock();
+    Eigen::JacobiSVD<Matrix, Eigen::HouseholderQRPreconditioner> svd(RP, Eigen::ComputeThinU);
+    Matrix UD = svd.matrixU() * svd.singularValues().asDiagonal();
+    // std::clog << " U matrix      : \n" << UD.topLeftCorner(10,nProjections) << std::endl;
+    std::clog << "Singular values: \n" << svd.singularValues().transpose().head(nProjections) << std::endl;
+    print_time(std::clog, "Compute SVD and extract U*D.", startTime, clock());
+    
+    // write u matrix to file
+    // write_matrix_to_file("svd.ud", U);
+  }
+  
+    // print first items in the map
   /*
     for(auto it = sortedTokenMap.begin(); it != sortedTokenMap.end(); ++it)
     std::cout << it->second << " " << -it->first << std::endl;  
