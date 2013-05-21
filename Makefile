@@ -20,13 +20,13 @@ OPT = -O3  -std=c++0x
 
 USES = utils
 
-level_1 = k_means.o
-level_2 = 
+level_1 = k_means.o token_manager.o
+level_2 = bigram.o
 level_3 = 
 
 ##################
 
-text_file = text_src/tom_sawyer_74.txt
+text_path = text_src/twain/
 
 tag_path   = stanford-postagger-2013-04-04/
 tag_vers   = -3.1.5
@@ -38,21 +38,22 @@ tag_model  = -model $(tag_path)models/wsj-0-18-bidirectional-nodistsim.tagger
 ##################
 
 clean_txt:
-	rm -f tokens.txt
+	rm -f tokens.txt tmp.txt
 
 # script converts to lower case, deletes blank tokens (in call to sed, $$ converts in Make to $)
+
 tokens.txt:
-	tr '[:upper:]' '[:lower:]' < $(text_file) > tmp.txt
-	java -mx2g $(cls_path) $(tagger) $(tag_model) -nthreads 4 -textFile tmp.txt -outputFormat tsv  | sed '/^$$/d' > tokens.txt
+	cat $(text_path)*.txt | tr '[:upper:]' '[:lower:]' >> tmp.txt
+	java -mx2g $(cls_path) $(tagger) $(tag_model) -nthreads 4 -textFile tmp.txt -outputFormat tsv  | sed '/^$$/d' >> tokens.txt
 
 # compute svd of random projected bigram matrix
 bigram.o: bigram.cc
 
-bigram: bigram.o
+bigram: bigram.o k_means.o token_manager.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
 bigram.prj: tokens.txt bigram
-	./bigram < tokens.txt >> bigram.prj
+	./bigram --threshold 0.005 --projections 100 --scaling 0 --clusters 60 --iterations 20 --print 5 < tokens.txt >> bigram.prj
 
 
 

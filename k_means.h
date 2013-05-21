@@ -1,7 +1,6 @@
 #ifndef _K_MEANS_H_
 #define _K_MEANS_H_
 
-
 #include <Eigen/Core>
 
 #include <vector>
@@ -12,7 +11,7 @@ class KMeansClusters
 {
   typedef Eigen::MatrixXf                  Matrix;
   typedef std::map<int, std::vector<int>>  Map;
-  typedef Eigen::RowVectorXf               Row;
+  typedef Eigen::RowVectorXf               RowVector;
 
   Matrix const&      mData;
   int                mNClusters;
@@ -32,9 +31,17 @@ class KMeansClusters
   void             print_to_stream (std::ostream& os) const;
 
  private:
-  int    closest_cluster (int row) const;
-  double relative_squared_distance (Matrix const& newCenters) const;
+  int    closest_cluster (RowVector const& r, Matrix const& m) const;
+  double relative_squared_distance (Matrix const& a, Matrix const& b) const;
 };
 
-#endif
 
+inline
+std::ostream&
+operator<< (std::ostream& os, KMeansClusters const& x)
+{
+  x.print_to_stream(os);
+  return os;
+}
+
+#endif
