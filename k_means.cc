@@ -2,7 +2,6 @@
 #include <iostream>
 
 
-
 KMeansClusters::Map
 KMeansClusters::cluster_map() const
 {
@@ -20,23 +19,23 @@ KMeansClusters::cluster_tags () const
 
 
 int
-KMeansClusters::closest_cluster (int row) const
+KMeansClusters::closest_cluster (RowVector const& r, Matrix const& m) const
 {
-  float minD = (mData.row(row) - mClusterCenters.row(0)).squaredNorm();
+  float minD = (r - m.row(0)).squaredNorm();
   int   minI = 0;
-  for (int i=1; i<mClusterCenters.rows(); ++i)
-  { float d = (mData.row(row) - mClusterCenters.row(i)).squaredNorm();
+  for (int i=1; i<m.rows(); ++i)
+  { float d = (r - m.row(i)).squaredNorm();
     if (d < minD) { minD = d; minI = i; }
   }
   return minI;
 }
 
 double
-KMeansClusters::relative_squared_distance (Matrix const& newCenters) const
+KMeansClusters::relative_squared_distance (Matrix const& newCenters, Matrix const& oldCenters) const
 {
   // avg squared distance relative to avg squared size
-  double dist = (mClusterCenters.array() - newCenters.array()).matrix().squaredNorm()/mClusterCenters.squaredNorm();
-  std::clog << "KMCS: disance = " << dist << std::endl;
+  double dist = (newCenters.array() - oldCenters.array()).matrix().squaredNorm()/oldCenters.squaredNorm();
+  std::clog << "KMCS: distance = " << dist << std::endl;
   return dist;
 }
 
@@ -44,25 +43,35 @@ void
 KMeansClusters::find_clusters(int maxIterations)
 {
   // init new cluster centers to top rows
-  Matrix centersNew = mData.topLeftCorner(mNClusters, mData.cols());
-  mClusterCenters   = Matrix::Zero       (mNClusters, mData.cols());
+  Matrix newCenters = Matrix (mNClusters,mData.cols());
+  newCenters = mData.topLeftCorner(mNClusters, mData.cols());
+  // set 'old' center to zero so initial change is infinite
+  Matrix oldCenters = Matrix::Zero       (mNClusters, mData.cols());
 
   std::vector<int> counts   (mNClusters);
   int itCount = 0;
-  while ((relative_squared_distance(centersNew) > 0.01) && (++itCount < maxIterations))
-  { mClusterCenters = centersNew;
-    // assign cases to clusters
+  Matrix *pNew = &newCenters;
+  Matrix *pOld = &oldCenters;
+  while ((0.001 < relative_squared_distance(*pNew,*pOld)) && (++itCount < maxIterations))
+  { // assign cases to clusters
     for(int i=0; i<mData.rows(); ++i)
-      mClusterTags[i] = closest_cluster(i);
+      mClusterTags[i] = closest_cluster(mData.row(i), *pNew);
+    std::swap(pNew,pOld);
+    for(int i=0; i<mNClusters; ++i) counts[i]=0;
     // calculate new centers of clusters
-    centersNew = Matrix::Zero(centersNew.rows(), centersNew.cols());
+    *pNew = Matrix::Zero(mNClusters, mData.cols());
+    for(int i=0; i<mNClusters; ++i) counts[i]=0;
     for(int i=0; i<mData.rows(); ++i)
-    { centersNew.row(mClusterTags[i]) += mData.row(i);
-      ++counts[mClusterTags[i]];
+      { (*pNew).row(mClusterTags[i]) += mData.row(i);
+	++counts[mClusterTags[i]];
     }
-    for(int i=0; i<centersNew.rows(); ++i)
-      centersNew.row(i).array() /= counts[i];
+    for(int i=0; i<mNClusters; ++i)
+      (*pNew).row(i).array() /= counts[i];
+    // std::clog << "Center counts   \n" ;
+    // for(int i=0;i<mNClusters; ++i) std::clog << counts[i] << " "; std::clog << std::endl;
+    // std::clog << "Centers at step " << itCount << ":\n" << *pNew << std::endl;
   }
+  mClusterCenters = *pNew;
 }
   
 
