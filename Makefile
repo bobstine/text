@@ -55,7 +55,7 @@ bigram: bigram.o k_means.o token_manager.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
 bigram.prj: tokens.txt bigram
-	./bigram --threshold 0.005 --projections 100 --scaling 0 --clusters 60 --iterations 20 --print 5 < tokens.txt >> bigram.prj
+	./bigram --threshold 0.0004 --projections 200 --scaling 0 --clusters 60 --iterations 20 --print 5 < tokens.txt >> bigram.prj
 
 
 
