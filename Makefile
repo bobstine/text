@@ -35,6 +35,7 @@ cls_path   = -classpath $(tag_path)stanford-postagger$(tag_vers).jar
 tagger     = edu.stanford.nlp.tagger.maxent.MaxentTagger 
 tag_model  = -model $(tag_path)models/wsj-0-18-bidirectional-nodistsim.tagger
 
+
 ##################
 
 clean_txt:
@@ -45,6 +46,7 @@ clean_txt:
 tokens.txt:
 	cat $(text_path)*.txt | tr '[:upper:]' '[:lower:]' >> tmp.txt
 	java -mx2g $(cls_path) $(tagger) $(tag_model) -nthreads 4 -textFile tmp.txt -outputFormat tsv  | sed '/^$$/d' >> tokens.txt
+
 
 # compute svd of random projected bigram matrix
 bigram.o: bigram.cc
