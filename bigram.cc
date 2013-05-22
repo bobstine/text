@@ -11,6 +11,7 @@
 */
 
 typedef Eigen::VectorXf                   Vector;
+typedef Eigen::VectorXi                   IntVector;
 typedef Eigen::MatrixXf                   Matrix;
 
 typedef Eigen::SparseMatrix<float,Eigen::RowMajor> SparseMatrix;
@@ -24,7 +25,7 @@ print_time(std::ostream& os, std::string const& s, clock_t const& start, clock_t
 }
 
 void
-parse_arguments(int argc, char** argv,		float &posThreshold, int &nProj, int &scaling, int &nClus, int &nIter, int &nPrint);
+parse_arguments(int argc, char** argv,		float &posThreshold, int &nProj, int &scaling, char &dist, int &weighting, int &nClus, int &nIter, int &nPrint);
 
   
 int main(int argc, char **argv)
@@ -33,13 +34,16 @@ int main(int argc, char **argv)
   float posThreshold = 0.0;        // accum all pos tags with relative frequency below this threshold
   int   nProjections = 30;
   int   scaling      =  0;
+  char  distance     ='2';         // letter for type of distance to use
+  int   weighting    =  1;
   int   nClusters    = 10;
   int   nIterations  = 10;
   int   nPrint       =  0;
 
-  parse_arguments(argc, argv, posThreshold, nProjections, scaling, nClusters, nIterations, nPrint);
-  std::clog << "MAIN: Echo arguments, threshold=" << posThreshold << " nProjections=" << nProjections << " scaling=" << scaling
-	    << " nClusters=" << nClusters << " nIterations=" << nIterations << " nPrint=" << nPrint << std::endl;
+  parse_arguments(argc, argv, posThreshold, nProjections, scaling, distance, weighting, nClusters, nIterations, nPrint);
+  std::clog << "MAIN: Arguments threshold=" << posThreshold << " nProjections=" << nProjections << " scaling=" << scaling
+	    << " distance=" << distance << " weighting=" << weighting << " nClusters=" << nClusters << " nIterations=" << nIterations
+	    << " nPrint=" << nPrint << std::endl;
   
   using std::string;
   std::ostringstream ss;
@@ -72,50 +76,67 @@ int main(int argc, char **argv)
     ss.str("");
   }
 
-  // test by summing elements in B
-  if(false)
-  { ss << "Sums of first rows of B are ";
+  // count number of times each type appears; check for an empty row or col in B
+  IntVector typeCounts = IntVector::Zero(B.rows());
+  {
     startTime = clock();
-    {
-      Vector one  (Vector::Constant(nTokens,1.0));
-      Vector sums (Vector::Zero    (nTokens));
-      sums = B * one;
-      for(int i=0; i<5; ++i)
-	ss << "[" << i << "]=" << sums[i] << "   ";
-      ss << " with +/+/B = " << sums.sum() << ".";
+    std::vector<int> iZero;
+    for(int i=0; i<B.rows(); ++i)
+    { typeCounts[i] = B.row(i).sum();
+      if (0 == typeCounts[i]) iZero.push_back(i);
+      // if (B.col(i).sum() == 0) iZero.push_back(-i);
+    }
+    ss << "Zero check finds " << iZero.size() << " empty rows and columns.";
+    if(!iZero.empty())
+    { ss << std::endl;
+      for (auto it=iZero.begin(); it!=iZero.end(); ++it) ss << *it << " ";
     }
     print_time(std::clog, ss.str(), startTime, clock());
     ss.str("");
   }
   
-  // Random projection of the array
+  // Random projections of row and column spaces 
   startTime = clock();
-  Matrix RP = B * Matrix::Random(B.cols(),nProjections);;
-  if (scaling)
-  { Vector recipNorms(B.rows());
-    for (int i=0; i<B.rows(); ++i)
-    { float ss = B.row(i).norm();
-      if (0 == ss)
-      { ss = 1;
-	std::clog << "MAIN: Zero norm for B[" << i << "] with token ----->" << tokenManager[i]
-		  << "<----- with count " << tokenManager.token_freq(tokenManager[i]) << std::endl;
-      }
-      else
-	recipNorms(i) = 1.0/ss;
-    }
-    RP = recipNorms.asDiagonal() * RP;
-  }
-  ss << "Compute random projection RP[" << RP.rows() << "x" << RP.cols() << "].";
+  Matrix RP (B.rows(), 2*nProjections);
+  RP.leftCols (nProjections) = B             * Matrix::Random(B.cols(), nProjections);
+  RP.rightCols(nProjections) = B.transpose() * Matrix::Random(B.rows(), nProjections);
+  ss << "Compute random projection RP[" << RP.rows() << "x" << RP.cols() << "]";
   print_time(std::clog, ss.str(), startTime, clock());
   ss.str("");
-  /*  std::clog << " First 10 cols of first and last 5 rows of the RP matrix : \n"
-	    << RP.topLeftCorner(5,10) << "\n  ...\n"
-	    << RP.bottomLeftCorner(5,10) << std::endl;
-      write_matrix_to_file("/Users/bob/Desktop/rand_projection.txt",RP);
-  */
+
+  // optional scaling of projection rows
+  if(scaling)
+  { for(int i = 0; i<RP.rows(); ++i)
+    { float norm = RP.leftCols(nProjections).row(i).norm();
+      RP.leftCols(nProjections).row(i) /= norm;
+    }
+    for(int i = 0; i<RP.rows(); ++i)
+    { float norm = RP.rightCols(nProjections).row(i).norm();
+      RP.rightCols(nProjections).row(i) /= norm;
+    }
+    for (int i = 0; i<5; ++i)
+      std::clog << " Norm for row is " << RP.row(i).norm() << std::endl;
+  }
+  
   // cluster tokens using k-means
-  KMeansClusters clusters (RP, nClusters, nIterations);
-  std::vector<int> tags = clusters.cluster_tags();
+  startTime = clock();
+  IntVector wts;
+  if (weighting)
+    wts = typeCounts;
+  else
+    wts = IntVector::Ones(RP.rows());
+  std::vector<int> tags;
+  if ('2' == distance)
+  { KMeansClusters<L2Distance> clusters (RP, wts, L2Distance(), nClusters, nIterations);
+    tags = clusters.cluster_tags();
+  }
+  else
+  { KMeansClusters<CosineDistance> clusters (RP, wts, CosineDistance(), nClusters, nIterations);
+    tags = clusters.cluster_tags();
+  }
+  ss << "Compute " << nClusters << " cluster centers.";
+  print_time(std::clog, ss.str(), startTime, clock());
+  ss.str("");
 
   // Measure classifier error rate (cross-classify, then count number not at max)
   {
@@ -134,13 +155,14 @@ int main(int argc, char **argv)
     { crossTab(tags[tokenManager[it->first]], posIndex[it->second]) += 1;
       ++index;
     }
+    int width = 2+log10(crossTab.array().maxCoeff());
+    for(int col=0; col<(int)indexPos.size(); ++col)
+      std::clog << std::setw(width) << indexPos[col];
+    std::clog << std::endl << crossTab << std::endl;
     /*
     for(int col=0; col<crossTab.cols(); ++col)
       std::clog << "Column margin in crosstab: " << indexPos[col] << "  " << posMap[indexPos[col]] << " == " << crossTab.col(col).sum() << std::endl;
     */
-    for(int col=0; col<(int)indexPos.size(); ++col)
-      std::clog << std::setw(6) << indexPos[col];
-    std::clog << std::endl << crossTab << std::endl;
     int nCorrect=0;
     for(int i=0; i<crossTab.rows(); ++i)
       nCorrect += crossTab.row(i).maxCoeff();
@@ -179,20 +201,25 @@ int main(int argc, char **argv)
 
 
 void
-parse_arguments(int argc, char** argv,		float &threshold, int &nProj, int &scaling, int &nClus, int &nIter, int &nPrint)
+parse_arguments(int argc, char** argv,		float &threshold, int &nProj, int &scaling, char &distance, int &weighting, int &nClus, int &nIter, int &nPrint)
 {
   static struct option long_options[] = {
+    // bigram prep options
     {"threshold",    required_argument, 0, 't'},
-    {"projections",  required_argument, 0, 'd'},
+    {"projections",  required_argument, 0, 'r'},
     {"scaling",      required_argument, 0, 's'},
+    // clustering options
+    {"distance",     required_argument, 0, 'd'},
+    {"weighting",    required_argument, 0, 'w'},
     {"clusters",     required_argument, 0, 'c'},
     {"iterations",   required_argument, 0, 'n'},
+    // misc
     {"print",        required_argument, 0, 'p'},
     {0, 0, 0, 0}                             // terminator 
   };
   int key;
   int option_index = 0;
-  while (-1 !=(key = getopt_long (argc, argv, "t:d:s:c:n:p:", long_options, &option_index))) // colon means has argument
+  while (-1 !=(key = getopt_long (argc, argv, "t:r:s:w:c:n:p:", long_options, &option_index))) // colon means has argument
   {
     // std::cout << "Option key " << char(key) << " for option " << long_options[option_index].name << ", option_index=" << option_index << std::endl;
     switch (key)
@@ -207,7 +234,7 @@ parse_arguments(int argc, char** argv,		float &threshold, int &nProj, int &scali
 	nIter = read_utils::lexical_cast<int>(optarg);
 	break;
       }
-    case 'd' : 
+    case 'r' : 
       {
 	nProj = read_utils::lexical_cast<int>(optarg);
 	break;
@@ -215,6 +242,16 @@ parse_arguments(int argc, char** argv,		float &threshold, int &nProj, int &scali
     case 's' : 
       {
 	scaling = read_utils::lexical_cast<int>(optarg);
+	break;
+      }
+    case 'd' : 
+      {
+	distance = read_utils::lexical_cast<char>(optarg);
+	break;
+      }
+    case 'w' : 
+      {
+	weighting = read_utils::lexical_cast<int>(optarg);
 	break;
       }
     case 'c' : 

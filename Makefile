@@ -43,10 +43,14 @@ clean_txt:
 
 # script converts to lower case, deletes blank tokens (in call to sed, $$ converts in Make to $)
 
+get_text: 
+	scp sob:/data/gutenberg/twain/*.txt $(text_path)
+
+# 22 May 2013   6 Twain books: Tagged 982153 words at 3121.78 words per second.
 tokens.txt:
 	cat $(text_path)*.txt | tr '[:upper:]' '[:lower:]' >> tmp.txt
 	java -mx2g $(cls_path) $(tagger) $(tag_model) -nthreads 4 -textFile tmp.txt -outputFormat tsv  | sed '/^$$/d' >> tokens.txt
-
+	rm -f tmp.txt
 
 # compute svd of random projected bigram matrix
 bigram.o: bigram.cc
@@ -55,7 +59,7 @@ bigram: bigram.o k_means.o token_manager.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
 bigram.prj: tokens.txt bigram
-	./bigram --threshold 0.0004 --projections 200 --scaling 0 --clusters 60 --iterations 20 --print 5 < tokens.txt >> bigram.prj
+	./bigram --threshold 0.0004 --projections 200 --scaling 1 --distance 2 --clusters 60 --iterations 20 --print 5 < tokens.txt >> bigram.prj
 
 
 
