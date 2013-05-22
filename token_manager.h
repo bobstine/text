@@ -23,7 +23,7 @@ class TokenManager
 
   std::vector<string>                    mIntToStrVec;     // sorted order of the tokens, inverse of str to int map
   std::map<string,int>                   mStrToIntMap;     // assigns integer to a token based on freq
-  std::map<string,int>                   mPOSMap;             // count of POS in input tokens
+  std::map<string,int>                   mPOSMap;          // count of POS in input tokens
   POSMap                                 mTokenPOSMap;     // identifies POS's for a token
 
  public:
