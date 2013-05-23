@@ -1,4 +1,4 @@
-#include "k_means.Template.h"
+#include "k_means.h"
 #include "eigen_utils.h"
 
 #include <iostream>
@@ -25,8 +25,7 @@ int main (void)
   //  cout << "TEST: Random data is \n" << data << endl;
 
   Eigen::VectorXi wts = Eigen::VectorXi::Ones(nRows);
-  KMeansClusters<L2Distance> clusters(data.leftCols(nCols),wts,L2Distance(),nClusters,11);
-  //  KMeansClusters<CosineDistance> clusters(data.leftCols(nCols),wts,CosineDistance(),nClusters,11);
+  KMeansClusters clusters(data.leftCols(nCols),wts,k_means::l2_distance,k_means::identity,nClusters,11);
   clusters.print_to_stream(std::cout);
 
   std::vector<int> ids = clusters.cluster_tags();

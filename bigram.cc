@@ -114,24 +114,27 @@ int main(int argc, char **argv)
     { float norm = RP.rightCols(nProjections).row(i).norm();
       RP.rightCols(nProjections).row(i) /= norm;
     }
-    for (int i = 0; i<5; ++i)
-      std::clog << " Norm for row is " << RP.row(i).norm() << std::endl;
+    for (int i = 0; i<2; ++i)
+      std::clog << " Norm of random projection row " << i << " is " << RP.row(i).norm() << std::endl;
   }
   
   // cluster tokens using k-means
   startTime = clock();
-  IntVector wts;
-  if (weighting)
-    wts = typeCounts;
-  else
-    wts = IntVector::Ones(RP.rows());
   std::vector<int> tags;
-  if ('2' == distance)
-  { KMeansClusters<L2Distance> clusters (RP, wts, L2Distance(), nClusters, nIterations);
-    tags = clusters.cluster_tags();
-  }
-  else
-  { KMeansClusters<CosineDistance> clusters (RP, wts, CosineDistance(), nClusters, nIterations);
+  {
+    IntVector wts;
+    if (weighting)
+      wts = typeCounts;
+    else
+      wts = IntVector::Ones(RP.rows());
+    k_means::Distance d;
+    k_means::Renorm   g;
+    if ('2' == distance)
+    { d = k_means::l2_distance;      g = k_means::identity;
+    } else
+    { d = k_means::cosine_distance;  g = k_means::two_balls;
+    }
+    KMeansClusters clusters (RP, wts, d, g, nClusters, nIterations);
     tags = clusters.cluster_tags();
   }
   ss << "Compute " << nClusters << " cluster centers.";

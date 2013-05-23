@@ -2,7 +2,7 @@
 #define _BIGRAM_H_
 
 #include "token_manager.h"
-#include "k_means.Template.h"
+#include "k_means.h"
 
 #include "eigen_utils.h"
 #include "read_utils.h"

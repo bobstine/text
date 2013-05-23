@@ -9,26 +9,43 @@
 #include <iostream>
 
 
-class L2Distance: public std::binary_function<Eigen::RowVectorXf const&, Eigen::RowVectorXf const&, float>
+namespace k_means
 {
   typedef Eigen::RowVectorXf RowVector;
- public:
-  float
-    operator()(RowVector const& a, RowVector const& b) const
-  { return (a.array() - b.array()).matrix().squaredNorm(); }
-};
+  typedef float (*Distance)(RowVector const&, RowVector const&);
+  typedef RowVector (*Renorm) (RowVector const&);
+  
+  inline float
+    l2_distance(RowVector const& a, RowVector const& b)
+  {
+    return (a.array() - b.array()).matrix().squaredNorm();
+  }
+  
+  inline RowVector
+    identity(RowVector const&x)
+    {
+      return x;
+    }
+  
+  inline float
+    cosine_distance(RowVector const& a, RowVector const& b)
+  {
+    float dp = a.dot(b);
+    return (dp < 0.0) ? -dp : dp;
+  }
+  
+  inline RowVector
+    two_balls(RowVector const&x)
+    {
+      int n = x.size()/2;
+      assert (x.size() == 2*n);
+      RowVector y = RowVector::Zero(2*n);
+      y.head(n) = x.head(n)/x.head(n).norm();
+      y.tail(n) = x.tail(n)/x.tail(n).norm();
+      return y;
+    }
+}
 
-class CosineDistance: public std::binary_function<Eigen::RowVectorXf const&, Eigen::RowVectorXf const&, float>
-{
-  typedef Eigen::RowVectorXf RowVector;
- public:
-  float
-    operator()(RowVector const& a, RowVector const& b) const
-  { return a.dot(b); }
-};
-
-
-template <class Distance>
 class KMeansClusters
 {
   typedef Eigen::MatrixXf                  Matrix;
@@ -36,17 +53,22 @@ class KMeansClusters
   typedef Eigen::VectorXi                  IntVector;
   typedef Eigen::RowVectorXf               RowVector;
   typedef std::map<int, std::vector<int>>  Map;
-
+  typedef float (*Distance)(RowVector const&, RowVector const&);
+  typedef RowVector (*Renorm) (RowVector const&);
+  
+  
   Matrix const&      mData;
   IntVector const&   mWeights;
   Distance           mDist;
+  Renorm             mRenorm;
   int                mNClusters;
   Matrix             mClusterCenters;
   std::vector<int>   mClusterTags;
 
  public:
-    KMeansClusters (Matrix const& data, IntVector const& wts, Distance const& f, int nClusters, int maxIterations = 10)
-      : mData(data), mWeights(wts), mDist(f), mNClusters(nClusters), mClusterCenters(Matrix::Zero(nClusters,data.cols())), mClusterTags(data.rows())
+  KMeansClusters (Matrix const& data, IntVector const& wts, Distance f, Renorm g, int nClusters, int maxIterations = 10)
+    : mData(data), mWeights(wts), mDist(f), mRenorm(g), mNClusters(nClusters),
+      mClusterCenters(Matrix::Zero(nClusters,data.cols())), mClusterTags(data.rows())
     { find_clusters(maxIterations); }
 
   Map              cluster_map  ()  const;
@@ -59,14 +81,12 @@ class KMeansClusters
  private:
   int    closest_cluster           (RowVector const& r, Matrix const& m) const;
   double relative_squared_distance (Matrix const& a, Matrix const& b) const;
-  void   renorm_center             (RowVector &pR) const;  // evil reference
 };
 
 
-template <class D>
 inline
 std::ostream&
-operator<< (std::ostream& os, KMeansClusters<D> const& x)
+operator<< (std::ostream& os, KMeansClusters const& x)
 {
   x.print_to_stream(os);
   return os;
