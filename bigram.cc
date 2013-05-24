@@ -83,7 +83,7 @@ int main(int argc, char **argv)
     ss.str("");
   }
 
-  // count number of times each type appears; check for an empty row or col in B
+  // count number of times each type appears; check for an empty row or col in B; print margins
   IntVector typeCounts = IntVector::Zero(B.rows());
   {
     startTime = clock();
@@ -100,6 +100,15 @@ int main(int argc, char **argv)
     }
     print_time(std::clog, ss.str(), startTime, clock());
     ss.str("");
+    std::map<string, int> posMap (tokenManager.POS_map());
+    IntVector posCounts (posMap.size());
+    int i = 0;
+    for(auto it=posMap.cbegin(); it != posMap.cend(); ++it)
+    { posCounts[i++] = it->second; }
+    std::ofstream output ("results/margins.txt");
+    output << "Types\n" << typeCounts.transpose() << std::endl;
+    output << "POS\n" << posCounts.transpose()  << std::endl;
+    output.close();
   }
   
   // Random projections of row and column spaces 

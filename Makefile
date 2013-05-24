@@ -20,10 +20,6 @@ OPT = -O3  -std=c++0x
 
 USES = utils
 
-level_1 = k_means.o token_manager.o
-level_2 = bigram.o
-level_3 = 
-
 ##################
 
 twain_path = text_src/twain/
@@ -33,41 +29,48 @@ tag_vers   = -3.1.5
 
 cls_path   = -classpath $(tag_path)stanford-postagger$(tag_vers).jar 
 tagger     = edu.stanford.nlp.tagger.maxent.MaxentTagger 
-tag_model  = -model $(tag_path)models/wsj-0-18-bidirectional-nodistsim.tagger
-
+tag_model  = -model $(tag_path)models/wsj-0-18-bidirectional-nodistsim.
 
 ##################
 
-clean_txt:
+clean:
 	rm -f tokens.txt tmp.txt
+	rm *.o *.dd
 
 # script converts to lower case, deletes blank tokens (in call to sed, $$ converts in Make to $)
-
 get_twain: 
 	scp sob:/data/gutenberg/twain/*.txt $(twain_path)
 
-get_ptb:
-	scp sob:/data/pos_eval_corpora/ptb45/ptb45.tagged  $(ptb_path)
-
 # 22 May 2013   6 Twain books: Tagged 982153 words at 3121.78 words per second.
-twain.tagged:
-	cat $(text_path)*.txt | tr '[:upper:]' '[:lower:]' >> tmp.txt
-	java -mx2g $(cls_path) $(tagger) $(tag_model) -nthreads 4 -textFile tmp.txt -outputFormat tsv  | sed '/^$$/d' >> $(twain_path)twain.tagged
+tagged/twain.tagged:
+	cat $(twain_path)*.txt | tr '[:upper:]' '[:lower:]' >> tmp.txt
+	java -mx2g $(cls_path) $(tagger) $(tag_model) -nthreads 4 -textFile tmp.txt -outputFormat tsv  | sed '/^$$/d' >> tagged/twain.tagged
 	rm -f tmp.txt
+
+tagged/ptb45.tagged:
+	scp sob:/data/pos_eval_corpora/ptb45/ptb45.tagged  tagged
+
+tagged/ptb17.tagged:
+	scp sob:/data/pos_eval_corpora/ptb17/ptb17.tagged  tagged
+
 
 ##################
 
-bigram.o: bigram.cc
+level_1 = k_means.o token_manager.o
+level_2 = bigram.o
+level_3 = 
 
 bigram: bigram.o k_means.o token_manager.o
 	$(GCC) $^ $(LDLIBS) -o  $@
+
 
 #  options for folding in other tags, normalizing the bigram rows, weighed avg in clustering, cluster max iterations, tag printing
 base_options = --threshold 0.0004 --scaling 1 --weighting 1 --iterations 20 --print 10
 
 bigram_test: bigram
-	head -n 2000000 tagged/ptb45.tagged | ./bigram --projections $(proj) --distance $(dist) --clusters $(nclus) $(base_options)  \
-		>> results/test/p$(proj)_d$(dist)_c$(nclus)
+	head -n 2000000 tagged/ptb45.tagged | \
+	./bigram --projections 100 --distance 2 --clusters 50 $(base_options)  \
+		>> results/test/p100_d2_c50
 
 # ----------------------------------------------------------------------------------------
 #  parallel make with fixed number of projections, varying num clusters, both cosine/L2
