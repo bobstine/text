@@ -19,40 +19,40 @@ class TokenManager
   
   std::list<std::pair<string,string>>    mTokens;          // source data
   int                                    mTokenLength;
-  std::map<string, int>                  mTokenFreqMap;    // frequency of tokens
+  std::map<string, int>                  mTypeFreqMap;
 
   std::vector<string>                    mIntToStrVec;     // sorted order of the tokens, inverse of str to int map
   std::map<string,int>                   mStrToIntMap;     // assigns integer to a token based on freq
   std::map<string,int>                   mPOSMap;          // count of POS in input tokens
-  POSMap                                 mTokenPOSMap;     // identifies POS's for a token
+  POSMap                                 mTypePOSMap;      // identifies POS's for a token
 
  public:
   
   TokenManager (TokenManager const& tm)
-    : mTokens(tm.mTokens), mTokenLength(tm.mTokenLength), mTokenFreqMap(tm.mTokenFreqMap),
-      mIntToStrVec(tm.mIntToStrVec), mStrToIntMap(tm.mStrToIntMap), mPOSMap(tm.mPOSMap), mTokenPOSMap(tm.mTokenPOSMap)
+    : mTokens(tm.mTokens), mTokenLength(tm.mTokenLength), mTypeFreqMap(tm.mTypeFreqMap),
+      mIntToStrVec(tm.mIntToStrVec), mStrToIntMap(tm.mStrToIntMap), mPOSMap(tm.mPOSMap), mTypePOSMap(tm.mTypePOSMap)
     { std::cerr << "WARNING: Copy Construct token map\n"; }
   
   TokenManager (std::istream &input, float posThreshold = 0.0)
-    : mTokens(), mTokenLength(0), mTokenFreqMap(), mIntToStrVec(), mStrToIntMap(), mPOSMap(), mTokenPOSMap()
+    : mTokens(), mTokenLength(0), mTypeFreqMap(), mIntToStrVec(), mStrToIntMap(), mPOSMap(), mTypePOSMap()
     { init_from_stream(input, posThreshold); }
 
   int         input_length()                   const { return mTokenLength; }
-  int         n_unique_tokens ()               const { return (int) mTokenFreqMap.size(); }
+  int         n_unique_tokens ()               const { return (int) mTypeFreqMap.size(); }
   Iter        token_list_begin()               const { return mTokens.cbegin(); }
   Iter        token_list_end()                 const { return mTokens.cend(); }
   
   int         operator[](string const& s)      const { return mStrToIntMap.at(s); }
   string      operator[](int i)                const { return mIntToStrVec[i]; }
 
-  int         token_freq (string const& s)     const { return mTokenFreqMap.at(s); }
-  int         n_ambiguous ()                   const;      // number tokens with ambiguous category
-  string      token_POS (string const& s)      const;      // most common POS for this token
-  CountVector token_POS_tags (string const& s, bool sort=false) const;
+  int         type_freq (string const& s)      const { return mTypeFreqMap.at(s); }
+  int         n_ambiguous ()                   const;      // number with ambiguous category
+  string      type_POS (string const& s)       const;      // most common POS for this type
+  CountVector type_POS_tags (string const& s, bool sort=false) const;
 
   std::map<string,int> POS_map()               const { return mPOSMap; }
 
-  void        fill_bigram_map(BigramMap &bm)   const;
+  void        fill_bigram_map(BigramMap &bm, int skip)         const;
   
   void        print_tags(int k)                const;
   

@@ -3,6 +3,26 @@
 #include <utility>
 #include <iostream>
 
+const float sqrt2 = 1.41421356;
+
+void
+KMeansClusters::prep_data()
+{
+  if(mUseL2)                               // L2 norm on unit ball is optionally scaled
+  { if (mScaleData)
+    { for (int i=0; i<mData.rows(); ++i)
+	mData.row(i) /= mData.row(i).norm();
+    }
+  }
+  else                                     // norm on split-ball, always scaled for cosine
+  { const int n = mData.cols()/2;
+    assert (mData.cols() == 2*n);
+    for (int i=0; i<mData.rows(); ++i)
+    { mData.row(i).head(n) /= sqrt2*mData.row(i).head(n).norm();
+      mData.row(i).tail(n) /= sqrt2*mData.row(i).tail(n).norm();
+    }
+  }
+}
 
 int
 KMeansClusters::closest_cluster (RowVector const& r, Matrix const& m) const
@@ -23,12 +43,13 @@ KMeansClusters::find_clusters(int maxIterations)
   Matrix newCenters = Matrix (mNClusters,mData.cols());
   newCenters = mData.topLeftCorner(mNClusters, mData.cols());
   // set 'old' center to zero so initial change is infinite
-  Matrix oldCenters = Matrix::Zero       (mNClusters, mData.cols());
+  Matrix oldCenters = Matrix::Zero(mNClusters, mData.cols());
 
-  std::vector<int> counts   (mNClusters);
+  std::vector<int> counts (mNClusters);
   int itCount = 0;
   Matrix *pNew = &newCenters;
   Matrix *pOld = &oldCenters;
+  const int n = mData.cols()/2;
   while ((0.001 < relative_squared_distance(*pNew,*pOld)) && (++itCount < maxIterations))
   { // assign cases to clusters
     for(int i=0; i<mData.rows(); ++i)
@@ -42,10 +63,11 @@ KMeansClusters::find_clusters(int maxIterations)
       counts[mClusterTags[i]] += mWeights(i);
     }
     for(int i=0; i<mNClusters; ++i)
-    { (*pNew).row(i).array() /= counts[i];
-      (*pNew).row(i) = mRenorm( (*pNew).row(i) );
-      if (i < 5)
-	std::clog << "Center norm " << i << " = {" << (*pNew).row(i).head(5) << " ... }  = " << (*pNew).row(i).norm() << std::endl;
+    { pNew->row(i).array() /= counts[i];
+      if (!mUseL2)
+      { pNew->row(i).head(n) /= sqrt2*pNew->row(i).head(n).norm();
+	pNew->row(i).tail(n) /= sqrt2*pNew->row(i).tail(n).norm();
+      }
     }
     // std::clog << "Center counts   \n" ;
     // for(int i=0;i<mNClusters; ++i) std::clog << counts[i] << " "; std::clog << std::endl;
@@ -70,7 +92,7 @@ KMeansClusters::relative_squared_distance (Matrix const& newCenters, Matrix cons
 {
   // avg squared distance relative to avg squared size
   double dist = (newCenters.array() - oldCenters.array()).matrix().squaredNorm()/oldCenters.squaredNorm();
-  std::clog << "KMCS: distance = " << dist << std::endl;
+  std::clog << "KMCS: " << ((mUseL2) ? "L2 " : "Cos ") << "distance = " << dist << std::endl;
   return dist;
 }
   

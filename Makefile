@@ -26,9 +26,9 @@ level_3 =
 
 ##################
 
-text_path = text_src/twain/
+twain_path = text_src/twain/
 
-tag_path   = stanford-postagger-2013-04-04/
+tag_path   = text_src/stanford-postagger-2013-04-04/
 tag_vers   = -3.1.5
 
 cls_path   = -classpath $(tag_path)stanford-postagger$(tag_vers).jar 
@@ -43,25 +43,70 @@ clean_txt:
 
 # script converts to lower case, deletes blank tokens (in call to sed, $$ converts in Make to $)
 
-get_text: 
-	scp sob:/data/gutenberg/twain/*.txt $(text_path)
+get_twain: 
+	scp sob:/data/gutenberg/twain/*.txt $(twain_path)
+
+get_ptb:
+	scp sob:/data/pos_eval_corpora/ptb45/ptb45.tagged  $(ptb_path)
 
 # 22 May 2013   6 Twain books: Tagged 982153 words at 3121.78 words per second.
-tokens.txt:
+twain.tagged:
 	cat $(text_path)*.txt | tr '[:upper:]' '[:lower:]' >> tmp.txt
-	java -mx2g $(cls_path) $(tagger) $(tag_model) -nthreads 4 -textFile tmp.txt -outputFormat tsv  | sed '/^$$/d' >> tokens.txt
+	java -mx2g $(cls_path) $(tagger) $(tag_model) -nthreads 4 -textFile tmp.txt -outputFormat tsv  | sed '/^$$/d' >> $(twain_path)twain.tagged
 	rm -f tmp.txt
 
-# compute svd of random projected bigram matrix
+##################
+
 bigram.o: bigram.cc
 
 bigram: bigram.o k_means.o token_manager.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
-bigram.prj: tokens.txt bigram
-	./bigram --threshold 0.0004 --projections 200 --scaling 1 --weighting 1 --distance c --clusters 60 --iterations 20 --print 5 < tokens.txt >> bigram.prj
+#  options for folding in other tags, normalizing the bigram rows, weighed avg in clustering, cluster max iterations, tag printing
+base_options = --threshold 0.0004 --scaling 1 --weighting 1 --iterations 20 --print 10
 
+bigram_test: bigram
+	head -n 2000000 tagged/ptb45.tagged | ./bigram --projections $(proj) --distance $(dist) --clusters $(nclus) $(base_options)  \
+		>> results/test/p$(proj)_d$(dist)_c$(nclus)
 
+# ----------------------------------------------------------------------------------------
+#  parallel make with fixed number of projections, varying num clusters, both cosine/L2
+#  match variables 'task', 'skip', and 'proj' in make command
+#         results/$task/skip_$skip/$proj
+#
+#   make -f -j 4 results/twain/skip_0/050     
+#   make -f -j 4 results/ptb45/skip_5/125
+#
+
+#  these choice must match the make command
+
+task  = ptb45
+skip  =  40
+proj  = 125
+
+#  ---  automagic section --- 
+tags  =  tagged/$(task).tagged
+path  =  results/$(task)/skip_$(skip)/
+
+prefx = $(path)p$(proj)
+
+$(path)/.directory_built: 
+	echo Building directory $(path)
+	mkdir $(path)
+	touch $@
+
+$(path)p$(proj)_dc_c%: bigram $(tags) $(path)/.directory_built
+	./bigram  --skip $(skip) --projections $(proj) --distance c --clusters $* $(base_options)  <  $(tags)  >> $@
+
+$(path)p$(proj)_d2_c%: bigram $(tags) $(path)/.directory_built
+	./bigram  --skip $(skip) --projections $(proj) --distance 2 --clusters $* $(base_options)  <  $(tags)  >> $@
+
+$(path)$(proj): $(path)/.directory_built \
+		$(prefx)_dc_c0050  $(prefx)_dc_c0125  $(prefx)_dc_c0250  $(prefx)_dc_c0500 $(prefx)_dc_c0750 $(prefx)_dc_c1000 \
+	        $(prefx)_d2_c0050  $(prefx)_d2_c0125  $(prefx)_d2_c0250  $(prefx)_d2_c0500 $(prefx)_d2_c0750 $(prefx)_d2_c1000
+	rm -f $@
+	tail -n 1 $(prefx)_dc_c* $(prefx)_d2_c* > $@
+	cat $@
 
 ###########################################################################
 include ../rules_for_makefiles

@@ -11,3 +11,5 @@ bigram
 bigram.prj
 text_src
 tokens.txt
+results
+tagged

@@ -25,37 +25,43 @@ print_time(std::ostream& os, std::string const& s, clock_t const& start, clock_t
 }
 
 void
-parse_arguments(int argc, char** argv,		float &posThreshold, int &nProj, int &scaling, char &dist, int &weighting, int &nClus, int &nIter, int &nPrint);
+parse_arguments(int argc, char** argv,
+		int &nSkip, float &posThreshold,
+		int &nProj, int &scaling, char &dist, int &weighting, int &nClus, int &nIter, int &nPrint);
 
   
 int main(int argc, char **argv)
 {
   // argument defaults
+  int   nSkip        =  0;         // skipped words in bigram
   float posThreshold = 0.0;        // accum all pos tags with relative frequency below this threshold
   int   nProjections = 30;
   int   scaling      =  0;
-  char  distance     ='2';         // letter for type of distance to use
+  char  distance     ='2';         // identify distance to use  (2 for L2, c for cosine)
   int   weighting    =  1;
   int   nClusters    = 10;
   int   nIterations  = 10;
   int   nPrint       =  0;
 
-  parse_arguments(argc, argv, posThreshold, nProjections, scaling, distance, weighting, nClusters, nIterations, nPrint);
-  std::clog << "MAIN: Arguments threshold=" << posThreshold << " nProjections=" << nProjections << " scaling=" << scaling
+  parse_arguments(argc, argv, nSkip, posThreshold, nProjections, scaling, distance, weighting, nClusters, nIterations, nPrint);
+  std::cout << "MAIN: Arguments skip=" << nSkip << " threshold=" << posThreshold << " nProjections=" << nProjections << " scaling=" << scaling
 	    << " distance=" << distance << " weighting=" << weighting << " nClusters=" << nClusters << " nIterations=" << nIterations
 	    << " nPrint=" << nPrint << std::endl;
   
   using std::string;
   std::ostringstream ss;
   
-  // read parsed tokens and pos from input
+  // read tagged tokens and pos from input
   clock_t startTime = clock();
   TokenManager tokenManager (std::cin, posThreshold);
   print_time(std::clog, "Read tokens from cin, sort and assign IDs in TokenManager.", startTime, clock());
   if (nPrint) tokenManager.print_tags(nPrint);
   int nAmbiguous = tokenManager.n_ambiguous();
-  std::clog << "MAIN: Source has " << nAmbiguous << " ambiguous tokens among " << tokenManager.input_length()
+  ss << "MAIN: Source has " << nAmbiguous << " ambiguous tokens among " << tokenManager.input_length()
 	    << "  (" << 100.0*(1.0 - ((float)nAmbiguous)/tokenManager.input_length()) << "% pure)" << std::endl;
+  std::cout << ss.str();
+  std::clog << ss.str();
+  ss.str("");
   
   // build the sparse bigram array using integer id for words
   const int nTokens (tokenManager.n_unique_tokens());
@@ -63,7 +69,7 @@ int main(int argc, char **argv)
   {
     startTime = clock();
     std::map<std::pair<int,int>,int> bgramMap;
-    tokenManager.fill_bigram_map(bgramMap);
+    tokenManager.fill_bigram_map(bgramMap, nSkip);
     {
       typedef Eigen::Triplet<float> T;
       std::list<T> triplets (nTokens);
@@ -72,6 +78,7 @@ int main(int argc, char **argv)
       B.setFromTriplets(triplets.begin(), triplets.end());
     }
     ss << "Init sparse bigram B[" << B.rows() << "x" << B.cols() << "] from map.";
+    print_time(std::cout, ss.str(), startTime, clock());
     print_time(std::clog, ss.str(), startTime, clock());
     ss.str("");
   }
@@ -101,23 +108,10 @@ int main(int argc, char **argv)
   RP.leftCols (nProjections) = B             * Matrix::Random(B.cols(), nProjections);
   RP.rightCols(nProjections) = B.transpose() * Matrix::Random(B.rows(), nProjections);
   ss << "Compute random projection RP[" << RP.rows() << "x" << RP.cols() << "]";
+  print_time(std::cout, ss.str(), startTime, clock());
   print_time(std::clog, ss.str(), startTime, clock());
   ss.str("");
 
-  // optional scaling of projection rows
-  if(scaling)
-  { for(int i = 0; i<RP.rows(); ++i)
-    { float norm = RP.leftCols(nProjections).row(i).norm();
-      RP.leftCols(nProjections).row(i) /= norm;
-    }
-    for(int i = 0; i<RP.rows(); ++i)
-    { float norm = RP.rightCols(nProjections).row(i).norm();
-      RP.rightCols(nProjections).row(i) /= norm;
-    }
-    for (int i = 0; i<2; ++i)
-      std::clog << " Norm of random projection row " << i << " is " << RP.row(i).norm() << std::endl;
-  }
-  
   // cluster tokens using k-means
   startTime = clock();
   std::vector<int> tags;
@@ -127,17 +121,13 @@ int main(int argc, char **argv)
       wts = typeCounts;
     else
       wts = IntVector::Ones(RP.rows());
-    k_means::Distance d;
-    k_means::Renorm   g;
-    if ('2' == distance)
-    { d = k_means::l2_distance;      g = k_means::identity;
-    } else
-    { d = k_means::cosine_distance;  g = k_means::two_balls;
-    }
-    KMeansClusters clusters (RP, wts, d, g, nClusters, nIterations);
+    bool useL2      ('2' == distance);
+    bool useScaling (scaling != 0);
+    KMeansClusters clusters (RP, wts, useL2, useScaling, nClusters, nIterations);
     tags = clusters.cluster_tags();
   }
   ss << "Compute " << nClusters << " cluster centers.";
+  print_time(std::cout, ss.str(), startTime, clock());
   print_time(std::clog, ss.str(), startTime, clock());
   ss.str("");
 
@@ -160,17 +150,17 @@ int main(int argc, char **argv)
     }
     int width = 2+log10(crossTab.array().maxCoeff());
     for(int col=0; col<(int)indexPos.size(); ++col)
-      std::clog << std::setw(width) << indexPos[col];
-    std::clog << std::endl << crossTab << std::endl;
+      std::cout << std::setw(width) << indexPos[col];
+    std::cout << std::endl << crossTab << std::endl;
     /*
     for(int col=0; col<crossTab.cols(); ++col)
       std::clog << "Column margin in crosstab: " << indexPos[col] << "  " << posMap[indexPos[col]] << " == " << crossTab.col(col).sum() << std::endl;
     */
-    int nCorrect=0;
-    for(int i=0; i<crossTab.rows(); ++i)
-      nCorrect += crossTab.row(i).maxCoeff();
-    std::clog << "Classify " << nCorrect << " correctly out of " << tokenManager.input_length()
-	      << "(" << 100.0 * ((float) nCorrect)/tokenManager.input_length() << "%)\n";
+    int nCorrect = crossTab.rowwise().maxCoeff().sum();
+    ss << "Classify " << nCorrect << " correctly out of " << tokenManager.input_length()
+       << "(" << 100.0 * ((float) nCorrect)/tokenManager.input_length() << "%)\n";
+    std::clog << ss.str();
+    std::cout << ss.str();
   }
   
   // Write original tags and cluster ids to file
@@ -204,10 +194,13 @@ int main(int argc, char **argv)
 
 
 void
-parse_arguments(int argc, char** argv,		float &threshold, int &nProj, int &scaling, char &distance, int &weighting, int &nClus, int &nIter, int &nPrint)
+parse_arguments(int argc, char** argv,
+		int &nSkip, float &threshold,
+		int &nProj, int &scaling, char &distance, int &weighting, int &nClus, int &nIter, int &nPrint)
 {
   static struct option long_options[] = {
     // bigram prep options
+    {"skip",         required_argument, 0, 'k'},
     {"threshold",    required_argument, 0, 't'},
     {"projections",  required_argument, 0, 'r'},
     {"scaling",      required_argument, 0, 's'},
@@ -222,11 +215,16 @@ parse_arguments(int argc, char** argv,		float &threshold, int &nProj, int &scali
   };
   int key;
   int option_index = 0;
-  while (-1 !=(key = getopt_long (argc, argv, "t:r:s:w:c:n:p:", long_options, &option_index))) // colon means has argument
+  while (-1 !=(key = getopt_long (argc, argv, "k:t:r:s:w:c:n:p:", long_options, &option_index))) // colon means has argument
   {
     // std::cout << "Option key " << char(key) << " for option " << long_options[option_index].name << ", option_index=" << option_index << std::endl;
     switch (key)
     {
+    case 'k' :
+      {
+	nSkip = read_utils::lexical_cast<int>(optarg);
+	break;
+      }
     case 't' :
       {
 	threshold = read_utils::lexical_cast<float>(optarg);

@@ -13,7 +13,6 @@ namespace k_means
 {
   typedef Eigen::RowVectorXf RowVector;
   typedef float (*Distance)(RowVector const&, RowVector const&);
-  typedef RowVector (*Renorm) (RowVector const&);
   
   inline float
     l2_distance(RowVector const& a, RowVector const& b)
@@ -21,29 +20,11 @@ namespace k_means
     return (a.array() - b.array()).matrix().squaredNorm();
   }
   
-  inline RowVector
-    identity(RowVector const&x)
-    {
-      return x;
-    }
-  
   inline float
     cosine_distance(RowVector const& a, RowVector const& b)
   {
-    float dp = a.dot(b);
-    return (dp < 0.0) ? -dp : dp;
+    return 1.0 - a.dot(b);
   }
-  
-  inline RowVector
-    two_balls(RowVector const&x)
-    {
-      int n = x.size()/2;
-      assert (x.size() == 2*n);
-      RowVector y = RowVector::Zero(2*n);
-      y.head(n) = x.head(n)/x.head(n).norm();
-      y.tail(n) = x.tail(n)/x.tail(n).norm();
-      return y;
-    }
 }
 
 class KMeansClusters
@@ -53,32 +34,33 @@ class KMeansClusters
   typedef Eigen::VectorXi                  IntVector;
   typedef Eigen::RowVectorXf               RowVector;
   typedef std::map<int, std::vector<int>>  Map;
-  typedef float (*Distance)(RowVector const&, RowVector const&);
-  typedef RowVector (*Renorm) (RowVector const&);
+  typedef k_means::Distance                Distance;
   
-  
-  Matrix const&      mData;
+  Matrix             mData;
   IntVector const&   mWeights;
+  bool               mUseL2;
   Distance           mDist;
-  Renorm             mRenorm;
+  bool               mScaleData;
   int                mNClusters;
   Matrix             mClusterCenters;
   std::vector<int>   mClusterTags;
 
  public:
-  KMeansClusters (Matrix const& data, IntVector const& wts, Distance f, Renorm g, int nClusters, int maxIterations = 10)
-    : mData(data), mWeights(wts), mDist(f), mRenorm(g), mNClusters(nClusters),
-      mClusterCenters(Matrix::Zero(nClusters,data.cols())), mClusterTags(data.rows())
-    { find_clusters(maxIterations); }
+  KMeansClusters (Matrix const& data, IntVector const& wts, bool l2, bool scaleData, int nClusters, int maxIterations = 10)
+    : mData(data), mWeights(wts),
+      mUseL2(l2), mDist(l2 ? k_means::l2_distance : k_means::cosine_distance ), mScaleData(scaleData),
+      mNClusters(nClusters), mClusterCenters(Matrix::Zero(nClusters,data.cols())),
+      mClusterTags(data.rows())
+    { prep_data(); find_clusters(maxIterations); }
 
   Map              cluster_map  ()  const;
   std::vector<int> cluster_tags ()  const { return mClusterTags; }
-
   void             find_clusters(int maxIterations);
 
   void             print_to_stream (std::ostream& os) const;
 
  private:
+  void   prep_data                 (); 
   int    closest_cluster           (RowVector const& r, Matrix const& m) const;
   double relative_squared_distance (Matrix const& a, Matrix const& b) const;
 };
