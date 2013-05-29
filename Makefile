@@ -31,11 +31,6 @@ cls_path   = -classpath $(tag_path)stanford-postagger$(tag_vers).jar
 tagger     = edu.stanford.nlp.tagger.maxent.MaxentTagger 
 tag_model  = -model $(tag_path)models/wsj-0-18-bidirectional-nodistsim.
 
-##################
-
-clean:
-	rm -f tokens.txt tmp.txt
-	rm *.o *.dd
 
 # script converts to lower case, deletes blank tokens (in call to sed, $$ converts in Make to $)
 get_twain: 
@@ -49,6 +44,9 @@ tagged/twain.tagged:
 
 tagged/ptb45.tagged:
 	scp sob:/data/pos_eval_corpora/ptb45/ptb45.tagged  tagged
+
+tagged/ptb45.subset.tagged:
+	head -n 10000 tagged/ptb45.tagged > $@
 
 tagged/ptb17.tagged:
 	scp sob:/data/pos_eval_corpora/ptb17/ptb17.tagged  tagged
@@ -68,8 +66,8 @@ bigram: bigram.o k_means.o token_manager.o
 base_options = --threshold 0.0004 --scaling 1 --weighting 1 --iterations 20 --print 10
 
 bigram_test: bigram
-	head -n 2000000 tagged/ptb45.tagged | \
-	./bigram --projections 100 --distance 2 --clusters 50 $(base_options)  \
+	head -n 200000 tagged/ptb17.tagged | \
+	./bigram --projections 100 --distance 2 --clusters 50 --validation tagged/ptb45.subset.tagged $(base_options)  \
 		>> results/test/p100_d2_c50
 
 # ----------------------------------------------------------------------------------------

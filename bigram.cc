@@ -27,26 +27,30 @@ print_time(std::ostream& os, std::string const& s, clock_t const& start, clock_t
 void
 parse_arguments(int argc, char** argv,
 		int &nSkip, float &posThreshold,
-		int &nProj, int &scaling, char &dist, int &weighting, int &nClus, int &nIter, int &nPrint);
+		int &nProj, int &scaling, char &dist, int &weighting, int &nClus, int &nIter, int &nPrint,
+		string &validationFileName);
 
   
 int main(int argc, char **argv)
 {
+  using std::string;
+  
   // argument defaults
-  int   nSkip        =  0;         // skipped words in bigram
-  float posThreshold = 0.0;        // accum all pos tags with relative frequency below this threshold
-  int   nProjections = 30;
-  int   scaling      =  0;
-  char  distance     ='2';         // identify distance to use  (2 for L2, c for cosine)
-  int   weighting    =  1;
-  int   nClusters    = 10;
-  int   nIterations  = 10;
-  int   nPrint       =  0;
+  int     nSkip        =  0;         // skipped words in bigram
+  float   posThreshold = 0.0;        // accum all pos tags with relative frequency below this threshold
+  int     nProjections = 30;
+  int     scaling      =  0;
+  char    distance     ='2';         // identify distance to use  (2 for L2, c for cosine)
+  int     weighting    =  1;
+  int     nClusters    = 10;
+  int     nIterations  = 10;
+  int     nPrint       =  0;
+  string  vFileName    = "";
 
-  parse_arguments(argc, argv, nSkip, posThreshold, nProjections, scaling, distance, weighting, nClusters, nIterations, nPrint);
+  parse_arguments(argc, argv, nSkip, posThreshold, nProjections, scaling, distance, weighting, nClusters, nIterations, nPrint, vFileName);
   std::cout << "MAIN: Arguments skip=" << nSkip << " threshold=" << posThreshold << " nProjections=" << nProjections << " scaling=" << scaling
 	    << " distance=" << distance << " weighting=" << weighting << " nClusters=" << nClusters << " nIterations=" << nIterations
-	    << " nPrint=" << nPrint << std::endl;
+	    << " nPrint=" << nPrint << " validation=" << vFileName << std::endl;
   
   using std::string;
   std::ostringstream ss;
@@ -54,25 +58,27 @@ int main(int argc, char **argv)
   // read tagged tokens and pos from input
   clock_t startTime = clock();
   TokenManager tokenManager (std::cin, posThreshold);
-  print_time(std::clog, "Read tokens from cin, sort and assign IDs in TokenManager.", startTime, clock());
-  if (nPrint) tokenManager.print_tags(nPrint);
-  int nAmbiguous = tokenManager.n_ambiguous();
-  ss << "MAIN: Source has " << nAmbiguous << " ambiguous tokens among " << tokenManager.input_length()
-	    << "  (" << 100.0*(1.0 - ((float)nAmbiguous)/tokenManager.input_length()) << "% pure)" << std::endl;
-  std::cout << ss.str();
-  std::clog << ss.str();
-  ss.str("");
+  {
+    print_time(std::clog, "Read tokens from cin, sort and assign IDs in TokenManager.", startTime, clock());
+    if (nPrint) tokenManager.print_tags(nPrint);
+    int nAmbiguous = tokenManager.n_ambiguous();
+    ss << "MAIN: Source has " << nAmbiguous << " ambiguous tokens among " << tokenManager.input_length()
+       << "  (" << 100.0*(1.0 - ((float)nAmbiguous)/tokenManager.input_length()) << "% pure)" << std::endl;
+    std::cout << ss.str();
+    std::clog << ss.str();
+    ss.str("");
+  }
   
   // build the sparse bigram array using integer id for words
-  const int nTokens (tokenManager.n_unique_tokens());
-  SparseMatrix B(nTokens,nTokens);
+  const int nTypes (tokenManager.n_types());
+  SparseMatrix B(nTypes,nTypes);
   {
     startTime = clock();
     std::map<std::pair<int,int>,int> bgramMap;
     tokenManager.fill_bigram_map(bgramMap, nSkip);
     {
       typedef Eigen::Triplet<float> T;
-      std::list<T> triplets (nTokens);
+      std::list<T> triplets (nTypes);
       for(auto it = bgramMap.cbegin(); it != bgramMap.cend(); ++it)
 	triplets.push_back(T(it->first.first, it->first.second, it->second));
       B.setFromTriplets(triplets.begin(), triplets.end());
@@ -83,6 +89,24 @@ int main(int argc, char **argv)
     ss.str("");
   }
 
+  // optional validation which is huge and very sparse
+  SparseMatrix V(0,0);
+  std::clog << "Validation file name is " << vFileName << " with size " << vFileName.size() << std::endl;
+  if (0 < vFileName.size())
+  { TokenManager validationTM(vFileName, posThreshold);
+    int nOOV = validationTM.n_types_oov(tokenManager);
+    std::map<std::pair<int,int>,int> bgMap;
+    int dim = validationTM.fill_bigram_map(bgMap, nSkip, tokenManager);
+    std::clog << "MAIN: Validation dim = " << dim << " with oov count = " << nOOV << std::endl;
+    typedef Eigen::Triplet<float> T;
+    std::list<T> triplets (validationTM.n_types());
+    for(auto it = bgMap.cbegin(); it != bgMap.cend(); ++it)
+      triplets.push_back(T(it->first.first, it->first.second, it->second));
+    V.resize(nTypes + nOOV, nTypes + nOOV);
+    V.setFromTriplets(triplets.begin(), triplets.end());
+    }
+  std::clog << "Validation sparse bigram V[" << V.rows() << "x" << V.cols() << "] from map." << std::endl;
+    
   // count number of times each type appears; check for an empty row or col in B; print margins
   IntVector typeCounts = IntVector::Zero(B.rows());
   {
@@ -205,7 +229,8 @@ int main(int argc, char **argv)
 void
 parse_arguments(int argc, char** argv,
 		int &nSkip, float &threshold,
-		int &nProj, int &scaling, char &distance, int &weighting, int &nClus, int &nIter, int &nPrint)
+		int &nProj, int &scaling, char &distance, int &weighting, int &nClus, int &nIter, int &nPrint,
+		std::string &vFileName)
 {
   static struct option long_options[] = {
     // bigram prep options
@@ -220,11 +245,12 @@ parse_arguments(int argc, char** argv,
     {"iterations",   required_argument, 0, 'n'},
     // misc
     {"print",        required_argument, 0, 'p'},
+    {"validation",   required_argument, 0, 'v'},
     {0, 0, 0, 0}                             // terminator 
   };
   int key;
   int option_index = 0;
-  while (-1 !=(key = getopt_long (argc, argv, "k:t:r:s:w:c:n:p:", long_options, &option_index))) // colon means has argument
+  while (-1 !=(key = getopt_long (argc, argv, "k:t:r:s:w:c:n:p:v:", long_options, &option_index))) // colon means has argument
   {
     // std::cout << "Option key " << char(key) << " for option " << long_options[option_index].name << ", option_index=" << option_index << std::endl;
     switch (key)
@@ -272,6 +298,11 @@ parse_arguments(int argc, char** argv,
     case 'p' : 
       {
 	nPrint = read_utils::lexical_cast<int>(optarg);
+	break;
+      }
+    case 'v' : 
+      {
+	vFileName = optarg;
 	break;
       }
     default:

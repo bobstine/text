@@ -2,6 +2,31 @@
 
 #include <algorithm>
 #include <iostream>
+#include <fstream>
+#include <ios>
+
+
+int
+TokenManager::operator[](string const& s)      const
+{
+  std::map<string,int>::const_iterator it = mStrToIntMap.find(s);
+  if (it != mStrToIntMap.cend())
+    return it->second;
+  else
+    return -1;
+}
+
+
+
+void
+TokenManager::init_from_file(std::string &fileName, float posThreshold)
+{
+  std::ifstream input (fileName.c_str());
+  if (! input)
+    std::cerr << "TKMG: Cannot open input token file " << fileName << std::endl;
+  else
+    init_from_stream(input, posThreshold);
+}
 
 
 void
@@ -20,7 +45,7 @@ TokenManager::init_from_stream(std::istream &input, float posThreshold)
     mTokens.push_back(std::make_pair(token,pos));
     ++mTokenLength;
   }
-  std::clog << "TKMN: Read " << n_unique_tokens() << " unique tokens from input of " << mTokenLength << " strings." << std::endl;
+  std::clog << "TKMN: Read " << n_types() << " types from input of " << mTokenLength << " strings." << std::endl;
   std::clog << "TKMN: Identified " << posMap.size() << " distinct POS." << std::endl;
   if(posThreshold > 0.0)                                             // remove rare pos tags
   { std::map<string,bool> reduce;
@@ -45,7 +70,7 @@ TokenManager::init_from_stream(std::istream &input, float posThreshold)
   for (auto it = mTypeFreqMap.begin(); it != mTypeFreqMap.end(); ++it)
     sortedTokenMap.insert( std::make_pair(-it->second,it->first) );  // negate so decreasing
   int tokenID = 0;
-  mIntToStrVec.resize(n_unique_tokens());
+  mIntToStrVec.resize(n_types());
   for(auto it = sortedTokenMap.begin(); it != sortedTokenMap.end(); ++it)
   { mStrToIntMap[(*it).second] = tokenID;
     mIntToStrVec[tokenID] = (*it).second;
@@ -107,7 +132,37 @@ TokenManager::type_POS_tags (string const& s, bool sort) const
 }
 
 
-void
+int
+TokenManager::n_types_oov(TokenManager const& tm) const
+{
+  int nOOV = 0;
+  for (auto it = mTypeFreqMap.cbegin(); it != mTypeFreqMap.cend(); ++it)
+    if(tm[it->first] < 0) ++ nOOV;
+  return nOOV;
+}
+
+int
+TokenManager::fill_bigram_map(BigramMap &bm, int skip, TokenManager const& tm) const
+{
+  int oovIndex = tm.n_types();
+  std::pair<int,int> ij;
+  if (0 == skip)
+  { int j = tm[mTokens.cbegin()->first];
+    ij = std::make_pair(0, (j < 0) ? oovIndex++ : j);
+    for(auto it=++mTokens.cbegin(); it != mTokens.cend(); ++it)
+    { ij.first = ij.second;
+      j = tm[it->first];
+      ij.second = (j < 0) ? oovIndex++ : j;
+      ++bm[ij];
+    }
+  }
+  else
+    std::cerr << "TKMG: *** ERROR *** The function fill_bigram_map not defined with skip > 0\n" ;
+  return oovIndex;  // max 'rows' of map
+}
+
+    
+int
 TokenManager::fill_bigram_map (BigramMap &bm, int skip) const
 {
   std::pair<int,int> i;
@@ -128,6 +183,7 @@ TokenManager::fill_bigram_map (BigramMap &bm, int skip) const
       ++bm[i];
     }
   }
+  return n_types();
 }
 
 

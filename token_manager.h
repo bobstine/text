@@ -37,26 +37,33 @@ class TokenManager
     : mTokens(), mTokenLength(0), mTypeFreqMap(), mIntToStrVec(), mStrToIntMap(), mPOSMap(), mTypePOSMap()
     { init_from_stream(input, posThreshold); }
 
-  int         input_length()                   const { return mTokenLength; }
-  int         n_unique_tokens ()               const { return (int) mTypeFreqMap.size(); }
-  Iter        token_list_begin()               const { return mTokens.cbegin(); }
-  Iter        token_list_end()                 const { return mTokens.cend(); }
-  
-  int         operator[](string const& s)      const { return mStrToIntMap.at(s); }
-  string      operator[](int i)                const { return mIntToStrVec[i]; }
+  TokenManager (std::string fileName, float posThreshold = 0.0)
+    : mTokens(), mTokenLength(0), mTypeFreqMap(), mIntToStrVec(), mStrToIntMap(), mPOSMap(), mTypePOSMap()
+    { init_from_file(fileName, posThreshold); }
 
-  int         type_freq (string const& s)      const { return mTypeFreqMap.at(s); }
-  int         n_ambiguous ()                   const;      // number with ambiguous category
-  string      type_POS (string const& s)       const;      // most common POS for this type
+  int         input_length()                      const { return mTokenLength; }
+  int         n_types ()                          const { return (int) mTypeFreqMap.size(); }
+  int         n_types_oov(TokenManager const& tm) const;
+  Iter        token_list_begin()                  const { return mTokens.cbegin(); }
+  Iter        token_list_end()                    const { return mTokens.cend(); }
+  
+  int         operator[](string const& s)         const;                          // returns -1 if not found
+  string      operator[](int i)                   const { return mIntToStrVec[i]; }
+
+  int         type_freq (string const& s)         const { return mTypeFreqMap.at(s); }
+  int         n_ambiguous ()                      const;                          // number with ambiguous category
+  string      type_POS (string const& s)          const;                          // most common POS for this type
   CountVector type_POS_tags (string const& s, bool sort=false) const;
 
-  std::map<string,int> POS_map()               const { return mPOSMap; }
+  std::map<string,int> POS_map()                               const { return mPOSMap; }
 
-  void        fill_bigram_map(BigramMap &bm, int skip)         const;
-  
+  int         fill_bigram_map(BigramMap &bm, int skip)         const;
+  int         fill_bigram_map(BigramMap &bm, int skip, TokenManager const& tm) const; // uses ints from other TM
+			      
   void        print_tags(int k)                const;
   
  private:
+  void init_from_file(std::string &fileName, float posThreshold);
   void init_from_stream(std::istream &input, float posThreshold);
 };
 
