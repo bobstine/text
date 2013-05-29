@@ -46,7 +46,7 @@ tagged/ptb45.tagged:
 	scp sob:/data/pos_eval_corpora/ptb45/ptb45.tagged  tagged
 
 tagged/ptb45.subset.tagged:
-	head -n 10000 tagged/ptb45.tagged > $@
+	tail -n 10000 tagged/ptb45.tagged > $@
 
 tagged/ptb17.tagged:
 	scp sob:/data/pos_eval_corpora/ptb17/ptb17.tagged  tagged
@@ -65,7 +65,7 @@ bigram: bigram.o k_means.o token_manager.o
 #  options for folding in other tags, normalizing the bigram rows, weighed avg in clustering, cluster max iterations, tag printing
 base_options = --threshold 0.0004 --scaling 1 --weighting 1 --iterations 20 --print 10
 
-bigram_test: bigram
+bigram_test: bigram tagged/ptb45.subset.tagged
 	head -n 200000 tagged/ptb17.tagged | \
 	./bigram --projections 100 --distance 2 --clusters 50 --validation tagged/ptb45.subset.tagged $(base_options)  \
 		>> results/test/p100_d2_c50

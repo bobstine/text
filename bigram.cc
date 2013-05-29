@@ -18,10 +18,11 @@ typedef Eigen::SparseMatrix<float,Eigen::RowMajor> SparseMatrix;
 
 
 void
-print_time(std::ostream& os, std::string const& s, clock_t const& start, clock_t const& stop)
+print_time(std::string const& s, clock_t const& start, clock_t const& stop)
 {
   clock_t diff (stop-start);
-  os << "TIME: " << s << " [" << ((float)diff)/CLOCKS_PER_SEC << " sec]\n";
+  std::cout << "TIME: " << s << " [" << ((float)diff)/CLOCKS_PER_SEC << " sec]\n";
+  std::clog << "TIME: " << s << " [" << ((float)diff)/CLOCKS_PER_SEC << " sec]\n";
 }
 
 void
@@ -59,7 +60,7 @@ int main(int argc, char **argv)
   clock_t startTime = clock();
   TokenManager tokenManager (std::cin, posThreshold);
   {
-    print_time(std::clog, "Read tokens from cin, sort and assign IDs in TokenManager.", startTime, clock());
+    print_time("Read tokens from cin, sort and assign IDs in TokenManager.", startTime, clock());
     if (nPrint) tokenManager.print_tags(nPrint);
     int nAmbiguous = tokenManager.n_ambiguous();
     ss << "MAIN: Source has " << nAmbiguous << " ambiguous tokens among " << tokenManager.input_length()
@@ -84,46 +85,46 @@ int main(int argc, char **argv)
       B.setFromTriplets(triplets.begin(), triplets.end());
     }
     ss << "Init sparse bigram B[" << B.rows() << "x" << B.cols() << "] from map.";
-    print_time(std::cout, ss.str(), startTime, clock());
-    print_time(std::clog, ss.str(), startTime, clock());
+    print_time(ss.str(), startTime, clock());
     ss.str("");
   }
 
   // optional validation which is huge and very sparse
   SparseMatrix V(0,0);
-  std::clog << "Validation file name is " << vFileName << " with size " << vFileName.size() << std::endl;
   if (0 < vFileName.size())
-  { TokenManager validationTM(vFileName, posThreshold);
+  { startTime = clock();
+    TokenManager validationTM(vFileName, posThreshold);
     int nOOV = validationTM.n_types_oov(tokenManager);
     std::map<std::pair<int,int>,int> bgMap;
     int dim = validationTM.fill_bigram_map(bgMap, nSkip, tokenManager);
-    std::clog << "MAIN: Validation dim = " << dim << " with oov count = " << nOOV << std::endl;
+    std::clog << "MAIN: Validation dim = " << dim << " with oov count = " << nOOV << "  Resize to " << nTypes + nOOV << std::endl;
     typedef Eigen::Triplet<float> T;
     std::list<T> triplets (validationTM.n_types());
     for(auto it = bgMap.cbegin(); it != bgMap.cend(); ++it)
       triplets.push_back(T(it->first.first, it->first.second, it->second));
     V.resize(nTypes + nOOV, nTypes + nOOV);
     V.setFromTriplets(triplets.begin(), triplets.end());
+    ss << "Init validation sparse bigram V[" << V.rows() << "x" << V.cols() << "] from map." << std::endl;
+    print_time(startTime, clock());
+    ss.str("");
     }
-  std::clog << "Validation sparse bigram V[" << V.rows() << "x" << V.cols() << "] from map." << std::endl;
     
   // count number of times each type appears; check for an empty row or col in B; print margins
   IntVector typeCounts = IntVector::Zero(B.rows());
   {
-    startTime = clock();
     std::vector<int> iZero;
     for(int i=0; i<B.rows(); ++i)
     { typeCounts[i] = B.row(i).sum();
       if (0 == typeCounts[i]) iZero.push_back(i);
-      // if (B.col(i).sum() == 0) iZero.push_back(-i);
     }
-    ss << "Zero check finds " << iZero.size() << " empty rows and columns.";
     if(!iZero.empty())
-    { ss << std::endl;
-      for (auto it=iZero.begin(); it!=iZero.end(); ++it) ss << *it << " ";
+    { std::clog << "Zero check finds " << iZero.size() << " empty rows and columns." << std::endl;
+      for (auto it=iZero.begin(); it!=iZero.end(); ++it) std::clog << *it << " ";
     }
-    print_time(std::clog, ss.str(), startTime, clock());
-    ss.str("");
+  }
+
+  // write the type counts and frequencies to file
+  {
     std::map<string, int> posMap (tokenManager.POS_map());
     IntVector posCounts (posMap.size());
     int i = 0;
@@ -138,12 +139,24 @@ int main(int argc, char **argv)
   // Random projections of row and column spaces 
   startTime = clock();
   Matrix RP (B.rows(), 2*nProjections);
-  RP.leftCols (nProjections) = B             * Matrix::Random(B.cols(), nProjections);
-  RP.rightCols(nProjections) = B.transpose() * Matrix::Random(B.rows(), nProjections);
+  Matrix rightR = Matrix::Random(B.cols(), nProjections);
+  Matrix leftR  = Matrix::Random(B.rows(), nProjections);
+  RP.leftCols (nProjections) = B             * rightR;
+  RP.rightCols(nProjections) = B.transpose() * leftR;
   ss << "Compute random projection RP[" << RP.rows() << "x" << RP.cols() << "]";
-  print_time(std::cout, ss.str(), startTime, clock());
-  print_time(std::clog, ss.str(), startTime, clock());
+  print_time(ss.str(), startTime, clock());
   ss.str("");
+
+  // Repeat for validation data if present
+  Matrix vRP (V.rows(), 2*nProjections);
+  if(v.rows() > 0)
+  { startTime = clock();
+    vRP.leftCols (nProjections) = V.leftCols(B.cols())            * rightR;
+    vRP.rightCols(nProjections) = V.transpose().leftCols(B.cols())* leftR;
+    ss << "Compute validation random projection RP[" << vRP.rows() << "x" << vRP.cols() << "]";
+    print_time(ss.str(), startTime, clock());
+    ss.str("");
+  }
 
   // cluster tokens using k-means
   startTime = clock();
@@ -160,10 +173,11 @@ int main(int argc, char **argv)
     tags = clusters.cluster_tags();
   }
   ss << "Compute " << nClusters << " cluster centers.";
-  print_time(std::cout, ss.str(), startTime, clock());
-  print_time(std::clog, ss.str(), startTime, clock());
+  print_time(ss.str(), startTime, clock());
   ss.str("");
 
+  // Cluster validation data if present
+  
   // Measure classifier error rate (cross-classify, then count number not at max)
   {
     std::map<string,int> posMap = tokenManager.POS_map();

@@ -51,7 +51,7 @@ class KMeansClusters
       mUseL2(l2), mDist(l2 ? k_means::l2_distance : k_means::cosine_distance ), mScaleData(scaleData),
       mNClusters(nClusters), mClusterCenters(Matrix::Zero(nClusters,data.cols())),
       mClusterTags(data.rows())
-    { prep_data(); find_clusters(maxIterations); }
+    { prepare_data(mData); find_clusters(maxIterations); }
 
   Map              cluster_map  ()  const;
   std::vector<int> cluster_tags ()  const { return mClusterTags; }
@@ -59,8 +59,10 @@ class KMeansClusters
 
   void             print_to_stream (std::ostream& os) const;
 
+  int              assign_to_cluster (Matrix *r) const;
+  
  private:
-  void   prep_data                 (); 
+  void   prepare_data              (Matrix &data);
   int    closest_cluster           (RowVector const& r, Matrix const& m) const;
   double relative_squared_distance (Matrix const& a, Matrix const& b) const;
 };

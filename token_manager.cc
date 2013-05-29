@@ -1,6 +1,7 @@
 #include "token_manager.h"
 
 #include <algorithm>
+#include <set>
 #include <iostream>
 #include <fstream>
 #include <ios>
@@ -141,18 +142,34 @@ TokenManager::n_types_oov(TokenManager const& tm) const
   return nOOV;
 }
 
+
+
 int
 TokenManager::fill_bigram_map(BigramMap &bm, int skip, TokenManager const& tm) const
 {
-  int oovIndex = tm.n_types();
-  std::pair<int,int> ij;
+  int oovIndex = tm.n_types();    // new indices to associate with OOV tokens
+  std::pair<int,int> ij;          // beyond those indices for tokens found in tm
+  std::set<string> oovSet;
   if (0 == skip)
   { int j = tm[mTokens.cbegin()->first];
-    ij = std::make_pair(0, (j < 0) ? oovIndex++ : j);
+    if (j >= 0) 
+      ij = std::make_pair(0,j);
+    else // oov
+    { ij = std::make_pair(0, oovIndex++);
+      oovSet.insert(mTokens.cbegin()->first);
+    }
     for(auto it=++mTokens.cbegin(); it != mTokens.cend(); ++it)
     { ij.first = ij.second;
       j = tm[it->first];
-      ij.second = (j < 0) ? oovIndex++ : j;
+      if (j >= 0)
+	ij.second = j;
+      else // oov
+      { ij.second = oovIndex;
+	if (0 == oovSet.count(it->first))
+	{ ++oovIndex;
+	  oovSet.insert(it->first);
+	}
+      }
       ++bm[ij];
     }
   }
