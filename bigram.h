@@ -10,6 +10,7 @@
 #include <Eigen/Core>
 #include <Eigen/SparseCore>
 #include <Eigen/SVD>
+#include "eigen_utils.h"
 
 #include <string>
 #include <vector>

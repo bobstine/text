@@ -9,7 +9,7 @@
 
 
 int
-TokenManager::operator[](string const& s)      const
+TokenManager::operator[](string s)      const
 {
   std::map<string,int>::const_iterator it = mStrToIntMap.find(s);
   if (it != mStrToIntMap.cend())
@@ -18,7 +18,15 @@ TokenManager::operator[](string const& s)      const
     return -1;
 }
 
-
+int
+TokenManager::index_of_POS (string pos)  const
+{
+  auto it = mPOSIndex.find(pos);
+  if (it != mPOSIndex.cend())
+    return it->second;
+  else
+    return -1;
+} 
 
 void
 TokenManager::init_from_file(std::string &fileName, float posThreshold)
@@ -34,7 +42,7 @@ TokenManager::init_from_file(std::string &fileName, float posThreshold)
 void
 TokenManager::init_from_stream(std::istream &input, float posThreshold)
 {
-  std::map <string, int> posMap;
+  std::map<string,int>posMap;   // initial pos prior to collapse rare pos to OTH
   while (input)
   { string token;
     input >> token;
@@ -66,7 +74,12 @@ TokenManager::init_from_stream(std::istream &input, float posThreshold)
   { ++mPOSMap[it->second];
     ++mTypePOSMap[it->first][it->second];
   }
-  std::multimap<int,string> sortedTokenMap;                          // sort by values by inserting into multimap
+  int posIndex = 0;
+  for(auto it=mPOSMap.cbegin(); it != mPOSMap.cend(); ++it)          // define index for each pos
+  { mPOSIndex[it->first] = posIndex++;
+    mIntToPOSVec.push_back(it->first);
+  }
+  std::multimap<int,string> sortedTokenMap;                          // sort types by frequency by inserting into multimap
   for (auto it = mTypeFreqMap.begin(); it != mTypeFreqMap.end(); ++it)
     sortedTokenMap.insert( std::make_pair(-it->second,it->first) );  // negate so decreasing
   int tokenID = 0;
