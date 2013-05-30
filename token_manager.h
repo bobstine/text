@@ -35,6 +35,10 @@ class TokenManager
     mPOSIndex(tm.mPOSIndex), mIntToPOSVec(tm.mIntToPOSVec)
     { std::cerr << "WARNING: Copy Construct token map\n"; }
   
+  TokenManager ()
+    : mTokens(), mTypeFreqMap(), mIntToStrVec(), mStrToIntMap(), mPOSMap(), mTypePOSMap(),mPOSIndex(), mIntToPOSVec()
+    { std::cerr << "WARNING: Construct empty token map\n"; }
+
   TokenManager (std::istream &input, float posThreshold = 0.0)
     : mTokens(), mTypeFreqMap(), mIntToStrVec(), mStrToIntMap(), mPOSMap(), mTypePOSMap(), mPOSIndex(), mIntToPOSVec()
     { init_from_stream(input, posThreshold); }

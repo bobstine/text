@@ -19,12 +19,26 @@ typedef Eigen::SparseMatrix<float,Eigen::RowMajor> SparseMatrix;
 
 class CrossTabulator
 {
+  using std::string;
+  
   int mN;
+  std::vector<string> mColLabels;
+  std::vector<string> mRowLabels;
   Eigen::MatrixXi mTable;
 
 public:
   
-  CrossTabulator (int nRows, int nCols) : mN(0),mTable(Eigen::MatrixXi::Zero(nRows,nCols))  {}
+  CrossTabulator (int nRows, int nCols) : mN(0), mColLabels(), mRowLabels(), mTable(Eigen::MatrixXi::Zero(nRows,nCols))  {}
+  
+  template <class ItR, class ItC>
+  CrossTabulator (ItR rBegin, ItR rEnd, ItC cBegin, ItC cEnd) : mN(0), mColLabels(), mRowLabels(), mTable(Eigen::MatrixXi::Zero(nRows,nCols))
+    { int nR = 0; int nC = 0;
+      for(ItR it=rBegin; it != rEnd; ++it)
+      { ++nR;
+	mRowLabels.push_back(*it);
+      }
+      for(ItC it=cBegin; it != cEnd; ++it)
+      { 
 
   void            increment(int i, int j)        { ++mN; ++mTable(i,j); }
   
