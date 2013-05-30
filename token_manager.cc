@@ -7,6 +7,7 @@
 #include <ios>
 
 
+
 int
 TokenManager::operator[](string const& s)      const
 {
@@ -34,7 +35,6 @@ void
 TokenManager::init_from_stream(std::istream &input, float posThreshold)
 {
   std::map <string, int> posMap;
-  mTokenLength = 0;
   while (input)
   { string token;
     input >> token;
@@ -44,15 +44,14 @@ TokenManager::init_from_stream(std::istream &input, float posThreshold)
     input >> pos;
     ++posMap[pos];
     mTokens.push_back(std::make_pair(token,pos));
-    ++mTokenLength;
   }
-  std::clog << "TKMN: Read " << n_types() << " types from input of " << mTokenLength << " strings." << std::endl;
+  std::clog << "TKMN: Read " << n_types() << " types from input of " << mTokens.size() << " strings." << std::endl;
   std::clog << "TKMN: Identified " << posMap.size() << " distinct POS." << std::endl;
   if(posThreshold > 0.0)                                             // remove rare pos tags
   { std::map<string,bool> reduce;
     int reduceCount = 0;
     for(auto it=posMap.cbegin(); it != posMap.cend(); ++it)
-    { float freq = ((float)it->second)/mTokenLength;
+    { float freq = ((float)it->second)/mTokens.size();
       if (freq < posThreshold)
       { reduce[it->first] = true; ++reduceCount; }
       else reduce[it->first]=false;
@@ -144,42 +143,25 @@ TokenManager::n_types_oov(TokenManager const& tm) const
 
 
 
-int
+void
 TokenManager::fill_bigram_map(BigramMap &bm, int skip, TokenManager const& tm) const
 {
-  int oovIndex = tm.n_types();    // new indices to associate with OOV tokens
-  std::pair<int,int> ij;          // beyond those indices for tokens found in tm
-  std::set<string> oovSet;
-  if (0 == skip)
-  { int j = tm[mTokens.cbegin()->first];
-    if (j >= 0) 
-      ij = std::make_pair(0,j);
-    else // oov
-    { ij = std::make_pair(0, oovIndex++);
-      oovSet.insert(mTokens.cbegin()->first);
-    }
-    for(auto it=++mTokens.cbegin(); it != mTokens.cend(); ++it)
-    { ij.first = ij.second;
-      j = tm[it->first];
-      if (j >= 0)
-	ij.second = j;
-      else // oov
-      { ij.second = oovIndex;
-	if (0 == oovSet.count(it->first))
-	{ ++oovIndex;
-	  oovSet.insert(it->first);
-	}
-      }
+  std::pair<int,int> ij;                 // beyond those indices for tokens found in tm
+  auto itBack = mTokens.cbegin();
+  for (int i=0; i<skip+1; ++i) ++itBack;
+  for (auto it=mTokens.cbegin(); itBack != mTokens.cend(); ++it, ++itBack)
+  { int i = mStrToIntMap.at(it->first);  // i from this
+    int j = tm[itBack->first];           // j from index set used in tm
+    if (0 <= j)                          // valid
+    { ij.first = i;
+      ij.second = j;
       ++bm[ij];
     }
   }
-  else
-    std::cerr << "TKMG: *** ERROR *** The function fill_bigram_map not defined with skip > 0\n" ;
-  return oovIndex;  // max 'rows' of map
 }
 
     
-int
+void
 TokenManager::fill_bigram_map (BigramMap &bm, int skip) const
 {
   std::pair<int,int> i;
@@ -200,7 +182,6 @@ TokenManager::fill_bigram_map (BigramMap &bm, int skip) const
       ++bm[i];
     }
   }
-  return n_types();
 }
 
 
@@ -214,3 +195,24 @@ TokenManager::print_tags(int num) const
       std::clog << "     " << it->first << " " << it->second << std::endl;
   }
 }
+
+void
+TokenManager::write_frequencies_to_file(std::string fileName) const   // write type and counts 
+{
+  std::map<string, int> posMap (POS_map());
+  std::vector<int> posCounts (posMap.size());
+  int i = 0;
+  for(auto it=posMap.cbegin(); it != posMap.cend(); ++it)
+  { posCounts[i++] = it->second; }
+  std::ofstream output (fileName);
+  output << "Types\n";
+  for (auto it=mTypeFreqMap.cbegin(); it != mTypeFreqMap.cend(); ++it)
+    output << it->second << ", ";
+  output << "\nPOS\n";
+  for (auto it=posCounts.cbegin(); it != posCounts.cend(); ++it)
+    output << *it << ", ";
+  output << std::endl;
+  output.close();
+}
+
+  

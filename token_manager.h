@@ -18,7 +18,6 @@ class TokenManager
   typedef  std::vector<std::pair<string,int>>                  CountVector;
   
   std::list<std::pair<string,string>>    mTokens;          // source data
-  int                                    mTokenLength;
   std::map<string, int>                  mTypeFreqMap;
 
   std::vector<string>                    mIntToStrVec;     // sorted order of the tokens, inverse of str to int map
@@ -29,19 +28,19 @@ class TokenManager
  public:
   
   TokenManager (TokenManager const& tm)
-    : mTokens(tm.mTokens), mTokenLength(tm.mTokenLength), mTypeFreqMap(tm.mTypeFreqMap),
+    : mTokens(tm.mTokens), mTypeFreqMap(tm.mTypeFreqMap),
       mIntToStrVec(tm.mIntToStrVec), mStrToIntMap(tm.mStrToIntMap), mPOSMap(tm.mPOSMap), mTypePOSMap(tm.mTypePOSMap)
     { std::cerr << "WARNING: Copy Construct token map\n"; }
   
   TokenManager (std::istream &input, float posThreshold = 0.0)
-    : mTokens(), mTokenLength(0), mTypeFreqMap(), mIntToStrVec(), mStrToIntMap(), mPOSMap(), mTypePOSMap()
+    : mTokens(), mTypeFreqMap(), mIntToStrVec(), mStrToIntMap(), mPOSMap(), mTypePOSMap()
     { init_from_stream(input, posThreshold); }
 
   TokenManager (std::string fileName, float posThreshold = 0.0)
-    : mTokens(), mTokenLength(0), mTypeFreqMap(), mIntToStrVec(), mStrToIntMap(), mPOSMap(), mTypePOSMap()
+    : mTokens(), mTypeFreqMap(), mIntToStrVec(), mStrToIntMap(), mPOSMap(), mTypePOSMap()
     { init_from_file(fileName, posThreshold); }
 
-  int         input_length()                      const { return mTokenLength; }
+  int         input_length()                      const { return (int) mTokens.size(); }
   int         n_types ()                          const { return (int) mTypeFreqMap.size(); }
   int         n_types_oov(TokenManager const& tm) const;
   Iter        token_list_begin()                  const { return mTokens.cbegin(); }
@@ -57,10 +56,11 @@ class TokenManager
 
   std::map<string,int> POS_map()                               const { return mPOSMap; }
 
-  int         fill_bigram_map(BigramMap &bm, int skip)         const;
-  int         fill_bigram_map(BigramMap &bm, int skip, TokenManager const& tm) const; // uses ints from other TM
+  void        fill_bigram_map(BigramMap &bm, int skip)         const;
+  void        fill_bigram_map(BigramMap &bm, int skip, TokenManager const& tm) const; // use col index from other TM
 			      
-  void        print_tags(int k)                const;
+  void        print_tags(int k)                                const;
+  void        write_frequencies_to_file (string filename)      const;
   
  private:
   void init_from_file(std::string &fileName, float posThreshold);

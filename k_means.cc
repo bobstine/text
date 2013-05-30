@@ -6,31 +6,31 @@
 const float sqrt2 = 1.41421356;
 
 std::vector<int>
-assign_to_clusters (Matrix *pData) const
+KMeansClusters::assign_to_clusters (Matrix *data) const
 {
-  prepare_data(*pData);
+  prepare_data(data);
   std::vector<int> tags;
-  for (int i=0; i<pData->rows(); ++i)
-    tags.push_back(closest_cluster(pData.row(i), mClusterCenters));
+  for (int i=0; i<data->rows(); ++i)
+    tags.push_back(closest_cluster(data->row(i), mClusterCenters));
   return tags;
 }
 
 
 void
-KMeansClusters::prepare_data(Matrix &data)
+KMeansClusters::prepare_data(Matrix *data) const
 {
   if(mUseL2)                               // L2 norm on unit ball is optionally scaled
   { if (mScaleData)
-    { for (int i=0; i<data.rows(); ++i)
-	data.row(i) /= data.row(i).norm();
+    { for (int i=0; i<data->rows(); ++i)
+	data->row(i) /= data->row(i).norm();
     }
   }
   else                                     // norm on split-ball, always scaled for cosine
-  { const int n = data.cols()/2;
-    assert (data.cols() == 2*n);
-    for (int i=0; i<data.rows(); ++i)
-    { data.row(i).head(n) /= sqrt2*data.row(i).head(n).norm();
-      data.row(i).tail(n) /= sqrt2*data.row(i).tail(n).norm();
+  { const int n = data->cols()/2;
+    assert (data->cols() == 2*n);
+    for (int i=0; i<data->rows(); ++i)
+    { data->row(i).head(n) /= sqrt2*data->row(i).head(n).norm();
+      data->row(i).tail(n) /= sqrt2*data->row(i).tail(n).norm();
     }
   }
 }

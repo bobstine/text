@@ -68,6 +68,7 @@ int main(int argc, char **argv)
     std::cout << ss.str();
     std::clog << ss.str();
     ss.str("");
+    tokenManager.write_frequencies_to_file("results/margins.txt");
   }
   
   // build the sparse bigram array using integer id for words
@@ -89,70 +90,42 @@ int main(int argc, char **argv)
     ss.str("");
   }
 
-  // optional validation which is huge and very sparse
+  // optional validation which has same column indices as B
   SparseMatrix V(0,0);
   if (0 < vFileName.size())
   { startTime = clock();
     TokenManager validationTM(vFileName, posThreshold);
-    int nOOV = validationTM.n_types_oov(tokenManager);
     std::map<std::pair<int,int>,int> bgMap;
-    int dim = validationTM.fill_bigram_map(bgMap, nSkip, tokenManager);
-    std::clog << "MAIN: Validation dim = " << dim << " with oov count = " << nOOV << "  Resize to " << nTypes + nOOV << std::endl;
+    validationTM.fill_bigram_map(bgMap, nSkip, tokenManager);
+    int nOOV = validationTM.n_types_oov(tokenManager);
+    std::clog << "MAIN: Validation has " << validationTM.n_types() << " with oov count = " << nOOV << std::endl;
     typedef Eigen::Triplet<float> T;
     std::list<T> triplets (validationTM.n_types());
     for(auto it = bgMap.cbegin(); it != bgMap.cend(); ++it)
       triplets.push_back(T(it->first.first, it->first.second, it->second));
-    V.resize(nTypes + nOOV, nTypes + nOOV);
+    V.resize(validationTM.n_types(), tokenManager.n_types());
     V.setFromTriplets(triplets.begin(), triplets.end());
     ss << "Init validation sparse bigram V[" << V.rows() << "x" << V.cols() << "] from map." << std::endl;
-    print_time(startTime, clock());
+    print_time(ss.str(), startTime, clock());
     ss.str("");
     }
-    
-  // count number of times each type appears; check for an empty row or col in B; print margins
-  IntVector typeCounts = IntVector::Zero(B.rows());
-  {
-    std::vector<int> iZero;
-    for(int i=0; i<B.rows(); ++i)
-    { typeCounts[i] = B.row(i).sum();
-      if (0 == typeCounts[i]) iZero.push_back(i);
-    }
-    if(!iZero.empty())
-    { std::clog << "Zero check finds " << iZero.size() << " empty rows and columns." << std::endl;
-      for (auto it=iZero.begin(); it!=iZero.end(); ++it) std::clog << *it << " ";
-    }
-  }
-
-  // write the type counts and frequencies to file
-  {
-    std::map<string, int> posMap (tokenManager.POS_map());
-    IntVector posCounts (posMap.size());
-    int i = 0;
-    for(auto it=posMap.cbegin(); it != posMap.cend(); ++it)
-    { posCounts[i++] = it->second; }
-    std::ofstream output ("results/margins.txt");
-    output << "Types\n" << typeCounts.transpose() << std::endl;
-    output << "POS\n" << posCounts.transpose()  << std::endl;
-    output.close();
-  }
   
   // Random projections of row and column spaces 
   startTime = clock();
-  Matrix RP (B.rows(), 2*nProjections);
+  Matrix RP (B.rows(), nProjections);  // 2*nProjections
   Matrix rightR = Matrix::Random(B.cols(), nProjections);
-  Matrix leftR  = Matrix::Random(B.rows(), nProjections);
-  RP.leftCols (nProjections) = B             * rightR;
-  RP.rightCols(nProjections) = B.transpose() * leftR;
+  RP.rightCols(nProjections) = B.transpose() * rightR;
+  // Matrix leftR  = Matrix::Random(B.rows(), nProjections);
+  // RP.leftCols (nProjections) = B             * leftR;
   ss << "Compute random projection RP[" << RP.rows() << "x" << RP.cols() << "]";
   print_time(ss.str(), startTime, clock());
   ss.str("");
 
   // Repeat for validation data if present
-  Matrix vRP (V.rows(), 2*nProjections);
-  if(v.rows() > 0)
+  Matrix vRP (V.rows(), nProjections); 
+  if(V.rows() > 0)
   { startTime = clock();
-    vRP.leftCols (nProjections) = V.leftCols(B.cols())            * rightR;
-    vRP.rightCols(nProjections) = V.transpose().leftCols(B.cols())* leftR;
+    vRP = V * rightR;
     ss << "Compute validation random projection RP[" << vRP.rows() << "x" << vRP.cols() << "]";
     print_time(ss.str(), startTime, clock());
     ss.str("");
@@ -164,9 +137,15 @@ int main(int argc, char **argv)
   {
     IntVector wts;
     if (weighting)
-      wts = typeCounts;
+    { wts.resize(B.rows());
+      for(int i=0; i<B.rows(); ++i)
+      { wts(i) = B.row(i).sum();
+	if (0 == wts(i))
+	  std::clog << "MAIN: row " << i << " of B sums to zero.\n";
+      }
+    }
     else
-      wts = IntVector::Ones(RP.rows());
+      wts = IntVector::Ones(B.rows());
     bool useL2      ('2' == distance);
     bool useScaling (scaling != 0);
     KMeansClusters clusters (RP, wts, useL2, useScaling, nClusters, nIterations);
@@ -177,6 +156,9 @@ int main(int argc, char **argv)
   ss.str("");
 
   // Cluster validation data if present
+
+  // HERE
+
   
   // Measure classifier error rate (cross-classify, then count number not at max)
   {
@@ -227,7 +209,7 @@ int main(int argc, char **argv)
     Matrix UD = svd.matrixU() * svd.singularValues().asDiagonal();
     // std::clog << " U matrix      : \n" << UD.topLeftCorner(10,nProjections) << std::endl;
     std::clog << "Singular values: \n" << svd.singularValues().transpose().head(nProjections) << std::endl;
-    print_time(std::clog, "Compute SVD and extract U*D.", startTime, clock());
+    print_time("Compute SVD and extract U*D.", startTime, clock());
   }
   
   // print first items in the map
