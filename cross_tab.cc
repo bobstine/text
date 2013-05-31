@@ -19,20 +19,33 @@ CrossTab::increment(int i, int j)
 }
 
 
+Eigen::VectorXi
+CrossTab::most_common_col_in_each_row()     const
+{
+  Eigen::VectorXi cols (mTable.rows());
+
+  for(int i=0; i<mTable.rows(); ++i)
+  { int max=0;
+    int maxIn = 0;
+    for(int j=0; j<mTable.cols(); ++j)
+    { if (mTable(i,j)>max)
+      { max = mTable(i,j);
+	maxIn=j;
+      }
+    }
+    cols[i] = maxIn;
+  }
+  return cols;
+}
+
+
 CrossTab::StrVec
 CrossTab::most_common_label_in_each_row() const
 {
+  Eigen::VectorXi cols = most_common_col_in_each_row();
   std::vector<string> labels;
-  for (int i=0; i<mTable.rows(); ++i)
-  { int max = 0;
-    int maxCol = 0;
-    for (int j=0; j<mTable.cols(); ++j)
-      if (mTable(i,j)>max)
-      { max = mTable(i,j);
-	maxCol = j;
-      }
-    labels.push_back(mColLabels[maxCol]);
-  }
+  for (int i=0; i<cols.size(); ++i)
+    labels.push_back(mColLabels[i]);
   return labels;
 }
 

@@ -39,6 +39,7 @@ public:
   Eigen::VectorXi col_margins()                     const { return mTable.colwise().sum(); }
   int             total()                           const { return mN; }
 
+  Eigen::VectorXi most_common_col_in_each_row()     const; 
   StrVec          most_common_label_in_each_row()   const;
 
   float           accuracy()                        const { return 100.0*((float)sum_row_max())/mN; }

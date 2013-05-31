@@ -1,15 +1,5 @@
 #include "bigram.h"
 
-/*
-  R Code to check SVD
- 
-  X <- read.table("/Users/bob/C/text/random_projection.txt")
-  udv <- svd (X);  udv$d
-  for(j in 1:10) {
-     cat(j,"  ",any(is.nan(X[,j])),"  \n")
-     cat(which (is.nan(X[,j])), "  \n");  }
-*/
-
 typedef Eigen::VectorXf                   Vector;
 typedef Eigen::VectorXi                   IntVector;
 typedef Eigen::MatrixXf                   Matrix;
@@ -116,7 +106,7 @@ int main(int argc, char **argv)
 
   // cluster tokens using k-means
   startTime = clock();
-  std::vector<int> tags;
+  std::vector<int> clusterIndex;
   IntVector wts = IntVector::Ones(B.rows());
   if (weighting)
   { wts.resize(B.rows());
@@ -131,7 +121,7 @@ int main(int argc, char **argv)
   bool useL2      ('2' == distance);
   bool useScaling (scaling != 0);
   KMeansClusters clusters (RP, wts, useL2, useScaling, nClusters, nIterations);
-  tags = clusters.cluster_tags();
+  clusterIndex = clusters.cluster_tags();
   ss << "Compute " << nClusters << " cluster centers.";
   print_time(ss.str(), startTime, clock());
   ss.str("");
@@ -142,16 +132,16 @@ int main(int argc, char **argv)
     { ss << "Clus " << i; labels.push_back(ss.str()); ss.str(""); }
     CrossTab table(labels.cbegin(), labels.cend(), tokenManager.POS_begin(), tokenManager.POS_end());
     for(auto it=tokenManager.token_list_begin(); it != tokenManager.token_list_end(); ++it)
-      table.increment(tags[tokenManager.index_of_type(it->first)], tokenManager.index_of_POS(it->second));
-    std::vector<string> clusterLabels = table.most_common_label_in_each_row();
-    for (auto it=clusterLabels.begin(); it!=clusterLabels.end(); ++it)
-      std::clog << *it << " "; std::clog << std::endl;
-    int nRightPOS = tokenManager.input_length();
-    int token = 0;
+      table.increment(clusterIndex[tokenManager.index_of_type(it->first)], tokenManager.index_of_POS(it->second));
+    Eigen::VectorXi estClusterPOS = table.most_common_col_in_each_row();
+    int nRightPOS = 0;
     for(auto it=tokenManager.token_list_begin(); it != tokenManager.token_list_end(); ++it)
-      if(clusterLabels[tags[token]] != it->second) --nRightPOS;
-    std::clog << "MAIN: Correct tags assigned to " << nRightPOS << " tokens.\n";
-    table.print_accuracy_to_stream(std::clog);
+    { int cluster = clusterIndex[tokenManager.index_of_type(it->first)];
+      int truPOS = tokenManager.index_of_POS(it->second);
+      if(estClusterPOS[cluster] == truPOS) ++nRightPOS;
+    }
+    std::clog << "MAIN: Direct token calculation finds correct tags assigned to " << nRightPOS << " tokens.\n";
+    table.print_accuracy_to_stream(std::clog);  // number correct ought to agree with the above
     table.print_accuracy_to_stream(std::cout);
     table.print_to_stream(std::cout);
   }
@@ -208,7 +198,7 @@ int main(int argc, char **argv)
     std::ofstream file (fileName.c_str(), mode);
     file << "Token\tPOS\tCluster" << std::endl;
     for(auto it = tokenManager.token_list_begin(); it != tokenManager.token_list_end(); ++it)
-      file << it->first << "\t" << it->second << "\t" << tags[tokenManager[it->first]] << std::endl;
+      file << it->first << "\t" << it->second << "\t" << clusterIndex[tokenManager[it->first]] << std::endl;
   }
   
   // SVD of random projection array
