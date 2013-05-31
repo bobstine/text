@@ -19,6 +19,23 @@ CrossTab::increment(int i, int j)
 }
 
 
+CrossTab::StrVec
+CrossTab::most_common_label_in_each_row() const
+{
+  std::vector<string> labels;
+  for (int i=0; i<mTable.rows(); ++i)
+  { int max = 0;
+    int maxCol = 0;
+    for (int j=0; j<mTable.cols(); ++j)
+      if (mTable(i,j)>max)
+      { max = mTable(i,j);
+	maxCol = j;
+      }
+    labels.push_back(mColLabels[maxCol]);
+  }
+  return labels;
+}
+
 void
 CrossTab::print_accuracy_to_stream (std::ostream &os) const
 { 

@@ -28,17 +28,17 @@ print_time(std::string const& s, clock_t const& start, clock_t const& stop)
 
 
 void
-fill_sparse_bigram_matrix(SparseMatrix &B, int skip, TokenManager const& tmRow, TokenManager const& tmCol)
+fill_sparse_bigram_matrix(SparseMatrix &B, int skip, TokenManager const& tmRow, TokenManager const& tmCol, bool transpose=false)
 {
   std::map<std::pair<int,int>,int> bgramMap;
-  tmRow.fill_bigram_map(bgramMap, skip, tmCol);    
+  tmRow.fill_bigram_map(bgramMap, skip, tmCol, transpose);    
   fill_sparse_matrix(B, bgramMap);
 }
 
 
 void
 parse_arguments(int argc, char** argv,
-		int &nSkip, float &posThreshold,
+		int &nSkip, float &posThreshold, bool &bidirectional,
 		int &nProj, int &scaling, char &dist, int &weighting, int &nClus, int &nIter, int &nPrint,
 		string &validationFileName);
 
@@ -49,19 +49,21 @@ int main(int argc, char **argv)
   std::ostringstream ss;
 
   // argument defaults
-  int     nSkip        =  0;         // skipped words in bigram
-  float   posThreshold = 0.0;        // accum all pos tags with relative frequency below this threshold
-  int     nProjections = 30;
-  int     scaling      =  0;
-  char    distance     ='2';         // identify distance to use  (2 for L2, c for cosine)
-  int     weighting    =  1;
-  int     nClusters    = 10;
-  int     nIterations  = 10;
-  int     nPrint       =  0;
-  string  vFileName    = "";
+  int     nSkip         =  0;         // skipped words in bigram
+  float   posThreshold  = 0.0;        // accum all pos tags with relative frequency below this threshold
+  bool    bidirectional = false;
+  int     nProjections  = 30;
+  int     scaling       =  0;
+  char    distance      ='2';         // identify distance to use  (2 for L2, c for cosine)
+  int     weighting     =  1;
+  int     nClusters     = 10;
+  int     nIterations   = 10;
+  int     nPrint        =  0;
+  string  vFileName     = "";
 
-  parse_arguments(argc, argv, nSkip, posThreshold, nProjections, scaling, distance, weighting, nClusters, nIterations, nPrint, vFileName);
-  std::cout << "MAIN: Arguments skip=" << nSkip << " threshold=" << posThreshold << " nProjections=" << nProjections << " scaling=" << scaling
+  parse_arguments(argc, argv, nSkip, posThreshold, bidirectional, nProjections, scaling, distance, weighting, nClusters, nIterations, nPrint, vFileName);
+  std::cout << "MAIN: Arguments skip=" << nSkip << " threshold=" << posThreshold << " bidirectional=" << bidirectional
+	    << " nProjections=" << nProjections << " scaling=" << scaling
 	    << " distance=" << distance << " weighting=" << weighting << " nClusters=" << nClusters << " nIterations=" << nIterations
 	    << " nPrint=" << nPrint << " validation=" << vFileName << std::endl;
 
@@ -95,11 +97,19 @@ int main(int argc, char **argv)
   
   // Random projections of row and column spaces 
   startTime = clock();
-  Matrix rightR = Matrix::Random(B.cols(), nProjections);
-  Matrix RP = B * rightR;
-  // RP.rightCols(nProjections) = B.transpose() * rightR;
-  // Matrix leftR  = Matrix::Random(B.rows(), nProjections);
-  // RP.leftCols (nProjections) = B             * leftR;
+  Matrix RP, rightR, leftR;
+  if (!bidirectional)
+  { rightR = Matrix::Random(B.cols(), nProjections);
+    RP = B * rightR;
+  }
+  else
+  { assert (nProjections % 2 == 0);
+    RP.resize(B.rows(),nProjections);
+    rightR = Matrix::Random(B.cols(), nProjections/2);
+    RP.rightCols(nProjections/2) = B * rightR;
+    leftR = Matrix::Random(B.cols(), nProjections/2);
+    RP.leftCols(nProjections/2) = B.transpose() * leftR;
+  }
   ss << "Compute random projection RP[" << RP.rows() << "x" << RP.cols() << "]";
   print_time(ss.str(), startTime, clock());
   ss.str("");
@@ -115,8 +125,8 @@ int main(int argc, char **argv)
       if (0 == wts(i))
 	std::clog << "MAIN: row " << i << " of B sums to zero.\n";
     }
-    std::clog << "MAIN: First five weights are " << wts.head(5).transpose() << std::endl;  // should match next line
-    std::clog << "MAIN: First five tag freqs   "; for(int i=0; i<5; ++i) std::clog << tokenManager.type_freq(i) << " "; std::clog << std::endl;
+    //                         wts.head(5).transpose() << std::endl;  // should match next line
+    //                         for(int i=0; i<5; ++i) std::clog << tokenManager.type_freq(i) << " "; std::clog << std::endl;
   }
   bool useL2      ('2' == distance);
   bool useScaling (scaling != 0);
@@ -125,14 +135,26 @@ int main(int argc, char **argv)
   ss << "Compute " << nClusters << " cluster centers.";
   print_time(ss.str(), startTime, clock());
   ss.str("");
-  
-  CrossTab table(nClusters, tokenManager.n_POS());
-  for(auto it=tokenManager.token_list_begin(); it != tokenManager.token_list_end(); ++it)
-    table.increment(tags[tokenManager.index_of_type(it->first)], tokenManager.index_of_POS(it->second));
-  table.print_accuracy_to_stream(std::clog);
-  table.print_to_stream(std::clog);
-  table.print_to_stream(std::cout);
 
+  { // build contingency table that attaches POS to clusters, k-to-1 accuracy
+    std::vector<string> labels;
+    for (int i=1; i<=nClusters; ++i)
+    { ss << "Clus " << i; labels.push_back(ss.str()); ss.str(""); }
+    CrossTab table(labels.cbegin(), labels.cend(), tokenManager.POS_begin(), tokenManager.POS_end());
+    for(auto it=tokenManager.token_list_begin(); it != tokenManager.token_list_end(); ++it)
+      table.increment(tags[tokenManager.index_of_type(it->first)], tokenManager.index_of_POS(it->second));
+    std::vector<string> clusterLabels = table.most_common_label_in_each_row();
+    for (auto it=clusterLabels.begin(); it!=clusterLabels.end(); ++it)
+      std::clog << *it << " "; std::clog << std::endl;
+    int nRightPOS = tokenManager.input_length();
+    int token = 0;
+    for(auto it=tokenManager.token_list_begin(); it != tokenManager.token_list_end(); ++it)
+      if(clusterLabels[tags[token]] != it->second) --nRightPOS;
+    std::clog << "MAIN: Correct tags assigned to " << nRightPOS << " tokens.\n";
+    table.print_accuracy_to_stream(std::clog);
+    table.print_accuracy_to_stream(std::cout);
+    table.print_to_stream(std::cout);
+  }
 
   // optional validation which has same column indices as B
   if (useValidation)
@@ -141,16 +163,28 @@ int main(int argc, char **argv)
     int nOOV = validationTM.n_types_oov(tokenManager);
     std::clog << "MAIN: Validation data has " << validationTM.n_types() << " types (" << nOOV << " OOV) and " << validationTM.n_POS() << " POS." << std::endl;
 
-    SparseMatrix V(validationTM.n_types(), tokenManager.n_types());
+    SparseMatrix V, Vt;
     startTime = clock();
-    fill_sparse_bigram_matrix(V, nSkip, validationTM, tokenManager);
+    V.resize(validationTM.n_types(), tokenManager.n_types());
+    fill_sparse_bigram_matrix(V , nSkip, validationTM, tokenManager);
     ss << "Init validation sparse bigram V[" << V.rows() << "x" << V.cols() << "] from map; sum +/,V=" << V.sum();
+    if (bidirectional)
+    { Vt.resize(validationTM.n_types(), tokenManager.n_types());
+      fill_sparse_bigram_matrix(Vt, nSkip, validationTM, tokenManager, bidirectional);
+      ss << "  Vt[" << Vt.rows() << "x" << Vt.cols() << "] from map; sum +/,Vt=" << Vt.sum();
+    }
     print_time(ss.str(), startTime, clock());
     ss.str("");
 
     Matrix vRP (V.rows(), nProjections); 
     startTime = clock();
-    vRP = V * rightR;
+    if (!bidirectional)
+      vRP = V * rightR;
+    else
+    { vRP.resize(V.rows(), nProjections);
+      vRP.rightCols(nProjections/2) = V  * rightR;
+      vRP.leftCols (nProjections/2) = Vt * leftR;
+    }
     ss << "Compute validation random projection vRP[" << vRP.rows() << "x" << vRP.cols() << "]";
     print_time(ss.str(), startTime, clock());
     ss.str("");
@@ -163,7 +197,8 @@ int main(int argc, char **argv)
     for(auto it=validationTM.token_list_begin(); it != validationTM.token_list_end(); ++it)
       vCrossTab.increment(vTags[validationTM.index_of_type(it->first)], validationTM.index_of_POS(it->second));
     vCrossTab.print_accuracy_to_stream(std::clog);
-    vCrossTab.print_to_stream(std::clog);
+    vCrossTab.print_accuracy_to_stream(std::cout);
+    vCrossTab.print_to_stream(std::cout);
   }
   
   // Write original tags and cluster ids to file
@@ -198,7 +233,7 @@ int main(int argc, char **argv)
 
 void
 parse_arguments(int argc, char** argv,
-		int &nSkip, float &threshold,
+		int &nSkip, float &threshold, bool &bidirectional,
 		int &nProj, int &scaling, char &distance, int &weighting, int &nClus, int &nIter, int &nPrint,
 		std::string &vFileName)
 {
@@ -206,6 +241,7 @@ parse_arguments(int argc, char** argv,
     // bigram prep options
     {"skip",         required_argument, 0, 'k'},
     {"threshold",    required_argument, 0, 't'},
+    {"bidirectional",      no_argument, 0, 'b'},
     {"projections",  required_argument, 0, 'r'},
     {"scaling",      required_argument, 0, 's'},
     // clustering options
@@ -220,7 +256,7 @@ parse_arguments(int argc, char** argv,
   };
   int key;
   int option_index = 0;
-  while (-1 !=(key = getopt_long (argc, argv, "k:t:r:s:w:c:n:p:v:", long_options, &option_index))) // colon means has argument
+  while (-1 !=(key = getopt_long (argc, argv, "k:t:br:s:w:c:n:p:v:", long_options, &option_index))) // colon means has argument
   {
     // std::cout << "Option key " << char(key) << " for option " << long_options[option_index].name << ", option_index=" << option_index << std::endl;
     switch (key)
@@ -228,6 +264,11 @@ parse_arguments(int argc, char** argv,
     case 'k' :
       {
 	nSkip = read_utils::lexical_cast<int>(optarg);
+	break;
+      }
+    case 'b' :
+      {
+	bidirectional = true;
 	break;
       }
     case 't' :

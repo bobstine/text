@@ -45,11 +45,11 @@ tagged/twain.tagged:
 tagged/ptb45.tagged:
 	scp sob:/data/pos_eval_corpora/ptb45/ptb45.tagged  tagged
 
-tagged/validation.tagged:
-	head -n 200000 tagged/ptb45.tagged > $@
-
 tagged/ptb17.tagged:
 	scp sob:/data/pos_eval_corpora/ptb17/ptb17.tagged  tagged
+
+tagged/validation.tagged:
+	tail -n 500000 tagged/ptb45.tagged > $@
 
 
 ##################
@@ -65,9 +65,11 @@ bigram: bigram.o k_means.o token_manager.o cross_tab.o
 #  options for folding in other tags, normalizing the bigram rows, weighed avg in clustering, cluster max iterations, tag printing
 base_options = --threshold 0.0004 --scaling 1 --weighting 1 --iterations 20 --print 0
 
+#	./bigram --bidirectional --projections 200 --distance 2 --clusters 1000 --validation tagged/validation.tagged $(base_options)  \
+
 bigram_test: bigram tagged/validation.tagged
-	head -n 200000 tagged/ptb45.tagged | \
-	./bigram --projections 100 --distance 2 --clusters 50 --validation tagged/validation.tagged $(base_options)  \
+	head -n 600000 tagged/ptb45.tagged | \
+	./bigram                 --projections 200 --distance 2 --clusters 50 --validation tagged/validation.tagged $(base_options)  \
 	>> results/test/p100_d2_c50
 
 # ----------------------------------------------------------------------------------------

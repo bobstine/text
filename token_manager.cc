@@ -158,21 +158,35 @@ TokenManager::n_types_oov(TokenManager const& tm) const
 
 
 void
-TokenManager::fill_bigram_map(BigramMap &bm, int skip, TokenManager const& tm) const
+TokenManager::fill_bigram_map(BigramMap &bm, int skip, TokenManager const& tm, bool transpose) const
 {
   std::pair<int,int> ij;                 // beyond those indices for tokens found in tm
   auto itBack = mTokens.cbegin();
   for (int i=0; i<skip+1; ++i) ++itBack;
   int nNotFound = 0;
-  for (auto it=mTokens.cbegin(); itBack != mTokens.cend(); ++it, ++itBack)
-  { int i = mStrToIntMap.at(it->first);  // i from this
-    int j = tm[itBack->first];           // j from index set used in tm
-    if (0 <= j)                          // valid
-    { ij.first = i;
-      ij.second = j;
-      ++bm[ij];
+  if (!transpose)
+  { for (auto it=mTokens.cbegin(); itBack != mTokens.cend(); ++it, ++itBack)
+    { int i = mStrToIntMap.at(it->first);  // i from this
+      int j = tm[itBack->first];           // j from index set used in tm
+      if (0 <= j)                          // valid
+      { ij.first = i;
+	ij.second = j;
+	++bm[ij];
+      }
+      else ++nNotFound;
     }
-    else ++nNotFound;
+  }
+  else 
+  { for (auto it=mTokens.cbegin(); itBack != mTokens.cend(); ++it, ++itBack)
+    { int i = mStrToIntMap.at(itBack->first);  // i from tm
+      int j = tm[it->first];                   // j from this
+      if (0 <= j)                              // valid
+      { ij.first = i;
+	ij.second = j;
+	++bm[ij];
+      }
+      else ++nNotFound;
+    }
   }
   if (nNotFound)
     std::clog << outputTag << " *** WARNING *** " << nNotFound << " tokens not found in bigram lookup." << std::endl;

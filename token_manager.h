@@ -10,6 +10,24 @@
 
 using std::string;
 
+class MapIterator: public std::iterator<std::forward_iterator_tag, string>
+{
+  typedef std::map<string,int> Map;
+  typedef Map::const_iterator  Iterator;
+
+  Iterator mIt;
+
+public:
+  MapIterator (Iterator const& it)  : mIt (it)                 { }
+  
+  bool          operator==(MapIterator const& it) const  { return mIt == it.mIt; }
+  bool          operator!=(MapIterator const& it) const  { return mIt != it.mIt; }
+  
+  MapIterator&  operator++()                             { ++mIt; return *this; }
+  string        operator*()                       const  { return mIt->first; }
+};
+
+
 class TokenManager
 {
   typedef  std::map<string, std::map<string,int>>              POSMap;
@@ -52,6 +70,8 @@ class TokenManager
   int         n_types_oov(TokenManager const& tm) const;
   int         n_POS()                             const { return (int) mPOSMap.size(); }
 
+  MapIterator POS_begin()                         const { return MapIterator(mPOSMap.cbegin()); }
+  MapIterator POS_end()                           const { return MapIterator(mPOSMap.cend()); }
   Iter        token_list_begin()                  const { return mTokens.cbegin(); }
   Iter        token_list_end()                    const { return mTokens.cend(); }
   
@@ -74,7 +94,7 @@ class TokenManager
   std::map<string,int> POS_map()                               const { return mPOSMap; }
 
   void        fill_bigram_map(BigramMap &bm, int skip)         const;
-  void        fill_bigram_map(BigramMap &bm, int skip, TokenManager const& tm) const; // use col index from other TM
+  void        fill_bigram_map(BigramMap &bm, int skip, TokenManager const& tm, bool transpose=false) const; // use col index from other TM
 			      
   void        print_tags(int k)                                const;
   void        write_frequencies_to_file (string filename)      const;

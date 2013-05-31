@@ -10,10 +10,11 @@ using std::string;
 
 class CrossTab
 {
-  
+  typedef std::vector<std::string> StrVec;
+
   int mN;
-  std::vector<string> mColLabels;
-  std::vector<string> mRowLabels;
+  StrVec  mColLabels;
+  StrVec  mRowLabels;
   Eigen::MatrixXi mTable;
 
 public:
@@ -33,13 +34,15 @@ public:
 
   void            increment(int i, int j);
   
-  int             element(int i, int j)    const { return mTable(i,j); }
-  Eigen::VectorXi row_margins()            const { return mTable.rowwise().sum(); }
-  Eigen::VectorXi col_margins()            const { return mTable.colwise().sum(); }
-  int             total()                  const { return mN; }
+  int             element(int i, int j)             const { return mTable(i,j); }
+  Eigen::VectorXi row_margins()                     const { return mTable.rowwise().sum(); }
+  Eigen::VectorXi col_margins()                     const { return mTable.colwise().sum(); }
+  int             total()                           const { return mN; }
 
-  float           accuracy()               const { return 100.0*((float)sum_row_max())/mN; }
-  int             sum_row_max()            const { return mTable.rowwise().maxCoeff().sum(); }
+  StrVec          most_common_label_in_each_row()   const;
+
+  float           accuracy()                        const { return 100.0*((float)sum_row_max())/mN; }
+  int             sum_row_max()                     const { return mTable.rowwise().maxCoeff().sum(); }
 
   void            print_accuracy_to_stream (std::ostream &os) const;
   void            print_to_stream(std::ostream &os) const;
