@@ -84,6 +84,8 @@ KMeansClusters::find_clusters(int maxIterations)
     // for(int i=0;i<mNClusters; ++i) std::clog << counts[i] << " "; std::clog << std::endl;
     // std::clog << "Centers at step " << itCount << ":\n" << *pNew << std::endl;
   }
+  for(int i=0; i<mData.rows(); ++i)
+    mClusterTags[i] = closest_cluster(mData.row(i), *pNew);
   mClusterCenters = *pNew;
 }
 

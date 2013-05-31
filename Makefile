@@ -45,8 +45,8 @@ tagged/twain.tagged:
 tagged/ptb45.tagged:
 	scp sob:/data/pos_eval_corpora/ptb45/ptb45.tagged  tagged
 
-tagged/ptb45.subset.tagged:
-	tail -n 10000 tagged/ptb45.tagged > $@
+tagged/validation.tagged:
+	head -n 200000 tagged/ptb45.tagged > $@
 
 tagged/ptb17.tagged:
 	scp sob:/data/pos_eval_corpora/ptb17/ptb17.tagged  tagged
@@ -54,21 +54,21 @@ tagged/ptb17.tagged:
 
 ##################
 
-level_1 = k_means.o token_manager.o
+level_1 = k_means.o token_manager.o cross_tab.o
 level_2 = bigram.o
 level_3 = 
 
-bigram: bigram.o k_means.o token_manager.o
+bigram: bigram.o k_means.o token_manager.o cross_tab.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
 
 #  options for folding in other tags, normalizing the bigram rows, weighed avg in clustering, cluster max iterations, tag printing
-base_options = --threshold 0.0004 --scaling 1 --weighting 1 --iterations 20 --print 10
+base_options = --threshold 0.0004 --scaling 1 --weighting 1 --iterations 20 --print 0
 
-bigram_test: bigram tagged/ptb45.subset.tagged
-	head -n 200000 tagged/ptb17.tagged | \
-	./bigram --projections 100 --distance 2 --clusters 50 --validation tagged/ptb45.subset.tagged $(base_options)  \
-		>> results/test/p100_d2_c50
+bigram_test: bigram tagged/validation.tagged
+	head -n 200000 tagged/ptb45.tagged | \
+	./bigram --projections 100 --distance 2 --clusters 50 --validation tagged/validation.tagged $(base_options)  \
+	>> results/test/p100_d2_c50
 
 # ----------------------------------------------------------------------------------------
 #  parallel make with fixed number of projections, varying num clusters, both cosine/L2
@@ -78,9 +78,7 @@ bigram_test: bigram tagged/ptb45.subset.tagged
 #   make -f -j 4 results/twain/skip_0/050     
 #   make -f -j 4 results/ptb45/skip_5/125
 #
-
-#  these choice must match the make command
-
+#  these choices must match the make command
 task  = ptb45
 skip  =  40
 proj  = 125

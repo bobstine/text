@@ -17,51 +17,6 @@ typedef Eigen::MatrixXf                   Matrix;
 typedef Eigen::SparseMatrix<float,Eigen::RowMajor> SparseMatrix;
 
 
-class CrossTabulator
-{
-  using std::string;
-  
-  int mN;
-  std::vector<string> mColLabels;
-  std::vector<string> mRowLabels;
-  Eigen::MatrixXi mTable;
-
-public:
-  
-  CrossTabulator (int nRows, int nCols) : mN(0), mColLabels(), mRowLabels(), mTable(Eigen::MatrixXi::Zero(nRows,nCols))  {}
-  
-  template <class ItR, class ItC>
-  CrossTabulator (ItR rBegin, ItR rEnd, ItC cBegin, ItC cEnd) : mN(0), mColLabels(), mRowLabels(), mTable(Eigen::MatrixXi::Zero(nRows,nCols))
-    { int nR = 0; int nC = 0;
-      for(ItR it=rBegin; it != rEnd; ++it)
-      { ++nR;
-	mRowLabels.push_back(*it);
-      }
-      for(ItC it=cBegin; it != cEnd; ++it)
-      { 
-
-  void            increment(int i, int j)        { ++mN; ++mTable(i,j); }
-  
-  int             element(int i, int j)    const { return mTable(i,j); }
-  Eigen::VectorXi row_margins()            const { return mTable.rowwise().sum(); }
-  Eigen::VectorXi col_margins()            const { return mTable.colwise().sum(); }
-  int             total()                  const { return mN; }
-
-  float           accuracy()               const { return 100.0*((float)sum_row_max())/mN; }
-  int             sum_row_max()            const { return mTable.rowwise().maxCoeff().sum(); }
-
-  void            print_to_stream (std::ostream &os) const
-    { 
-      os << "Classify " << sum_row_max() << " correctly out of " << mN << "(" << accuracy() << "%)\n";
-      int width = 2+log10(mTable.array().maxCoeff());
-      Eigen::VectorXi colMargins = col_margins();
-      for(int col=0; col<mTable.cols(); ++col)
-	os << std::setw(width) << colMargins(col);
-      os << std::endl << mTable << std::endl;
-    }
-};
-
-
 
 void
 print_time(std::string const& s, clock_t const& start, clock_t const& stop)
@@ -76,10 +31,7 @@ void
 fill_sparse_bigram_matrix(SparseMatrix &B, int skip, TokenManager const& tmRow, TokenManager const& tmCol)
 {
   std::map<std::pair<int,int>,int> bgramMap;
-  if(&tmRow == &tmCol)
-    tmRow.fill_bigram_map(bgramMap, skip);
-  else
-    tmRow.fill_bigram_map(bgramMap, skip, tmCol);    
+  tmRow.fill_bigram_map(bgramMap, skip, tmCol);    
   fill_sparse_matrix(B, bgramMap);
 }
 
@@ -140,21 +92,6 @@ int main(int argc, char **argv)
     print_time(ss.str(), startTime, clock());
     ss.str("");
   }
-
-  // optional validation which has same column indices as B
-  SparseMatrix V(0,0);
-  TokenManager validationTM;
-  if (useValidation)
-  { startTime = clock();
-    validationTM = TokenManager(vFileName, posThreshold);
-    int nOOV = validationTM.n_types_oov(tokenManager);
-    std::clog << "MAIN: Validation has " << validationTM.n_types() << " with OOV count " << nOOV << " types." << std::endl;
-    V.resize(validationTM.n_types(), tokenManager.n_types());
-    fill_sparse_bigram_matrix(V, nSkip, validationTM, tokenManager);
-    ss << "Init validation sparse bigram V[" << V.rows() << "x" << V.cols() << "] from map; sum +/,V=" << V.sum();
-    print_time(ss.str(), startTime, clock());
-    ss.str("");
-  }
   
   // Random projections of row and column spaces 
   startTime = clock();
@@ -167,60 +104,71 @@ int main(int argc, char **argv)
   print_time(ss.str(), startTime, clock());
   ss.str("");
 
-  // Repeat for validation data if present
-  Matrix vRP (V.rows(), nProjections); 
-  if(useValidation)
-  { startTime = clock();
+  // cluster tokens using k-means
+  startTime = clock();
+  std::vector<int> tags;
+  IntVector wts = IntVector::Ones(B.rows());
+  if (weighting)
+  { wts.resize(B.rows());
+    for(int i=0; i<B.rows(); ++i)
+    { wts(i) = B.row(i).sum();
+      if (0 == wts(i))
+	std::clog << "MAIN: row " << i << " of B sums to zero.\n";
+    }
+    std::clog << "MAIN: First five weights are " << wts.head(5).transpose() << std::endl;  // should match next line
+    std::clog << "MAIN: First five tag freqs   "; for(int i=0; i<5; ++i) std::clog << tokenManager.type_freq(i) << " "; std::clog << std::endl;
+  }
+  bool useL2      ('2' == distance);
+  bool useScaling (scaling != 0);
+  KMeansClusters clusters (RP, wts, useL2, useScaling, nClusters, nIterations);
+  tags = clusters.cluster_tags();
+  ss << "Compute " << nClusters << " cluster centers.";
+  print_time(ss.str(), startTime, clock());
+  ss.str("");
+  
+  CrossTab table(nClusters, tokenManager.n_POS());
+  for(auto it=tokenManager.token_list_begin(); it != tokenManager.token_list_end(); ++it)
+    table.increment(tags[tokenManager.index_of_type(it->first)], tokenManager.index_of_POS(it->second));
+  table.print_accuracy_to_stream(std::clog);
+  table.print_to_stream(std::clog);
+  table.print_to_stream(std::cout);
+
+
+  // optional validation which has same column indices as B
+  if (useValidation)
+  { std::clog << "\n\nMAIN: Running validation.\n";
+    TokenManager    validationTM(vFileName, posThreshold);
+    int nOOV = validationTM.n_types_oov(tokenManager);
+    std::clog << "MAIN: Validation data has " << validationTM.n_types() << " types (" << nOOV << " OOV) and " << validationTM.n_POS() << " POS." << std::endl;
+
+    SparseMatrix V(validationTM.n_types(), tokenManager.n_types());
+    startTime = clock();
+    fill_sparse_bigram_matrix(V, nSkip, validationTM, tokenManager);
+    ss << "Init validation sparse bigram V[" << V.rows() << "x" << V.cols() << "] from map; sum +/,V=" << V.sum();
+    print_time(ss.str(), startTime, clock());
+    ss.str("");
+
+    Matrix vRP (V.rows(), nProjections); 
+    startTime = clock();
     vRP = V * rightR;
     ss << "Compute validation random projection vRP[" << vRP.rows() << "x" << vRP.cols() << "]";
     print_time(ss.str(), startTime, clock());
     ss.str("");
-  }
-  
-  // cluster tokens using k-means
-  startTime = clock();
-  std::vector<int> tags, vTags;
-  {
-    IntVector wts = IntVector::Ones(B.rows());
-    if (weighting)
-    { wts.resize(B.rows());
-      for(int i=0; i<B.rows(); ++i)
-      { wts(i) = B.row(i).sum();
-	if (0 == wts(i))
-	  std::clog << "MAIN: row " << i << " of B sums to zero.\n";
-      }
-      std::clog << "MAIN: First five weights are " << wts.head(5).transpose() << std::endl;  // should match next line
-      std::clog << "MAIN: First five tag freqs   "; for(int i=0; i<5; ++i) std::clog << tokenManager.type_freq(i) << " "; std::clog << std::endl;
-    }
-    bool useL2      ('2' == distance);
-    bool useScaling (scaling != 0);
-    KMeansClusters clusters (RP, wts, useL2, useScaling, nClusters, nIterations);
-    tags = clusters.cluster_tags();
-    if(useValidation)
-      vTags = clusters.assign_to_clusters(&vRP);
-  }
-  ss << "Compute " << nClusters << " cluster centers and optionally assign validation clusters.";
-  print_time(ss.str(), startTime, clock());
-  ss.str("");
-  
-  
-  CrossTabulator crossTab(nClusters, tokenManager.n_POS());
-  for(auto it=tokenManager.token_list_begin(); it != tokenManager.token_list_end(); ++it)
-    crossTab.increment(tags[tokenManager.index_of_type(it->first)], tokenManager.index_of_POS(it->second));
-  crossTab.print_to_stream(std::clog);
 
-  if(useValidation)
-  { CrossTabulator vCrossTab(nClusters, tokenManager.n_POS());
+    std::clog << "MAIN: Assigning validation data to clusters." << std::endl; 
+    std::vector<int> vTags = clusters.assign_to_clusters(&vRP);
+    
+    std::clog << "MAIN: Tabulating validation data." << std::endl;
+    CrossTab vCrossTab(nClusters, validationTM.n_POS());
     for(auto it=validationTM.token_list_begin(); it != validationTM.token_list_end(); ++it)
-      vCrossTab.increment(tags[tokenManager.index_of_type(it->first)], tokenManager.index_of_POS(it->second));
+      vCrossTab.increment(vTags[validationTM.index_of_type(it->first)], validationTM.index_of_POS(it->second));
+    vCrossTab.print_accuracy_to_stream(std::clog);
     vCrossTab.print_to_stream(std::clog);
   }
   
-    
-  
   // Write original tags and cluster ids to file
-  {
-    std::ios_base::openmode mode = std::ios_base::trunc;
+  if (false)
+  { std::ios_base::openmode mode = std::ios_base::trunc;
     std::string fileName ("/Users/bob/Desktop/tags.txt");
     std::ofstream file (fileName.c_str(), mode);
     file << "Token\tPOS\tCluster" << std::endl;

@@ -7,6 +7,7 @@
 #include <ios>
 
 
+std::string outputTag = "TKMG: ";
 
 int
 TokenManager::operator[](string s)      const
@@ -33,7 +34,7 @@ TokenManager::init_from_file(std::string &fileName, float posThreshold)
 {
   std::ifstream input (fileName.c_str());
   if (! input)
-    std::cerr << "TKMG: Cannot open input token file " << fileName << std::endl;
+    std::cerr << outputTag << "Cannot open input token file " << fileName << std::endl;
   else
     init_from_stream(input, posThreshold);
 }
@@ -53,8 +54,8 @@ TokenManager::init_from_stream(std::istream &input, float posThreshold)
     ++posMap[pos];
     mTokens.push_back(std::make_pair(token,pos));
   }
-  std::clog << "TKMN: Read " << n_types() << " types from input of " << mTokens.size() << " strings." << std::endl;
-  std::clog << "TKMN: Identified " << posMap.size() << " distinct POS." << std::endl;
+  std::clog << outputTag << "Read " << n_types() << " types from input of " << mTokens.size() << " strings." << std::endl;
+  std::clog << outputTag << "Identified " << posMap.size() << " distinct POS." << std::endl;
   if(posThreshold > 0.0)                                             // remove rare pos tags
   { std::map<string,bool> reduce;
     int reduceCount = 0;
@@ -65,7 +66,7 @@ TokenManager::init_from_stream(std::istream &input, float posThreshold)
       else reduce[it->first]=false;
     }
     if (reduceCount > 0)
-    { std::clog << "TKMN: Mapped " << reduceCount << " POS categories to OTH." << std::endl;
+    { std::clog << outputTag << "Mapped " << reduceCount << " POS categories to OTH." << std::endl;
       for(auto it=mTokens.begin(); it != mTokens.end(); ++it)
 	if (reduce[it->second]) it->second = "OTH";
     }
@@ -111,7 +112,7 @@ TokenManager::type_POS (string const& s)      const
 {
   const std::map<string,int> posMap = mTypePOSMap.at(s);
   if(posMap.empty())
-  { std::cerr << "TKMN: Token " << s << " does not have POS recorded. " << std::endl;
+  { std::cerr << outputTag << "Token " << s << " does not have POS recorded. " << std::endl;
     return "";
   }
   else
@@ -134,7 +135,7 @@ TokenManager::type_POS_tags (string const& s, bool sort) const
   CountVector v;
   const std::map<string,int> posMap = mTypePOSMap.at(s);
   if(posMap.empty())
-    std::cerr << "TKMN: Token " << s << " does not have POS recorded. " << std::endl;
+    std::cerr << outputTag << "Token " << s << " does not have POS recorded. " << std::endl;
   else
   { for(auto it = posMap.cbegin(); it !=posMap.cend(); ++it)
       v.push_back(*it);
@@ -162,6 +163,7 @@ TokenManager::fill_bigram_map(BigramMap &bm, int skip, TokenManager const& tm) c
   std::pair<int,int> ij;                 // beyond those indices for tokens found in tm
   auto itBack = mTokens.cbegin();
   for (int i=0; i<skip+1; ++i) ++itBack;
+  int nNotFound = 0;
   for (auto it=mTokens.cbegin(); itBack != mTokens.cend(); ++it, ++itBack)
   { int i = mStrToIntMap.at(it->first);  // i from this
     int j = tm[itBack->first];           // j from index set used in tm
@@ -170,34 +172,12 @@ TokenManager::fill_bigram_map(BigramMap &bm, int skip, TokenManager const& tm) c
       ij.second = j;
       ++bm[ij];
     }
+    else ++nNotFound;
   }
+  if (nNotFound)
+    std::clog << outputTag << " *** WARNING *** " << nNotFound << " tokens not found in bigram lookup." << std::endl;
 }
-
     
-void
-TokenManager::fill_bigram_map (BigramMap &bm, int skip) const
-{
-  std::pair<int,int> i;
-  if (0 == skip)
-  { i = std::make_pair(0, mStrToIntMap.at(mTokens.cbegin()->first));
-    for(auto it = ++mTokens.cbegin(); it!=mTokens.cend(); ++it)
-    { i.first = i.second;
-      i.second= mStrToIntMap.at(it->first);
-      ++bm[i];
-    }
-  }
-  else // track two pointers over the list
-  { auto itBack = mTokens.cbegin();
-    for (int i=0; i<skip+1; ++i) ++itBack;
-    for(auto it = mTokens.cbegin(); itBack!=mTokens.cend(); ++it, ++itBack)
-    { i.first = mStrToIntMap.at(it    ->first);
-      i.second= mStrToIntMap.at(itBack->first);
-      ++bm[i];
-    }
-  }
-}
-
-
 void
 TokenManager::print_tags(int num) const
 {
