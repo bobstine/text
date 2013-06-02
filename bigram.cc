@@ -192,13 +192,13 @@ int main(int argc, char **argv)
     vCrossTab.print_to_stream(std::cout);
 
     // repeat for just oov
-    vCrossTab.clear_cells();
+    CrossTab oovCrossTab(nClusters, validationTM.n_POS());
     for(auto it=validationTM.token_list_begin(); it != validationTM.token_list_end(); ++it)
       if(!tokenManager.known_type(it->first))
-	vCrossTab.increment(vTags[validationTM.index_of_type(it->first)], validationTM.index_of_POS(it->second));
-    vCrossTab.print_accuracy_to_stream(std::clog);
-    vCrossTab.print_accuracy_to_stream(std::cout);
-    vCrossTab.print_to_stream(std::cout);
+	oovCrossTab.increment(vTags[validationTM.index_of_type(it->first)], validationTM.index_of_POS(it->second));
+    oovCrossTab.print_accuracy_to_stream(std::clog);
+    oovCrossTab.print_accuracy_to_stream(std::cout);
+    oovCrossTab.print_to_stream(std::cout);
   }
   
   // Write original tags and cluster ids to file

@@ -69,7 +69,7 @@ base_options = --threshold 0.0004 --scaling 1 --weighting 1 --iterations 20 --pr
 
 bigram_test: bigram tagged/validation.tagged
 	head -n 600000 tagged/ptb45.tagged | \
-	./bigram                 --projections 200 --distance 2 --clusters 50 --validation tagged/validation.tagged $(base_options)  \
+	./bigram                 --projections 200 --distance 2 --clusters 500 --validation tagged/validation.tagged $(base_options)  \
 	> results/test/p100_d2_c50
 
 # ----------------------------------------------------------------------------------------
