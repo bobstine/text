@@ -33,6 +33,7 @@ public:
     }
 
   void            increment(int i, int j);
+  void            clear_cells()                           { mTable = Eigen::MatrixXi::Zero(mTable.rows(), mTable.cols()); }
   
   int             element(int i, int j)             const { return mTable(i,j); }
   Eigen::VectorXi row_margins()                     const { return mTable.rowwise().sum(); }

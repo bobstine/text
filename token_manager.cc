@@ -112,7 +112,7 @@ TokenManager::type_POS (string const& s)      const
 {
   const std::map<string,int> posMap = mTypePOSMap.at(s);
   if(posMap.empty())
-  { std::cerr << outputTag << "Token " << s << " does not have POS recorded. " << std::endl;
+  { std::cerr << outputTag << "Type " << s << " does not have POS recorded. " << std::endl;
     return "";
   }
   else

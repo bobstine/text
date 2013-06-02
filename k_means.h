@@ -29,13 +29,16 @@ namespace k_means
 
 class KMeansClusters
 {
+ public:
   typedef Eigen::MatrixXf                  Matrix;
   typedef Eigen::VectorXf                  Vector;
   typedef Eigen::VectorXi                  IntVector;
   typedef Eigen::RowVectorXf               RowVector;
   typedef std::map<int, std::vector<int>>  Map;
   typedef k_means::Distance                Distance;
-  
+  typedef std::vector<int>::const_iterator Iterator;
+
+ private:
   Matrix             mData;
   IntVector const&   mWeights;
   bool               mUseL2;
@@ -46,6 +49,7 @@ class KMeansClusters
   std::vector<int>   mClusterTags;
 
  public:
+  
   KMeansClusters (Matrix const& data, IntVector const& wts, bool l2, bool scaleData, int nClusters, int maxIterations = 10)
     : mData(data), mWeights(wts),
       mUseL2(l2), mDist(l2 ? k_means::l2_distance : k_means::cosine_distance ), mScaleData(scaleData),
@@ -53,15 +57,17 @@ class KMeansClusters
       mClusterTags(data.rows())
     { prepare_data(&mData); find_clusters(maxIterations); }
 
-  Map              cluster_map  ()  const;
-  std::vector<int> cluster_tags ()  const { return mClusterTags; }
-  void             find_clusters(int maxIterations);
+  Map              cluster_map  ()                                       const;  // map of vectors for indices in each cluster
+  
+  Iterator         cluster_tags_begin ()                                 const { return mClusterTags.cbegin(); }
+  Iterator         cluster_tags_end ()                                   const { return mClusterTags.cend(); }
 
-  void             print_to_stream (std::ostream& os) const;
+  void             print_to_stream (std::ostream& os)                    const;
 
-  std::vector<int> assign_to_clusters (Matrix *data) const;                      // note in place
+  std::vector<int> assign_to_clusters (Matrix *data)                     const;  // note modifies argument
   
  private:
+  void   find_clusters(int maxIterations);
   void   prepare_data              (Matrix *data)                        const;  // note in place argument
   int    closest_cluster           (RowVector const& r, Matrix const& m) const;
   double relative_squared_distance (Matrix const& a, Matrix const& b)    const;

@@ -38,8 +38,8 @@ class TokenManager
   std::list<std::pair<string,string>>    mTokens;          // source data
   std::map<string, int>                  mTypeFreqMap;
 
-  std::vector<string>                    mIntToStrVec;     // sorted order of the tokens, inverse of str to int map
-  std::map<string,int>                   mStrToIntMap;     // assigns integer to a token based on freq
+  std::vector<string>                    mIntToStrVec;     // sorted order of the types, inverse of str to int map
+  std::map<string,int>                   mStrToIntMap;     // assigns integer to a type based on freq
   std::map<string,int>                   mPOSMap;          // count of POS in input tokens
   POSMap                                 mTypePOSMap;      // identifies POS's for a token
   std::map<string,int>                   mPOSIndex;        // convert POS into an index
@@ -68,6 +68,7 @@ class TokenManager
   int         input_length()                      const { return (int) mTokens.size(); }
   int         n_types ()                          const { return (int) mTypeFreqMap.size(); }
   int         n_types_oov(TokenManager const& tm) const;
+  bool        known_type(std::string type)        const { return (mTypeFreqMap.find(type) != mTypeFreqMap.end()); }  
   int         n_POS()                             const { return (int) mPOSMap.size(); }
 
   MapIterator POS_begin()                         const { return MapIterator(mPOSMap.cbegin()); }

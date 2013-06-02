@@ -8,6 +8,20 @@ typedef Eigen::SparseMatrix<float,Eigen::RowMajor> SparseMatrix;
 
 
 
+CrossTab
+build_cross_tab (KMeansClusters::Iterator begin, int nClusters, TokenManager const& tm)
+{
+  std::vector<string> labels;
+  std::ostringstream ss;
+  for (int i=1; i<=nClusters; ++i)
+  { ss << "Clus " << i; labels.push_back(ss.str()); ss.str(""); }
+  CrossTab table(labels.cbegin(), labels.cend(), tm.POS_begin(), tm.POS_end());
+  for(auto it=tm.token_list_begin(); it != tm.token_list_end(); ++it)
+    table.increment(*(begin+tm.index_of_type(it->first)), tm.index_of_POS(it->second));
+  return table;
+}
+
+
 void
 print_time(std::string const& s, clock_t const& start, clock_t const& stop)
 {
@@ -104,44 +118,26 @@ int main(int argc, char **argv)
   print_time(ss.str(), startTime, clock());
   ss.str("");
 
-  // cluster tokens using k-means
+  // cluster types using k-means
   startTime = clock();
-  std::vector<int> clusterIndex;
   IntVector wts = IntVector::Ones(B.rows());
-  if (weighting)
-  { wts.resize(B.rows());
-    for(int i=0; i<B.rows(); ++i)
-    { wts(i) = B.row(i).sum();
-      if (0 == wts(i))
-	std::clog << "MAIN: row " << i << " of B sums to zero.\n";
+  if (weighting)  
+  { for(int i=0; i<B.rows(); ++i)
+    { wts(i) = B.row(i).sum();  // equiv to tokenManager.type_freq(i) so use as check
+      if (0 == wts(i)) std::clog << "MAIN: row " << i << " of B sums to zero.\n";
     }
-    //                         wts.head(5).transpose() << std::endl;  // should match next line
-    //                         for(int i=0; i<5; ++i) std::clog << tokenManager.type_freq(i) << " "; std::clog << std::endl;
   }
   bool useL2      ('2' == distance);
   bool useScaling (scaling != 0);
-  KMeansClusters clusters (RP, wts, useL2, useScaling, nClusters, nIterations);
-  clusterIndex = clusters.cluster_tags();
-  ss << "Compute " << nClusters << " cluster centers.";
-  print_time(ss.str(), startTime, clock());
-  ss.str("");
-
-  { // build contingency table that attaches POS to clusters, k-to-1 accuracy
-    std::vector<string> labels;
-    for (int i=1; i<=nClusters; ++i)
-    { ss << "Clus " << i; labels.push_back(ss.str()); ss.str(""); }
-    CrossTab table(labels.cbegin(), labels.cend(), tokenManager.POS_begin(), tokenManager.POS_end());
-    for(auto it=tokenManager.token_list_begin(); it != tokenManager.token_list_end(); ++it)
-      table.increment(clusterIndex[tokenManager.index_of_type(it->first)], tokenManager.index_of_POS(it->second));
-    Eigen::VectorXi estClusterPOS = table.most_common_col_in_each_row();
-    int nRightPOS = 0;
-    for(auto it=tokenManager.token_list_begin(); it != tokenManager.token_list_end(); ++it)
-    { int cluster = clusterIndex[tokenManager.index_of_type(it->first)];
-      int truPOS = tokenManager.index_of_POS(it->second);
-      if(estClusterPOS[cluster] == truPOS) ++nRightPOS;
-    }
-    std::clog << "MAIN: Direct token calculation finds correct tags assigned to " << nRightPOS << " tokens.\n";
-    table.print_accuracy_to_stream(std::clog);  // number correct ought to agree with the above
+  KMeansClusters clusters(RP, wts, useL2, useScaling, nClusters, nIterations);
+  Eigen::VectorXi estClusterPOS;
+  {
+    ss << "Compute " << nClusters << " cluster centers.";
+    print_time(ss.str(), startTime, clock());
+    ss.str("");
+    CrossTab table = build_cross_tab (clusters.cluster_tags_begin(), nClusters, tokenManager);
+    estClusterPOS = table.most_common_col_in_each_row();
+    table.print_accuracy_to_stream(std::clog);
     table.print_accuracy_to_stream(std::cout);
     table.print_to_stream(std::cout);
   }
@@ -149,7 +145,7 @@ int main(int argc, char **argv)
   // optional validation which has same column indices as B
   if (useValidation)
   { std::clog << "\n\nMAIN: Running validation.\n";
-    TokenManager    validationTM(vFileName, posThreshold);
+    TokenManager  validationTM(vFileName, posThreshold);
     int nOOV = validationTM.n_types_oov(tokenManager);
     std::clog << "MAIN: Validation data has " << validationTM.n_types() << " types (" << nOOV << " OOV) and " << validationTM.n_POS() << " POS." << std::endl;
 
@@ -178,14 +174,28 @@ int main(int argc, char **argv)
     ss << "Compute validation random projection vRP[" << vRP.rows() << "x" << vRP.cols() << "]";
     print_time(ss.str(), startTime, clock());
     ss.str("");
-
     std::clog << "MAIN: Assigning validation data to clusters." << std::endl; 
     std::vector<int> vTags = clusters.assign_to_clusters(&vRP);
-    
     std::clog << "MAIN: Tabulating validation data." << std::endl;
-    CrossTab vCrossTab(nClusters, validationTM.n_POS());
+    CrossTab vCrossTab = build_cross_tab (vTags.cbegin(), nClusters, validationTM);
+    
+    // check max count by direct computation from input tokens
+    int nRightPOS = 0;
     for(auto it=validationTM.token_list_begin(); it != validationTM.token_list_end(); ++it)
-      vCrossTab.increment(vTags[validationTM.index_of_type(it->first)], validationTM.index_of_POS(it->second));
+    { int cluster = vTags[validationTM.index_of_type(it->first)];
+      int truPOS = tokenManager.index_of_POS(it->second);
+      if(estClusterPOS[cluster] == truPOS) ++nRightPOS;
+    }
+    std::clog << "MAIN: Direct token calculation finds correct tags assigned to " << nRightPOS << " tokens.\n";
+    vCrossTab.print_accuracy_to_stream(std::clog);   // number correct agrees with above if most common label is right label
+    vCrossTab.print_accuracy_to_stream(std::cout);
+    vCrossTab.print_to_stream(std::cout);
+
+    // repeat for just oov
+    vCrossTab.clear_cells();
+    for(auto it=validationTM.token_list_begin(); it != validationTM.token_list_end(); ++it)
+      if(!tokenManager.known_type(it->first))
+	vCrossTab.increment(vTags[validationTM.index_of_type(it->first)], validationTM.index_of_POS(it->second));
     vCrossTab.print_accuracy_to_stream(std::clog);
     vCrossTab.print_accuracy_to_stream(std::cout);
     vCrossTab.print_to_stream(std::cout);
@@ -197,8 +207,9 @@ int main(int argc, char **argv)
     std::string fileName ("/Users/bob/Desktop/tags.txt");
     std::ofstream file (fileName.c_str(), mode);
     file << "Token\tPOS\tCluster" << std::endl;
+    KMeansClusters::Iterator clusterIndex = clusters.cluster_tags_begin();
     for(auto it = tokenManager.token_list_begin(); it != tokenManager.token_list_end(); ++it)
-      file << it->first << "\t" << it->second << "\t" << clusterIndex[tokenManager[it->first]] << std::endl;
+      file << it->first << "\t" << it->second << "\t" << *(clusterIndex+tokenManager[it->first]) << std::endl;
   }
   
   // SVD of random projection array
@@ -311,5 +322,5 @@ parse_arguments(int argc, char** argv,
 	std::cout << "PARSE: Option not recognized; returning.\n";
       }
     } // switch
-  } // while
+  } 
 }
