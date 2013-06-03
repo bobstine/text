@@ -127,9 +127,10 @@ int main(int argc, char **argv)
       if (0 == wts(i)) std::clog << "MAIN: row " << i << " of B sums to zero.\n";
     }
   }
+  std::vector<std::string> typeLabels = tokenManager.type_labels();
   bool useL2      ('2' == distance);
   bool useScaling (scaling != 0);
-  KMeansClusters clusters(RP, wts, useL2, useScaling, nClusters, nIterations);
+  KMeansClusters clusters(RP, wts, typeLabels, useL2, useScaling, nClusters, nIterations);
   Eigen::VectorXi estClusterPOS;
   {
     ss << "Compute " << nClusters << " cluster centers.";

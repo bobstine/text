@@ -92,6 +92,17 @@ TokenManager::init_from_stream(std::istream &input, float posThreshold)
   }
 }
 
+TokenManager::StrVector
+TokenManager::type_labels()        const
+{
+  StrVector sv;
+
+  for(auto it=mTypeFreqMap.cbegin(); it != mTypeFreqMap.cend(); ++it)
+    sv.push_back(it->first);
+  return sv;
+}
+
+
 int
 TokenManager::n_ambiguous ()       const
 {

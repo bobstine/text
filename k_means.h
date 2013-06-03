@@ -29,6 +29,7 @@ namespace k_means
 
 class KMeansClusters
 {
+  
  public:
   typedef Eigen::MatrixXf                  Matrix;
   typedef Eigen::VectorXf                  Vector;
@@ -39,36 +40,39 @@ class KMeansClusters
   typedef std::vector<int>::const_iterator Iterator;
 
  private:
-  Matrix             mData;
-  IntVector const&   mWeights;
-  bool               mUseL2;
-  Distance           mDist;
-  bool               mScaleData;
-  int                mNClusters;
-  Matrix             mClusterCenters;
-  std::vector<int>   mClusterTags;
+  Matrix               mData;
+  IntVector const&     mWeights;
+  bool                 mUseL2;
+  Distance             mDist;
+  bool                 mScaleData;
+  int                  mNClusters;
+  Matrix                   mClusterCenters;
+  std::vector<std::string> mClusterLabels;
+  std::vector<int>         mDataClusterTags;       // for the original cases
 
  public:
   
-  KMeansClusters (Matrix const& data, IntVector const& wts, bool l2, bool scaleData, int nClusters, int maxIterations = 10)
+  KMeansClusters (Matrix const& data, IntVector const& wts, std::vector<std::string> const& caseLabels, bool l2, bool scaleData, int nClusters, int maxIterations = 10)
     : mData(data), mWeights(wts),
       mUseL2(l2), mDist(l2 ? k_means::l2_distance : k_means::cosine_distance ), mScaleData(scaleData),
-      mNClusters(nClusters), mClusterCenters(Matrix::Zero(nClusters,data.cols())),
-      mClusterTags(data.rows())
-    { prepare_data(&mData); find_clusters(maxIterations); }
+      mNClusters(nClusters), mClusterCenters(Matrix::Zero(nClusters,data.cols())), mClusterLabels(nClusters),
+      mDataClusterTags(data.rows())
+	{ prepare_data(&mData); find_clusters(maxIterations); label_clusters(caseLabels); }
 
   Map              cluster_map  ()                                       const;  // map of vectors for indices in each cluster
   
-  Iterator         cluster_tags_begin ()                                 const { return mClusterTags.cbegin(); }
-  Iterator         cluster_tags_end ()                                   const { return mClusterTags.cend(); }
+  Iterator         cluster_tags_begin ()                                 const { return mDataClusterTags.cbegin(); }
+  Iterator         cluster_tags_end ()                                   const { return mDataClusterTags.cend(); }
 
+  
   void             print_to_stream (std::ostream& os)                    const;
 
   std::vector<int> assign_to_clusters (Matrix *data)                     const;  // note modifies argument
   
  private:
-  void   find_clusters(int maxIterations);
   void   prepare_data              (Matrix *data)                        const;  // note in place argument
+  void   find_clusters(int maxIterations);
+  void   label_clusters            (std::vector<std::string> const& labels);
   int    closest_cluster           (RowVector const& r, Matrix const& m) const;
   double relative_squared_distance (Matrix const& a, Matrix const& b)    const;
 };

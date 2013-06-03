@@ -64,14 +64,14 @@ KMeansClusters::find_clusters(int maxIterations)
   while ((0.001 < relative_squared_distance(*pNew,*pOld)) && (++itCount < maxIterations))
   { // assign cases to clusters
     for(int i=0; i<mData.rows(); ++i)
-      mClusterTags[i] = closest_cluster(mData.row(i), *pNew);
+      mDataClusterTags[i] = closest_cluster(mData.row(i), *pNew);
     std::swap(pNew,pOld);
     // calculate new centers of clusters
     *pNew = Matrix::Zero(mNClusters, mData.cols());
     for(int i=0; i<mNClusters; ++i) counts[i]=0;
     for(int i=0; i<mData.rows(); ++i)
-    { (*pNew).row(mClusterTags[i]) += mData.row(i) * mWeights(i);
-      counts[mClusterTags[i]] += mWeights(i);
+    { (*pNew).row(mDataClusterTags[i]) += mData.row(i) * mWeights(i);
+      counts[mDataClusterTags[i]] += mWeights(i);
     }
     for(int i=0; i<mNClusters; ++i)
     { pNew->row(i).array() /= counts[i];
@@ -85,7 +85,7 @@ KMeansClusters::find_clusters(int maxIterations)
     // std::clog << "Centers at step " << itCount << ":\n" << *pNew << std::endl;
   }
   for(int i=0; i<mData.rows(); ++i)
-    mClusterTags[i] = closest_cluster(mData.row(i), *pNew);
+    mDataClusterTags[i] = closest_cluster(mData.row(i), *pNew);
   mClusterCenters = *pNew;
 }
 
@@ -94,11 +94,31 @@ KMeansClusters::Map
 KMeansClusters::cluster_map() const
 {
   KMeansClusters::Map m;
-  for(int i=0; i<(int)mClusterTags.size(); ++i)
-    m[mClusterTags[i]].push_back(i);
+  for(int i=0; i<(int)mDataClusterTags.size(); ++i)
+    m[mDataClusterTags[i]].push_back(i);
   return m;
 }
 
+void
+KMeansClusters::label_clusters (std::vector<std::string> const& labels)
+{
+  KMeansClusters::Map m;
+  for(int c=0; c<mNClusters; ++c)
+  { std::vector<int> const& casesInCluster = m[c];
+    std::map<std::string,int> counts;
+    for (int i=0; i<(int)casesInCluster.size(); ++i)
+      ++counts[labels[casesInCluster[i]]];
+    int max=0;
+    std::string maxLabel = "";
+    for (auto it=counts.cbegin(); it!=counts.cend(); ++it)
+      if (it->second > max)
+      { max = it->second;
+	maxLabel = it->first;
+      }
+    mClusterLabels[c]=maxLabel;
+  }
+}
+  
 
 double
 KMeansClusters::relative_squared_distance (Matrix const& newCenters, Matrix const& oldCenters) const

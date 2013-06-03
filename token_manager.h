@@ -30,6 +30,7 @@ public:
 
 class TokenManager
 {
+  typedef  std::vector<string>                                 StrVector;
   typedef  std::map<string, std::map<string,int>>              POSMap;
   typedef  std::map<std::pair<int,int>,int>                    BigramMap;
   typedef  std::list<std::pair<string,string>>::const_iterator Iter;
@@ -71,6 +72,7 @@ class TokenManager
   bool        known_type(std::string type)        const { return (mTypeFreqMap.find(type) != mTypeFreqMap.end()); }  
   int         n_POS()                             const { return (int) mPOSMap.size(); }
 
+  StrVector   type_labels()                       const;
   MapIterator POS_begin()                         const { return MapIterator(mPOSMap.cbegin()); }
   MapIterator POS_end()                           const { return MapIterator(mPOSMap.cend()); }
   Iter        token_list_begin()                  const { return mTokens.cbegin(); }
