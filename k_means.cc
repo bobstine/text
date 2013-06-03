@@ -64,14 +64,14 @@ KMeansClusters::find_clusters(int maxIterations)
   while ((0.001 < relative_squared_distance(*pNew,*pOld)) && (++itCount < maxIterations))
   { // assign cases to clusters
     for(int i=0; i<mData.rows(); ++i)
-      mDataClusterTags[i] = closest_cluster(mData.row(i), *pNew);
+      mDataClusterIndex[i] = closest_cluster(mData.row(i), *pNew);
     std::swap(pNew,pOld);
     // calculate new centers of clusters
     *pNew = Matrix::Zero(mNClusters, mData.cols());
     for(int i=0; i<mNClusters; ++i) counts[i]=0;
     for(int i=0; i<mData.rows(); ++i)
-    { (*pNew).row(mDataClusterTags[i]) += mData.row(i) * mWeights(i);
-      counts[mDataClusterTags[i]] += mWeights(i);
+    { (*pNew).row(mDataClusterIndex[i]) += mData.row(i) * mWeights(i);
+      counts[mDataClusterIndex[i]] += mWeights(i);
     }
     for(int i=0; i<mNClusters; ++i)
     { pNew->row(i).array() /= counts[i];
@@ -85,7 +85,7 @@ KMeansClusters::find_clusters(int maxIterations)
     // std::clog << "Centers at step " << itCount << ":\n" << *pNew << std::endl;
   }
   for(int i=0; i<mData.rows(); ++i)
-    mDataClusterTags[i] = closest_cluster(mData.row(i), *pNew);
+    mDataClusterIndex[i] = closest_cluster(mData.row(i), *pNew);
   mClusterCenters = *pNew;
 }
 
@@ -94,15 +94,15 @@ KMeansClusters::Map
 KMeansClusters::cluster_map() const
 {
   KMeansClusters::Map m;
-  for(int i=0; i<(int)mDataClusterTags.size(); ++i)
-    m[mDataClusterTags[i]].push_back(i);
+  for(int i=0; i<(int)mDataClusterIndex.size(); ++i)
+    m[mDataClusterIndex[i]].push_back(i);
   return m;
 }
 
 void
 KMeansClusters::label_clusters (std::vector<std::string> const& labels)
 {
-  KMeansClusters::Map m;
+  KMeansClusters::Map m = cluster_map();
   for(int c=0; c<mNClusters; ++c)
   { std::vector<int> const& casesInCluster = m[c];
     std::map<std::string,int> counts;

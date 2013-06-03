@@ -136,11 +136,20 @@ int main(int argc, char **argv)
     ss << "Compute " << nClusters << " cluster centers.";
     print_time(ss.str(), startTime, clock());
     ss.str("");
-    CrossTab table = build_cross_tab (clusters.cluster_tags_begin(), nClusters, tokenManager);
+    CrossTab table = build_cross_tab (clusters.cluster_index_begin(), nClusters, tokenManager);
     estClusterPOS = table.most_common_col_in_each_row();
     table.print_accuracy_to_stream(std::clog);
     table.print_accuracy_to_stream(std::cout);
     table.print_to_stream(std::cout);
+  }
+  // compare with estimated cluster tags   HERE
+  { 
+    KMeansClusters::ISIterator it = clusters.cluster_tag_begin();
+    std::clog << "First cluster tag is " << *it << std::endl;
+    for(int i=0; i<50; ++i)
+    { std::clog << "  iterator " << *it << " index from vec " << estClusterPOS[i] << std::endl;
+      ++it;
+    }
   }
 
   // optional validation which has same column indices as B
@@ -208,7 +217,7 @@ int main(int argc, char **argv)
     std::string fileName ("/Users/bob/Desktop/tags.txt");
     std::ofstream file (fileName.c_str(), mode);
     file << "Token\tPOS\tCluster" << std::endl;
-    KMeansClusters::Iterator clusterIndex = clusters.cluster_tags_begin();
+    KMeansClusters::Iterator clusterIndex = clusters.cluster_index_begin();
     for(auto it = tokenManager.token_list_begin(); it != tokenManager.token_list_end(); ++it)
       file << it->first << "\t" << it->second << "\t" << *(clusterIndex+tokenManager[it->first]) << std::endl;
   }

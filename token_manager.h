@@ -30,21 +30,27 @@ public:
 
 class TokenManager
 {
-  typedef  std::vector<string>                                 StrVector;
-  typedef  std::map<string, std::map<string,int>>              POSMap;
-  typedef  std::map<std::pair<int,int>,int>                    BigramMap;
-  typedef  std::list<std::pair<string,string>>::const_iterator Iter;
-  typedef  std::vector<std::pair<string,int>>                  CountVector;
-  
-  std::list<std::pair<string,string>>    mTokens;          // source data
-  std::map<string, int>                  mTypeFreqMap;
+  // would be a nice style
 
-  std::vector<string>                    mIntToStrVec;     // sorted order of the types, inverse of str to int map
-  std::map<string,int>                   mStrToIntMap;     // assigns integer to a type based on freq
-  std::map<string,int>                   mPOSMap;          // count of POS in input tokens
+  typedef  int           POSIndex;
+  typedef  string        POSTag;
+  typedef  string        TypeTag;
+  
+  typedef  std::vector<string>                                  StrVector;
+  typedef  std::map<TypeTag, std::map<POSTag,int>>              POSMap;
+  typedef  std::map<std::pair<int,int>,int>                     BigramMap;
+  typedef  std::list<std::pair<TypeTag,POSTag>>::const_iterator Iter;
+  typedef  std::vector<std::pair<string,int>>                   CountVector;
+  
+  std::list<std::pair<TypeTag,POSTag>>   mTokens;          // source data
+  std::map<TypeTag, int>                 mTypeFreqMap;
+
+  std::vector<TypeTag>                   mIntToStrVec;     // sorted order of the types, inverse of str to int map
+  std::map<TypeTag,int>                  mStrToIntMap;     // assigns integer to a type based on freq
+  std::map<POSTag,int>                   mPOSMap;          // count of POS in input tokens
   POSMap                                 mTypePOSMap;      // identifies POS's for a token
-  std::map<string,int>                   mPOSIndex;        // convert POS into an index
-  std::vector<string>                    mIntToPOSVec;     // pos labels for integers
+  std::map<POSTag,int>                   mPOSIndex;        // convert POS into an index
+  std::vector<POSTag>                    mIntToPOSVec;     // pos labels for integers
   
  public:
   
@@ -79,11 +85,11 @@ class TokenManager
   Iter        token_list_end()                    const { return mTokens.cend(); }
   
   int         operator[](string s)                const;                              // returns -1 if not found
-  string      operator[](int i)                   const { return mIntToStrVec[i]; }
+  TypeTag     operator[](int i)                   const { return mIntToStrVec[i]; }
   int         index_of_type (string type)         const { return operator[](type); }  // returns -1 if not found
-  string      type_of_index (int i)               const { return mIntToStrVec[i]; }
+  TypeTag     type_of_index (int i)               const { return mIntToStrVec[i]; }
   int         index_of_POS (string pos)           const;                              // returns -1 if not found
-  string      POS_of_index (int i)                const { return mIntToPOSVec[i]; }
+  POSTag      POS_of_index (int i)                const { return mIntToPOSVec[i]; }
   
   int         type_freq (string type)             const { return mTypeFreqMap.at(type); }
   int         type_freq (int i)                   const { return mTypeFreqMap.at(mIntToStrVec[i]); }

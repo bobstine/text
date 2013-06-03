@@ -27,6 +27,25 @@ namespace k_means
   }
 }
 
+using std::string;
+
+template <class I, class C>
+class IndexedStringIterator: public std::iterator<std::forward_iterator_tag, string>
+{
+  I         mCollectionIt;
+  C const&  mStrings;
+  
+public:
+  IndexedStringIterator  (I it, C const& labels)  : mCollectionIt (it), mStrings(labels) { for(auto it=labels.cbegin(); it!=labels.cend();++it) std::clog << " Labels " << *it << std::endl; }
+  
+  bool          operator==(IndexedStringIterator const& it) const  { return (mCollectionIt == it.mCollectionIt) && (mStrings == it.mStrings); }
+  bool          operator!=(IndexedStringIterator const& it) const  { return (mCollectionIt != it.mCollectionIt) || (mStrings != it.mStrings); }
+  
+  IndexedStringIterator&  operator++()                             { ++mCollectionIt; return *this; }
+  string                  operator*()                       const  { return mStrings[*mCollectionIt]; }
+};
+
+
 class KMeansClusters
 {
   
@@ -38,17 +57,18 @@ class KMeansClusters
   typedef std::map<int, std::vector<int>>  Map;
   typedef k_means::Distance                Distance;
   typedef std::vector<int>::const_iterator Iterator;
-
+  typedef IndexedStringIterator<std::vector<int>::const_iterator, std::vector<string>> ISIterator;
+  
  private:
-  Matrix               mData;
-  IntVector const&     mWeights;
-  bool                 mUseL2;
-  Distance             mDist;
-  bool                 mScaleData;
-  int                  mNClusters;
+  Matrix                   mData;
+  IntVector const&         mWeights;
+  bool                     mUseL2;
+  Distance                 mDist;
+  bool                     mScaleData;
+  int                      mNClusters;
   Matrix                   mClusterCenters;
   std::vector<std::string> mClusterLabels;
-  std::vector<int>         mDataClusterTags;       // for the original cases
+  std::vector<int>         mDataClusterIndex;       // for the original cases
 
  public:
   
@@ -56,14 +76,16 @@ class KMeansClusters
     : mData(data), mWeights(wts),
       mUseL2(l2), mDist(l2 ? k_means::l2_distance : k_means::cosine_distance ), mScaleData(scaleData),
       mNClusters(nClusters), mClusterCenters(Matrix::Zero(nClusters,data.cols())), mClusterLabels(nClusters),
-      mDataClusterTags(data.rows())
+      mDataClusterIndex(data.rows())
 	{ prepare_data(&mData); find_clusters(maxIterations); label_clusters(caseLabels); }
 
   Map              cluster_map  ()                                       const;  // map of vectors for indices in each cluster
   
-  Iterator         cluster_tags_begin ()                                 const { return mDataClusterTags.cbegin(); }
-  Iterator         cluster_tags_end ()                                   const { return mDataClusterTags.cend(); }
+  Iterator         cluster_index_begin ()                                const { return mDataClusterIndex.cbegin(); }
+  Iterator         cluster_index_end ()                                  const { return mDataClusterIndex.cend(); }
 
+  ISIterator       cluster_tag_begin()                                   const { return ISIterator(mDataClusterIndex.cbegin(), mClusterLabels); }
+  ISIterator       cluster_tag_end()                                     const { return ISIterator(mDataClusterIndex.cend(), mClusterLabels); }
   
   void             print_to_stream (std::ostream& os)                    const;
 
@@ -71,7 +93,7 @@ class KMeansClusters
   
  private:
   void   prepare_data              (Matrix *data)                        const;  // note in place argument
-  void   find_clusters(int maxIterations);
+  void   find_clusters             (int maxIterations);
   void   label_clusters            (std::vector<std::string> const& labels);
   int    closest_cluster           (RowVector const& r, Matrix const& m) const;
   double relative_squared_distance (Matrix const& a, Matrix const& b)    const;
