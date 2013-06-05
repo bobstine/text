@@ -103,6 +103,17 @@ TokenManager::type_labels()        const
 }
 
 
+TokenManager::StrVector
+TokenManager::type_POS_labels()        const
+{
+  StrVector sv;
+
+  for(auto it=mTypeFreqMap.cbegin(); it != mTypeFreqMap.cend(); ++it)
+    sv.push_back(POS_of_type(it->first));
+  return sv;
+}
+
+
 int
 TokenManager::n_ambiguous ()       const
 {
@@ -119,7 +130,7 @@ TokenManager::n_ambiguous ()       const
 
 
 string
-TokenManager::type_POS (string const& s)      const
+TokenManager::POS_of_type (string const& s)      const
 {
   const std::map<string,int> posMap = mTypePOSMap.at(s);
   if(posMap.empty())

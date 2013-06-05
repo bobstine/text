@@ -48,7 +48,7 @@ class TokenManager
   std::vector<TypeTag>                   mIntToStrVec;     // sorted order of the types, inverse of str to int map
   std::map<TypeTag,int>                  mStrToIntMap;     // assigns integer to a type based on freq
   std::map<POSTag,int>                   mPOSMap;          // count of POS in input tokens
-  POSMap                                 mTypePOSMap;      // identifies POS's for a token
+  POSMap                                 mTypePOSMap;      // identifies POS's for a type
   std::map<POSTag,int>                   mPOSIndex;        // convert POS into an index
   std::vector<POSTag>                    mIntToPOSVec;     // pos labels for integers
   
@@ -78,7 +78,9 @@ class TokenManager
   bool        known_type(std::string type)        const { return (mTypeFreqMap.find(type) != mTypeFreqMap.end()); }  
   int         n_POS()                             const { return (int) mPOSMap.size(); }
 
-  StrVector   type_labels()                       const;
+  StrVector   type_labels()                       const;   // string label of each type
+  StrVector   type_POS_labels()                   const;   // pos for each type
+  
   MapIterator POS_begin()                         const { return MapIterator(mPOSMap.cbegin()); }
   MapIterator POS_end()                           const { return MapIterator(mPOSMap.cend()); }
   Iter        token_list_begin()                  const { return mTokens.cbegin(); }
@@ -96,7 +98,7 @@ class TokenManager
   int         POS_freq (string pos)               const { return mPOSMap.at(pos); }
   int         POS_freq (int i)                    const { return mPOSMap.at(mIntToPOSVec[i]); }
   int         n_ambiguous ()                      const;                          // number with ambiguous category
-  string      type_POS (string const& type)       const;                          // most common POS for this type
+  string      POS_of_type (string const& type)    const;                          // most common POS for this type
   CountVector type_POS_tags (string const& type, bool sort=false) const;
 
   

@@ -32,17 +32,17 @@ using std::string;
 template <class I, class C>
 class IndexedStringIterator: public std::iterator<std::forward_iterator_tag, string>
 {
-  I         mCollectionIt;
+  I         mIndexIt;
   C const&  mStrings;
   
 public:
-  IndexedStringIterator  (I it, C const& labels)  : mCollectionIt (it), mStrings(labels) { for(auto it=labels.cbegin(); it!=labels.cend();++it) std::clog << " Labels " << *it << std::endl; }
+  IndexedStringIterator  (I it, C const& labels)  : mIndexIt (it), mStrings(labels) { }
   
-  bool          operator==(IndexedStringIterator const& it) const  { return (mCollectionIt == it.mCollectionIt) && (mStrings == it.mStrings); }
-  bool          operator!=(IndexedStringIterator const& it) const  { return (mCollectionIt != it.mCollectionIt) || (mStrings != it.mStrings); }
+  bool          operator==(IndexedStringIterator const& it) const  { return (mIndexIt == it.mIndexIt) && (mStrings == it.mStrings); }
+  bool          operator!=(IndexedStringIterator const& it) const  { return (mIndexIt != it.mIndexIt) || (mStrings != it.mStrings); }
   
-  IndexedStringIterator&  operator++()                             { ++mCollectionIt; return *this; }
-  string                  operator*()                       const  { return mStrings[*mCollectionIt]; }
+  IndexedStringIterator&  operator++()                             { ++mIndexIt; return *this; }
+  string                  operator*()                       const  { return mStrings[*mIndexIt]; }
 };
 
 
@@ -68,7 +68,7 @@ class KMeansClusters
   int                      mNClusters;
   Matrix                   mClusterCenters;
   std::vector<std::string> mClusterLabels;
-  std::vector<int>         mDataClusterIndex;       // for the original cases
+  std::vector<int>         mDataClusterIndex;       // for the original cases which are types
 
  public:
   
@@ -80,13 +80,14 @@ class KMeansClusters
 	{ prepare_data(&mData); find_clusters(maxIterations); label_clusters(caseLabels); }
 
   Map              cluster_map  ()                                       const;  // map of vectors for indices in each cluster
-  
+
+  // these iterate over input data (types in text application)
   Iterator         cluster_index_begin ()                                const { return mDataClusterIndex.cbegin(); }
   Iterator         cluster_index_end ()                                  const { return mDataClusterIndex.cend(); }
-
   ISIterator       cluster_tag_begin()                                   const { return ISIterator(mDataClusterIndex.cbegin(), mClusterLabels); }
   ISIterator       cluster_tag_end()                                     const { return ISIterator(mDataClusterIndex.cend(), mClusterLabels); }
   
+
   void             print_to_stream (std::ostream& os)                    const;
 
   std::vector<int> assign_to_clusters (Matrix *data)                     const;  // note modifies argument

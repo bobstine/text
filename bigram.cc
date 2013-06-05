@@ -127,10 +127,10 @@ int main(int argc, char **argv)
       if (0 == wts(i)) std::clog << "MAIN: row " << i << " of B sums to zero.\n";
     }
   }
-  std::vector<std::string> typeLabels = tokenManager.type_labels();
+  std::vector<std::string> posLabels = tokenManager.type_POS_labels();
   bool useL2      ('2' == distance);
   bool useScaling (scaling != 0);
-  KMeansClusters clusters(RP, wts, typeLabels, useL2, useScaling, nClusters, nIterations);
+  KMeansClusters clusters(RP, wts, posLabels, useL2, useScaling, nClusters, nIterations);
   Eigen::VectorXi estClusterPOS;
   {
     ss << "Compute " << nClusters << " cluster centers.";
@@ -144,12 +144,21 @@ int main(int argc, char **argv)
   }
   // compare with estimated cluster tags   HERE
   { 
-    KMeansClusters::ISIterator it = clusters.cluster_tag_begin();
-    std::clog << "First cluster tag is " << *it << std::endl;
-    for(int i=0; i<50; ++i)
-    { std::clog << "  iterator " << *it << " index from vec " << estClusterPOS[i] << std::endl;
-      ++it;
+    std::vector<string> POS_of_types;
+    for(auto it=clusters.cluster_tag_begin(); it!=clusters.cluster_tag_end(); ++it) POS_of_types.push_back(*it);
+    int nRight=0; int k=0;
+    for (auto it=tokenManager.token_list_begin(); it!=tokenManager.token_list_end(); ++it)
+    { std::string actualPOS = it->second;
+      int index = tokenManager.index_of_type(it->first);
+      std::string estPOS    = POS_of_types[index];
+      if(actualPOS == estPOS) ++nRight;
+      ++k;
+      if (k < 500)
+      { std::clog << "    Tokens are (" << it->first << "," << it->second
+		  << ") with type index= " << index <<  " and assigned POS = " << estPOS << std::endl;
+      }
     }
+    std::clog << "MAIN: Count of correct POS tags is " << nRight << std::endl;
   }
 
   // optional validation which has same column indices as B
