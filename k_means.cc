@@ -99,9 +99,20 @@ KMeansClusters::cluster_map() const
   return m;
 }
 
+
 void
 KMeansClusters::label_clusters (std::vector<std::string> const& labels)
 {
+  // lookup table for case labels
+  std::map<std::string, int> labelMap;
+  for(int i=0; i<(int)labels.size(); ++i)
+  { if (0 == labelMap.count(labels[i]))
+    { labelMap[labels[i]]=(int)mUniqueLabels.size();
+      mUniqueLabels.push_back(labels[i]);
+    }
+    mDataLabelIndex[i] = labelMap[labels[i]];
+  }
+  // identify indices of cases in various clusters
   KMeansClusters::Map m = cluster_map();
   for(int c=0; c<mNClusters; ++c)
   { std::vector<int> const& casesInCluster = m[c];
@@ -131,13 +142,22 @@ KMeansClusters::relative_squared_distance (Matrix const& newCenters, Matrix cons
   
 
 void
-KMeansClusters::print_to_stream (std::ostream& os) const
+KMeansClusters::print_to_stream (std::ostream& os, bool showTag) const 
 {
+  os << "K-Means cluster analysis, with " << mNClusters << " clusters and " << mUniqueLabels.size() << " group labels:\n     ";
+  for(int i=0; i<(int)mUniqueLabels.size(); ++i)
+    os << mUniqueLabels[i] << " ";
+  os << std::endl;
   Map m (cluster_map());
   for(int i=0; i<mNClusters; ++i)
-  { os << "Cluster " << i << ": ";
+  { os << "Cluster " << i << " <" << mClusterLabels[i] << ">: ";
     for(int j=0; j<(int)m[i].size(); ++j)
-      os << " " << m[i][j];
+      if (showTag)
+      { int caseIndex = m[i][j];
+	os << " (" << caseIndex << " " << mUniqueLabels[mDataLabelIndex[caseIndex]] << ") ";
+      }
+      else
+	os << " " << m[i][j];
     os << std::endl;
   }
 }

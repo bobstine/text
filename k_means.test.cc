@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <time.h>
 
 const int nRows = 30;
@@ -10,15 +11,28 @@ const int nCols = 12;
 
 using std::cout;
 using std::endl;
+using std::string;
 
 int main (void)
 {
-  std::vector<int> tags;
   // data vary from [-10,10] after randomize seed
   srand(time(NULL));
   Eigen::MatrixXf baseData = 10.0 * Eigen::MatrixXf::Random(nRows,nCols+1);
+
+  // label the cases
+  std::vector<string> caseLabels (nRows);
+  { std::vector<string> labels(4);
+    labels[0] = "AAA";
+    labels[1] = "BBB";
+    labels[2] = "CCC";
+    labels[3] = "DDD";
+    for (int i=0; i<nRows; ++i)
+      caseLabels[i] = labels[i%4];
+  }
   
-  int nClusters = 4;
+  const int nClusters = 4;
+  const int maxIter = 10;
+  
   if (false)   // l2 cluster
   {
     Eigen::MatrixXf data = baseData;
@@ -28,9 +42,14 @@ int main (void)
     for(int i=0; i<nRows; ++i)
       data.row(i).array() += (i % nClusters);
     Eigen::VectorXi wts = Eigen::VectorXi::Ones(nRows);
-    KMeansClusters clusters(data.leftCols(nCols),wts,useL2,scale,nClusters,11);
+    KMeansClusters clusters(data.leftCols(nCols),wts,caseLabels,useL2,scale,nClusters,maxIter);
     clusters.print_to_stream(std::cout);
-    tags = clusters.cluster_tags();
+    std::vector<string> labels;
+    int ct=0;
+    for(auto it = clusters.item_cluster_tag_begin(); it!= clusters.item_cluster_tag_end(); ++it)
+    { labels.push_back(*it); 
+      std::cout << "TEST: label for item " << ct++ << " is " << *it << endl;
+    }
   }
 
   if (true)        // cosine centers
@@ -47,14 +66,13 @@ int main (void)
     }
     //    std::cout << data << std::endl;
     Eigen::VectorXi wts = Eigen::VectorXi::Ones(nRows);
-    KMeansClusters clusters(data.leftCols(nCols),wts, useL2, scale, nClusters,11);
-    clusters.print_to_stream(std::cout);
-    tags = clusters.cluster_tags();
-  }
-  
-  if (false) // write to file
-  { for (int i=0; i<nRows; ++i)
-      baseData(i,nCols) = tags[i];
-    write_matrix_to_file("/Users/bob/Desktop/cluster_test.txt", baseData);
+    KMeansClusters clusters(data.leftCols(nCols), wts, caseLabels, useL2, scale, nClusters, maxIter);
+    clusters.print_to_stream(std::cout, true);
+    std::vector<string> labels;
+    int ct=0;
+    for(auto it = clusters.item_cluster_tag_begin(); it!= clusters.item_cluster_tag_end(); ++it)
+    { labels.push_back(*it); 
+      std::cout << "TEST: label for item " << ct++ << " is " << *it << endl;
+    }
   }
 }

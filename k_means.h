@@ -58,22 +58,24 @@ class KMeansClusters
   typedef k_means::Distance                Distance;
   typedef std::vector<int>::const_iterator Iterator;
   typedef IndexedStringIterator<std::vector<int>::const_iterator, std::vector<string>> ISIterator;
-  
+
  private:
   Matrix                   mData;
   IntVector const&         mWeights;
+  std::vector<std::string> mUniqueLabels;               
+  std::vector<int>         mDataLabelIndex;         // index case index to label
   bool                     mUseL2;
   Distance                 mDist;
   bool                     mScaleData;
   int                      mNClusters;
   Matrix                   mClusterCenters;
-  std::vector<std::string> mClusterLabels;
+  std::vector<std::string> mClusterLabels;          // most common label in cluster 
   std::vector<int>         mDataClusterIndex;       // for the original cases which are types
 
  public:
   
   KMeansClusters (Matrix const& data, IntVector const& wts, std::vector<std::string> const& caseLabels, bool l2, bool scaleData, int nClusters, int maxIterations = 10)
-    : mData(data), mWeights(wts),
+    : mData(data), mWeights(wts), mUniqueLabels(), mDataLabelIndex(mData.rows()),
       mUseL2(l2), mDist(l2 ? k_means::l2_distance : k_means::cosine_distance ), mScaleData(scaleData),
       mNClusters(nClusters), mClusterCenters(Matrix::Zero(nClusters,data.cols())), mClusterLabels(nClusters),
       mDataClusterIndex(data.rows())
@@ -82,13 +84,12 @@ class KMeansClusters
   Map              cluster_map  ()                                       const;  // map of vectors for indices in each cluster
 
   // these iterate over input data (types in text application)
-  Iterator         cluster_index_begin ()                                const { return mDataClusterIndex.cbegin(); }
-  Iterator         cluster_index_end ()                                  const { return mDataClusterIndex.cend(); }
-  ISIterator       cluster_tag_begin()                                   const { return ISIterator(mDataClusterIndex.cbegin(), mClusterLabels); }
-  ISIterator       cluster_tag_end()                                     const { return ISIterator(mDataClusterIndex.cend(), mClusterLabels); }
-  
+  Iterator         item_cluster_index_begin ()                           const { return mDataClusterIndex.cbegin(); }
+  Iterator         item_cluster_index_end ()                             const { return mDataClusterIndex.cend(); }
+  ISIterator       item_cluster_tag_begin()                              const { return ISIterator(mDataClusterIndex.cbegin(), mClusterLabels); }
+  ISIterator       item_cluster_tag_end()                                const { return ISIterator(mDataClusterIndex.cend(), mClusterLabels); }
 
-  void             print_to_stream (std::ostream& os)                    const;
+  void             print_to_stream (std::ostream& os, bool showTag=false)const;
 
   std::vector<int> assign_to_clusters (Matrix *data)                     const;  // note modifies argument
   
