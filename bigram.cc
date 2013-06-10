@@ -144,8 +144,9 @@ int main(int argc, char **argv)
   }
   // compare with estimated cluster tags   HERE
   { 
-    std::vector<string> POS_of_types;
-    for(auto it=clusters.cluster_tag_begin(); it!=clusters.cluster_tag_end(); ++it) POS_of_types.push_back(*it);
+    std::vector<string> POS_of_types (tokenManager.n_types);
+    clusters.fill_with_fitted_cluster_tags(POS_of_types.begin(), POS_of_types.end());
+    // HERE
     int nRight=0; int k=0;
     for (auto it=tokenManager.token_list_begin(); it!=tokenManager.token_list_end(); ++it)
     { std::string actualPOS = it->second;

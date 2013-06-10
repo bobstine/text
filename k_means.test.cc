@@ -26,8 +26,9 @@ int main (void)
     labels[1] = "BBB";
     labels[2] = "CCC";
     labels[3] = "DDD";
+    srand( time(NULL) );
     for (int i=0; i<nRows; ++i)
-      caseLabels[i] = labels[i%4];
+      caseLabels[i] = labels[ rand() % 4 ];  // rand() % 4   or i % 4
   }
   
   const int nClusters = 4;
@@ -67,12 +68,16 @@ int main (void)
     //    std::cout << data << std::endl;
     Eigen::VectorXi wts = Eigen::VectorXi::Ones(nRows);
     KMeansClusters clusters(data.leftCols(nCols), wts, caseLabels, useL2, scale, nClusters, maxIter);
+    std::cout << "TEST: Cluster label purity is " << clusters.purity() << std::endl;
     clusters.print_to_stream(std::cout, true);
-    std::vector<string> labels;
-    int ct=0;
+    // check two ways to get group labels
+    std::vector<string> labelA (nRows);
+    clusters.fill_with_fitted_cluster_tags(labelA.begin(), labelA.end());
+    std::vector<string> labelB;
     for(auto it = clusters.item_cluster_tag_begin(); it!= clusters.item_cluster_tag_end(); ++it)
-    { labels.push_back(*it); 
-      std::cout << "TEST: label for item " << ct++ << " is " << *it << endl;
-    }
+      labelB.push_back(*it);
+    std::cout << "TEST:   Showing data in first column, then two copies of fitted labels\nData   A   B\n";
+    for (int i=0; i<nRows; ++i)
+      std::cout << caseLabels[i] << "   " << labelA[i] << " " << labelB[i] << std::endl;  // labelA should match labelB
   }
 }

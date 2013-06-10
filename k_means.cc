@@ -9,10 +9,10 @@ std::vector<int>
 KMeansClusters::assign_to_clusters (Matrix *data) const
 {
   prepare_data(data);
-  std::vector<int> tags;
+  std::vector<int> intTags;
   for (int i=0; i<data->rows(); ++i)
-    tags.push_back(closest_cluster(data->row(i), mClusterCenters));
-  return tags;
+    intTags.push_back(closest_cluster(data->row(i), mClusterCenters));
+  return intTags;
 }
 
 
@@ -34,6 +34,7 @@ KMeansClusters::prepare_data(Matrix *data) const
     }
   }
 }
+
 
 int
 KMeansClusters::closest_cluster (RowVector const& r, Matrix const& m) const
@@ -140,11 +141,31 @@ KMeansClusters::relative_squared_distance (Matrix const& newCenters, Matrix cons
   return dist;
 }
   
+float
+KMeansClusters::purity() const
+{
+  int nRight=0;
+  for(int i=0; i<mData.rows(); ++i)
+    if(mClusterLabels[mDataClusterIndex[i]] == mUniqueLabels[mDataLabelIndex[i]])
+      ++nRight;
+  return ((float)nRight)/mData.rows();
+}
+
+void
+KMeansClusters::fill_with_fitted_cluster_tags(KMeansClusters::OutIter b, KMeansClusters::OutIter e)   const
+{
+  for(int i=0; i<mData.rows(); ++i)
+  { assert (b != e);
+    *b = mClusterLabels[mDataClusterIndex[i]];
+    ++b;
+  }
+}
+
 
 void
 KMeansClusters::print_to_stream (std::ostream& os, bool showTag) const 
 {
-  os << "K-Means cluster analysis, with " << mNClusters << " clusters and " << mUniqueLabels.size() << " group labels:\n     ";
+  os << "K-Means cluster analysis, with " << mNClusters << " clusters and these " << mUniqueLabels.size() << " observed group labels:\n   -->  ";
   for(int i=0; i<(int)mUniqueLabels.size(); ++i)
     os << mUniqueLabels[i] << " ";
   os << std::endl;
