@@ -67,10 +67,13 @@ base_options = --threshold 0.0004 --scaling 1 --weighting 1 --iterations 20 --pr
 
 #	./bigram --bidirectional --projections 200 --distance 2 --clusters 1000 --validation tagged/validation.tagged $(base_options)  \
 
-bigram_test: bigram tagged/validation.tagged
-	head -n 600000 tagged/ptb45.tagged | \
-	./bigram                 --projections 200 --distance 2 --clusters 50 --validation tagged/validation.tagged $(base_options)  \
-	> results/test/p100_d2_c50
+#bigram_test: bigram tagged/validation.tagged
+#	head -n 600000 tagged/ptb45.tagged | \
+#	./bigram                 --projections 200 --distance 2 --clusters 15 --validation tagged/validation.tagged $(base_options)  \
+#	> results/test/p100_d2_c50
+
+bigram_test: bigram test_in
+	./bigram   --projections 200 --distance 2 --clusters 15 > test_out
 
 # ----------------------------------------------------------------------------------------
 #  parallel make with fixed number of projections, varying num clusters, both cosine/L2

@@ -6,8 +6,8 @@
 #include <sstream>
 #include <time.h>
 
-const int nRows = 30;
-const int nCols = 12;
+const int nRows = 100;
+const int nCols =  12;
 
 using std::cout;
 using std::endl;
@@ -74,9 +74,17 @@ int main (void)
     std::vector<string> labelA (nRows);
     clusters.fill_with_fitted_cluster_tags(labelA.begin(), labelA.end());
     std::vector<string> labelB;
-    for(auto it = clusters.item_cluster_tag_begin(); it!= clusters.item_cluster_tag_end(); ++it)
-      labelB.push_back(*it);
-    std::cout << "TEST:   Showing data in first column, then two copies of fitted labels\nData   A   B\n";
+    int matchCount = 0; 
+    {
+      int i=0;
+      for(auto it = clusters.item_cluster_tag_begin(); it!= clusters.item_cluster_tag_end(); ++it)
+      { labelB.push_back(*it);
+	if (labelB[i] == caseLabels[i]) ++matchCount;
+	++i;
+      }
+      std::cout << "TEST:   Showing data in first column, then two copies of fitted labels\nData   A   B   "
+		<< matchCount << " matches\n";
+    }
     for (int i=0; i<nRows; ++i)
       std::cout << caseLabels[i] << "   " << labelA[i] << " " << labelB[i] << std::endl;  // labelA should match labelB
   }

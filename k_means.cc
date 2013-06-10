@@ -1,4 +1,5 @@
 #include "k_means.h"
+#include "order.h"
 
 #include <utility>
 #include <iostream>
@@ -165,20 +166,56 @@ KMeansClusters::fill_with_fitted_cluster_tags(KMeansClusters::OutIter b, KMeansC
 void
 KMeansClusters::print_to_stream (std::ostream& os, bool showTag) const 
 {
-  os << "K-Means cluster analysis, with " << mNClusters << " clusters and these " << mUniqueLabels.size() << " observed group labels:\n   -->  ";
+  os << "K-Means cluster analysis, with " << mNClusters << " clusters of purity " << purity()
+     << " from observing " << mData.rows() << " items with the following "
+     << mUniqueLabels.size() << " unique group labels:\n   -->  ";
   for(int i=0; i<(int)mUniqueLabels.size(); ++i)
     os << mUniqueLabels[i] << " ";
   os << std::endl;
   Map m (cluster_map());
   for(int i=0; i<mNClusters; ++i)
-  { os << "Cluster " << i << " <" << mClusterLabels[i] << ">: ";
-    for(int j=0; j<(int)m[i].size(); ++j)
-      if (showTag)
+  { int clusterSize = m[i].size();
+    os << "Cluster " << i << " <" << mClusterLabels[i] << "," << clusterSize << " items>: ";
+    if (clusterSize < 15)  // show the whole thing
+    { for(int j=0; j<clusterSize; ++j)
       { int caseIndex = m[i][j];
-	os << " (" << caseIndex << " " << mUniqueLabels[mDataLabelIndex[caseIndex]] << ") ";
+	if (showTag)
+	  os << " (" << caseIndex << " " << mUniqueLabels[mDataLabelIndex[caseIndex]] << ")";
+	else
+	  os << " " << caseIndex;
       }
-      else
-	os << " " << m[i][j];
-    os << std::endl;
+      os << std::endl;
+    }
+    else // show summary for cluster
+    { std::clog << "HERE 0" << std::endl;
+      std::vector<int> labelCounts (mUniqueLabels.size());
+      for(int j=0; j<clusterSize; ++j)
+      { int caseIndex = m[i][j];
+	++labelCounts.at(mDataLabelIndex[caseIndex]);
+      }
+      
+      std::clog << "HERE 1 " << std::endl;
+            const bool descending = true;
+	      std::vector<size_t> sortI = sort_indices(labelCounts, descending);
+	      std::clog << "MAIN:  sort indices = " ; 
+	      for (size_t i=0; i<sortI.size(); ++i)
+	      { std::clog << "HERE  SORT[" << i << "]=";
+		std::clog << sortI[i] << "    ";
+	      }
+	      std::clog << std::endl;
+	      /*
+      std::vector<size_t> sortI;
+      for (size_t i=0; i<labelCounts.size(); ++i)
+	sortI.push_back(i);
+	      */
+
+	      for(size_t j=0; j<labelCounts.size(); ++j)
+	      { 	size_t ii = sortI[j];
+			if (labelCounts[ii]>0)
+			  os << " [" << mUniqueLabels.at(ii) << "," << labelCounts.at(ii) << "]";
+	      }
+	      
+      os << std::endl;
+    }
   }
 }

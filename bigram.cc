@@ -75,7 +75,11 @@ int main(int argc, char **argv)
   
   // read tagged tokens and pos from input
   clock_t startTime = clock();
-  TokenManager tokenManager (std::cin, posThreshold);
+
+  std::ifstream test_in ("test_in");
+  TokenManager tokenManager (test_in, posThreshold);
+    
+  //  TokenManager tokenManager (std::cin, posThreshold);
   {
     print_time("Read tokens from cin, sort and assign IDs in TokenManager.", startTime, clock());
     if (nPrint) tokenManager.print_tags(nPrint);
@@ -131,36 +135,37 @@ int main(int argc, char **argv)
   bool useL2      ('2' == distance);
   bool useScaling (scaling != 0);
   KMeansClusters clusters(RP, wts, posLabels, useL2, useScaling, nClusters, nIterations);
+  clusters.print_to_stream(std::clog, true);
   Eigen::VectorXi estClusterPOS;
   {
     ss << "Compute " << nClusters << " cluster centers.";
     print_time(ss.str(), startTime, clock());
     ss.str("");
-    CrossTab table = build_cross_tab (clusters.cluster_index_begin(), nClusters, tokenManager);
+    CrossTab table = build_cross_tab (clusters.item_cluster_index_begin(), nClusters, tokenManager);
     estClusterPOS = table.most_common_col_in_each_row();
     table.print_accuracy_to_stream(std::clog);
     table.print_accuracy_to_stream(std::cout);
     table.print_to_stream(std::cout);
   }
-  // compare with estimated cluster tags   HERE
+  // compare with estimated cluster tags
   { 
-    std::vector<string> POS_of_types (tokenManager.n_types);
-    clusters.fill_with_fitted_cluster_tags(POS_of_types.begin(), POS_of_types.end());
-    // HERE
+    std::vector<string> est_POS_of_types (tokenManager.n_types());
+    clusters.fill_with_fitted_cluster_tags(est_POS_of_types.begin(), est_POS_of_types.end());
     int nRight=0; int k=0;
     for (auto it=tokenManager.token_list_begin(); it!=tokenManager.token_list_end(); ++it)
     { std::string actualPOS = it->second;
       int index = tokenManager.index_of_type(it->first);
-      std::string estPOS    = POS_of_types[index];
+      std::string estPOS    = est_POS_of_types[index];
       if(actualPOS == estPOS) ++nRight;
       ++k;
-      if (k < 500)
+      if (k < 10)
       { std::clog << "    Tokens are (" << it->first << "," << it->second
 		  << ") with type index= " << index <<  " and assigned POS = " << estPOS << std::endl;
       }
     }
     std::clog << "MAIN: Count of correct POS tags is " << nRight << std::endl;
   }
+
 
   // optional validation which has same column indices as B
   if (useValidation)
@@ -227,7 +232,7 @@ int main(int argc, char **argv)
     std::string fileName ("/Users/bob/Desktop/tags.txt");
     std::ofstream file (fileName.c_str(), mode);
     file << "Token\tPOS\tCluster" << std::endl;
-    KMeansClusters::Iterator clusterIndex = clusters.cluster_index_begin();
+    KMeansClusters::Iterator clusterIndex = clusters.item_cluster_index_begin();
     for(auto it = tokenManager.token_list_begin(); it != tokenManager.token_list_end(); ++it)
       file << it->first << "\t" << it->second << "\t" << *(clusterIndex+tokenManager[it->first]) << std::endl;
   }
