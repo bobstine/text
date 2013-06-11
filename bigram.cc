@@ -7,18 +7,28 @@ typedef Eigen::MatrixXf                   Matrix;
 typedef Eigen::SparseMatrix<float,Eigen::RowMajor> SparseMatrix;
 
 
-
-CrossTab
-build_cross_tab (KMeansClusters::Iterator begin, int nClusters, TokenManager const& tm)
+class Converter: public std::unary_function<std::pair<string,string>, string>
 {
-  std::vector<string> labels;
-  std::ostringstream ss;
-  for (int i=1; i<=nClusters; ++i)
-  { ss << "Clus " << i; labels.push_back(ss.str()); ss.str(""); }
-  CrossTab table(labels.cbegin(), labels.cend(), tm.POS_begin(), tm.POS_end());
-  for(auto it=tm.token_list_begin(); it != tm.token_list_end(); ++it)
-    table.increment(*(begin+tm.index_of_type(it->first)), tm.index_of_POS(it->second));
-  return table;
+  std::vector<string> const& mStrings;
+  TokenManager        const& mTM;
+public:
+  Converter(std::vector<string> vs, TokenManager const& tm) : mStrings(vs), mTM(tm) {}
+
+  string operator()(std::pair<string,string> const& p) const { return mStrings[ mTM.index_of_type(p.first) ]; }
+};
+
+
+ConfusionMatrix
+build_confusion_matrix (TokenManager const& tm, KMeansClusters const& clusters)
+{
+  std::vector<string> typeLabels (clusters.fitted_cluster_labels());
+  return ConfusionMatrix(make_second_iterator(tm.token_list_begin()),
+			 make_second_iterator(tm.token_list_end  ()),
+			 make_function_iterator(tm.token_list_begin(), Converter(typeLabels, tm))
+			 // Don't understand why this code does not compile... missing a type def?
+			 //[&typeLabels,&tm](std::pair<string,string> const& p)->string
+			 //{ return typeLabels[ tm.index_of_type(p.first)]; }
+			 );
 }
 
 
@@ -98,7 +108,7 @@ int main(int argc, char **argv)
   {
     startTime = clock();
     fill_sparse_bigram_matrix(B, nSkip, tokenManager, tokenManager);
-    ss << "Init sparse bigram B[" << B.rows() << "x" << B.cols() << "] from map; sum +/,B= " << B.sum() << "  +/B[452,]=" << B.row(452).sum();
+    ss << "Init sparse bigram B[" << B.rows() << "x" << B.cols() << "] from map; sum +/,B= " << B.sum() << std::endl;
     print_time(ss.str(), startTime, clock());
     ss.str("");
   }
@@ -132,38 +142,45 @@ int main(int argc, char **argv)
     }
   }
   std::vector<std::string> posLabels = tokenManager.type_POS_labels();
+
+  { // Debugging
+    std::vector<std::string> tLabels = tokenManager.type_labels();
+    for(int i=0; i<10; ++i)
+      std::clog << "MAIN: Count of type " << tLabels[i] << "[" << i << "] is " << tokenManager.type_freq(i)
+		<< " with bigram row sum " << B.row(i).sum() << std::endl; // counts should match and do
+    std::ofstream fs("/Users/bob/C/text/pos_labels.txt");
+    fs << "#\tType\tPOS\n";
+    for (size_t i=0; i<posLabels.size(); ++i)
+      fs << i << "\t" << tLabels[i] << "\t" << posLabels[i] << std::endl;
+  }
+  
   bool useL2      ('2' == distance);
   bool useScaling (scaling != 0);
   KMeansClusters clusters(RP, wts, posLabels, useL2, useScaling, nClusters, nIterations);
   clusters.print_to_stream(std::clog, true);
   Eigen::VectorXi estClusterPOS;
   {
-    ss << "Compute " << nClusters << " cluster centers.";
-    print_time(ss.str(), startTime, clock());
-    ss.str("");
-    CrossTab table = build_cross_tab (clusters.item_cluster_index_begin(), nClusters, tokenManager);
-    estClusterPOS = table.most_common_col_in_each_row();
-    table.print_accuracy_to_stream(std::clog);
-    table.print_accuracy_to_stream(std::cout);
+    ConfusionMatrix table = build_confusion_matrix (tokenManager, clusters);
     table.print_to_stream(std::cout);
+    table.print_to_stream(std::clog);
   }
   // compare with estimated cluster tags
   { 
     std::vector<string> est_POS_of_types (tokenManager.n_types());
-    clusters.fill_with_fitted_cluster_tags(est_POS_of_types.begin(), est_POS_of_types.end());
-    int nRight=0; int k=0;
+    clusters.fill_with_fitted_cluster_labels(est_POS_of_types.begin(), est_POS_of_types.end());
+    int nRight=0;
+    int k=0;
     for (auto it=tokenManager.token_list_begin(); it!=tokenManager.token_list_end(); ++it)
     { std::string actualPOS = it->second;
       int index = tokenManager.index_of_type(it->first);
       std::string estPOS    = est_POS_of_types[index];
       if(actualPOS == estPOS) ++nRight;
-      ++k;
-      if (k < 10)
+      if (++k < 5)
       { std::clog << "    Tokens are (" << it->first << "," << it->second
 		  << ") with type index= " << index <<  " and assigned POS = " << estPOS << std::endl;
       }
     }
-    std::clog << "MAIN: Count of correct POS tags is " << nRight << std::endl;
+    std::clog << "MAIN: Count of correct POS tags is " << nRight << " of out " << tokenManager.input_length() << " tokens." << std::endl;
   }
 
 
@@ -200,30 +217,33 @@ int main(int argc, char **argv)
     print_time(ss.str(), startTime, clock());
     ss.str("");
     std::clog << "MAIN: Assigning validation data to clusters." << std::endl; 
-    std::vector<int> vTags = clusters.assign_to_clusters(&vRP);
+    std::vector<string> vLabels = clusters.assign_cluster_labels(&vRP);
     std::clog << "MAIN: Tabulating validation data." << std::endl;
-    CrossTab vCrossTab = build_cross_tab (vTags.cbegin(), nClusters, validationTM);
-    
+    ConfusionMatrix vCM(make_second_iterator(validationTM.token_list_begin()),
+			make_second_iterator(validationTM.token_list_end()),
+			vLabels.begin());
     // check max count by direct computation from input tokens
     int nRightPOS = 0;
+    std::vector<int> vTags = clusters.assign_cluster_indices(&vRP);
     for(auto it=validationTM.token_list_begin(); it != validationTM.token_list_end(); ++it)
     { int cluster = vTags[validationTM.index_of_type(it->first)];
       int truPOS = tokenManager.index_of_POS(it->second);
       if(estClusterPOS[cluster] == truPOS) ++nRightPOS;
     }
     std::clog << "MAIN: Direct token calculation finds correct tags assigned to " << nRightPOS << " tokens.\n";
-    vCrossTab.print_accuracy_to_stream(std::clog);   // number correct agrees with above if most common label is right label
-    vCrossTab.print_accuracy_to_stream(std::cout);
-    vCrossTab.print_to_stream(std::cout);
+    vCM.print_to_stream(std::cout);
+    vCM.print_to_stream(std::clog);
 
     // repeat for just oov
-    CrossTab oovCrossTab(nClusters, validationTM.n_POS());
-    for(auto it=validationTM.token_list_begin(); it != validationTM.token_list_end(); ++it)
+    /*
+      CrossTab oovCrossTab(nClusters, validationTM.n_POS());
+      for(auto it=validationTM.token_list_begin(); it != validationTM.token_list_end(); ++it)
       if(!tokenManager.known_type(it->first))
-	oovCrossTab.increment(vTags[validationTM.index_of_type(it->first)], validationTM.index_of_POS(it->second));
-    oovCrossTab.print_accuracy_to_stream(std::clog);
-    oovCrossTab.print_accuracy_to_stream(std::cout);
-    oovCrossTab.print_to_stream(std::cout);
+      oovCrossTab.increment(vTags[validationTM.index_of_type(it->first)], validationTM.index_of_POS(it->second));
+      oovCrossTab.print_accuracy_to_stream(std::clog);
+      oovCrossTab.print_accuracy_to_stream(std::cout);
+      oovCrossTab.print_to_stream(std::cout);
+    */
   }
   
   // Write original tags and cluster ids to file
@@ -232,7 +252,7 @@ int main(int argc, char **argv)
     std::string fileName ("/Users/bob/Desktop/tags.txt");
     std::ofstream file (fileName.c_str(), mode);
     file << "Token\tPOS\tCluster" << std::endl;
-    KMeansClusters::Iterator clusterIndex = clusters.item_cluster_index_begin();
+    KMeansClusters::Iterator clusterIndex = clusters.data_cluster_index_begin();
     for(auto it = tokenManager.token_list_begin(); it != tokenManager.token_list_end(); ++it)
       file << it->first << "\t" << it->second << "\t" << *(clusterIndex+tokenManager[it->first]) << std::endl;
   }

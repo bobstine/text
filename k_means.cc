@@ -7,7 +7,7 @@
 const float sqrt2 = 1.41421356;
 
 std::vector<int>
-KMeansClusters::assign_to_clusters (Matrix *data) const
+KMeansClusters::assign_cluster_indices (Matrix *data) const
 {
   prepare_data(data);
   std::vector<int> intTags;
@@ -16,6 +16,16 @@ KMeansClusters::assign_to_clusters (Matrix *data) const
   return intTags;
 }
 
+std::vector<string>
+KMeansClusters::assign_cluster_labels (Matrix *data) const
+{
+  std::vector<int> indices (assign_cluster_indices(data));
+  std::vector<string> labels (indices.size());
+  for(size_t i=0; i<indices.size(); ++i)
+    labels[i] = mClusterLabels[indices[i]];
+  return labels;
+}
+      
 
 void
 KMeansClusters::prepare_data(Matrix *data) const
@@ -103,16 +113,16 @@ KMeansClusters::cluster_map() const
 
 
 void
-KMeansClusters::label_clusters (std::vector<std::string> const& labels)
+KMeansClusters::label_clusters (std::vector<std::string> const& caseLabels)
 {
   // lookup table for case labels
   std::map<std::string, int> labelMap;
-  for(int i=0; i<(int)labels.size(); ++i)
-  { if (0 == labelMap.count(labels[i]))
-    { labelMap[labels[i]]=(int)mUniqueLabels.size();
-      mUniqueLabels.push_back(labels[i]);
+  for(int i=0; i<(int)caseLabels.size(); ++i)
+  { if (0 == labelMap.count(caseLabels[i]))
+    { labelMap[caseLabels[i]]=(int)mUniqueLabels.size();
+      mUniqueLabels.push_back(caseLabels[i]);
     }
-    mDataLabelIndex[i] = labelMap[labels[i]];
+    mDataLabelIndex[i] = labelMap[caseLabels[i]];
   }
   // identify indices of cases in various clusters
   KMeansClusters::Map m = cluster_map();
@@ -120,7 +130,7 @@ KMeansClusters::label_clusters (std::vector<std::string> const& labels)
   { std::vector<int> const& casesInCluster = m[c];
     std::map<std::string,int> counts;
     for (int i=0; i<(int)casesInCluster.size(); ++i)
-      ++counts[labels[casesInCluster[i]]];
+      ++counts[caseLabels[casesInCluster[i]]];
     int max=0;
     std::string maxLabel = "";
     for (auto it=counts.cbegin(); it!=counts.cend(); ++it)
@@ -153,13 +163,22 @@ KMeansClusters::purity() const
 }
 
 void
-KMeansClusters::fill_with_fitted_cluster_tags(KMeansClusters::OutIter b, KMeansClusters::OutIter e)   const
+KMeansClusters::fill_with_fitted_cluster_labels(KMeansClusters::OutIter b, KMeansClusters::OutIter e)   const
 {
   for(int i=0; i<mData.rows(); ++i)
   { assert (b != e);
     *b = mClusterLabels[mDataClusterIndex[i]];
     ++b;
   }
+}
+
+std::vector<string>
+KMeansClusters::fitted_cluster_labels()   const
+{
+  StringVector labels(mData.rows());
+  for(int i=0; i<mData.rows(); ++i)
+    labels[i] = mClusterLabels[mDataClusterIndex[i]];
+  return labels;
 }
 
 
@@ -187,34 +206,26 @@ KMeansClusters::print_to_stream (std::ostream& os, bool showTag) const
       os << std::endl;
     }
     else // show summary for cluster
-    { std::clog << "HERE 0" << std::endl;
-      std::vector<int> labelCounts (mUniqueLabels.size());
+    { std::vector<int> labelCounts (mUniqueLabels.size());
       for(int j=0; j<clusterSize; ++j)
       { int caseIndex = m[i][j];
 	++labelCounts.at(mDataLabelIndex[caseIndex]);
       }
-      
-      std::clog << "HERE 1 " << std::endl;
-            const bool descending = true;
-	      std::vector<size_t> sortI = sort_indices(labelCounts, descending);
-	      std::clog << "MAIN:  sort indices = " ; 
-	      for (size_t i=0; i<sortI.size(); ++i)
-	      { std::clog << "HERE  SORT[" << i << "]=";
-		std::clog << sortI[i] << "    ";
-	      }
-	      std::clog << std::endl;
-	      /*
-      std::vector<size_t> sortI;
-      for (size_t i=0; i<labelCounts.size(); ++i)
-	sortI.push_back(i);
-	      */
-
-	      for(size_t j=0; j<labelCounts.size(); ++j)
-	      { 	size_t ii = sortI[j];
-			if (labelCounts[ii]>0)
-			  os << " [" << mUniqueLabels.at(ii) << "," << labelCounts.at(ii) << "]";
-	      }
-	      
+      const bool descending = true;
+      const size_t maxPrint = 10;
+      std::vector<size_t> sortIdx = order(labelCounts, descending);
+      size_t nPrint=0;
+      for(size_t j=0; j<labelCounts.size(); ++j)
+      { size_t ii = sortIdx[j];
+	if (labelCounts[ii]>0)
+	{ ++nPrint;
+	  os << " [" << mUniqueLabels.at(ii) << "," << labelCounts.at(ii) << "]";
+	}
+	if (maxPrint == nPrint)
+	{ os << " ... ";
+	  break;
+	}
+      }
       os << std::endl;
     }
   }

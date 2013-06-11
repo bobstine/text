@@ -3,7 +3,7 @@
 
 #include "token_manager.h"
 #include "k_means.h"
-#include "cross_tab.h"
+#include "confusion_matrix.h"
 
 #include "eigen_utils.h"
 #include "read_utils.h"

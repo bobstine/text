@@ -47,7 +47,7 @@ int main (void)
     clusters.print_to_stream(std::cout);
     std::vector<string> labels;
     int ct=0;
-    for(auto it = clusters.item_cluster_tag_begin(); it!= clusters.item_cluster_tag_end(); ++it)
+    for(auto it = clusters.data_cluster_label_begin(); it!= clusters.data_cluster_label_end(); ++it)
     { labels.push_back(*it); 
       std::cout << "TEST: label for item " << ct++ << " is " << *it << endl;
     }
@@ -72,12 +72,12 @@ int main (void)
     clusters.print_to_stream(std::cout, true);
     // check two ways to get group labels
     std::vector<string> labelA (nRows);
-    clusters.fill_with_fitted_cluster_tags(labelA.begin(), labelA.end());
+    clusters.fill_with_fitted_cluster_labels(labelA.begin(), labelA.end());
     std::vector<string> labelB;
     int matchCount = 0; 
     {
       int i=0;
-      for(auto it = clusters.item_cluster_tag_begin(); it!= clusters.item_cluster_tag_end(); ++it)
+      for(auto it = clusters.data_cluster_label_begin(); it!= clusters.data_cluster_label_end(); ++it)
       { labelB.push_back(*it);
 	if (labelB[i] == caseLabels[i]) ++matchCount;
 	++i;

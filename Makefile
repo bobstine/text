@@ -54,11 +54,11 @@ tagged/validation.tagged:
 
 ##################
 
-level_1 = k_means.o token_manager.o cross_tab.o
+level_1 = k_means.o token_manager.o confusion_matrix.o
 level_2 = bigram.o
 level_3 = 
 
-bigram: bigram.o k_means.o token_manager.o cross_tab.o
+bigram: bigram.o k_means.o token_manager.o confusion_matrix.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
 
