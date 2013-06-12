@@ -7,24 +7,33 @@ typedef Eigen::MatrixXf                   Matrix;
 typedef Eigen::SparseMatrix<float,Eigen::RowMajor> SparseMatrix;
 
 
-class Converter: public std::unary_function<std::pair<string,string>, string>
+class ExtractPOSString: public std::unary_function<std::pair<Type,POS>, string>
 {
-  std::vector<string> const& mStrings;
+
+public:
+  string operator()(std::pair<Type,POS> const& p) const { return p.second.pos_as_string(); }
+};
+
+
+class Converter: public std::unary_function<std::pair<Type,POS>, string>
+{
+  std::vector<string> const& mClusterPOS;
   TokenManager        const& mTM;
 public:
-  Converter(std::vector<string> vs, TokenManager const& tm) : mStrings(vs), mTM(tm) {}
+  Converter(std::vector<string> vs, TokenManager const& tm) : mClusterPOS(vs), mTM(tm) {}
 
-  string operator()(std::pair<string,string> const& p) const { return mStrings[ mTM.index_of_type(p.first) ]; }
+  string operator()(std::pair<Type,POS> const& p) const {  // assign type to cluster, then cluster to POS
+    return mClusterPOS[mTM.index_of_type(p.first)]; }
 };
 
 
 ConfusionMatrix
 build_confusion_matrix (TokenManager const& tm, KMeansClusters const& clusters)
 {
-  std::vector<string> typeLabels (clusters.fitted_cluster_labels());
-  return ConfusionMatrix(make_second_iterator(tm.token_list_begin()),
-			 make_second_iterator(tm.token_list_end  ()),
-			 make_function_iterator(tm.token_list_begin(), Converter(typeLabels, tm))
+  std::vector<string> posLabels (clusters.fitted_cluster_labels());
+  return ConfusionMatrix(make_function_iterator(tm.token_list_begin(), ExtractPOSString),
+			 make_function_iterator(tm.token_list_end  (), ExtractPOSString),
+			 make_function_iterator(tm.token_list_begin(), Converter(posLabels, tm))
 			 // Don't understand why this code does not compile... missing a type def?
 			 //[&typeLabels,&tm](std::pair<string,string> const& p)->string
 			 //{ return typeLabels[ tm.index_of_type(p.first)]; }
@@ -141,10 +150,10 @@ int main(int argc, char **argv)
       if (0 == wts(i)) std::clog << "MAIN: row " << i << " of B sums to zero.\n";
     }
   }
-  std::vector<std::string> posLabels = tokenManager.type_POS_labels();
+  std::vector<POS> posLabels = tokenManager.pos_vector();
 
   { // Debugging
-    std::vector<std::string> tLabels = tokenManager.type_labels();
+    std::vector<Type> tLabels = tokenManager.type_vector();
     for(int i=0; i<10; ++i)
       std::clog << "MAIN: Count of type " << tLabels[i] << "[" << i << "] is " << tokenManager.type_freq(i)
 		<< " with bigram row sum " << B.row(i).sum() << std::endl; // counts should match and do

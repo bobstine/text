@@ -8,7 +8,6 @@
 #include <map>
 #include <iostream>
 
-
 namespace k_means
 {
   typedef Eigen::RowVectorXf RowVector;
@@ -45,7 +44,6 @@ public:
   string                  operator*()                       const  { return mStrings[*mIndexIt]; }
 };
 
-
 class KMeansClusters
 {
   
@@ -73,7 +71,7 @@ class KMeansClusters
   int                      mNClusters;
   Matrix                   mClusterCenters;
   StringVector             mClusterLabels;          // most common label in cluster 
-  IntegerVector            mDataClusterIndex;       // for the original cases which are types
+  IntegerVector            mDataClusterIndex;       // for the original cases (which are types in text models)
 
  public:
   

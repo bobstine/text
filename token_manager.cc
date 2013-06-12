@@ -61,23 +61,36 @@ TokenManager::init_from_stream(std::istream &input, float posThreshold)
   int posIndex = 0;
   std::map<POS,int> newMap;
   for(std::map<POS,int>::iterator it=mPOSMap.begin(); it != mPOSMap.end(); ++it)          // define index for each pos
-  { POS pos(it->first.underlying_string());
+  { POS pos(it->first.pos_as_string());
     pos.assign_index(posIndex);   // compiler would not allow assignment of index (const)
     newMap[pos] = it->second; 
     mPOSVec.push_back(it->first);
   }
   mPOSMap = newMap;
-  std::multimap<int,Type> sortedTokenMap;                          // sort types by frequency by inserting into multimap
+  std::multimap<int,Type> sortedTypeMap;                               // sort types by frequency by inserting into multimap
   for (auto it = mTypeMap.begin(); it != mTypeMap.end(); ++it)
-    sortedTokenMap.insert( std::make_pair(-it->second,it->first) );  // negate so decreasing
+    sortedTypeMap.insert( std::make_pair(-it->second,it->first) );    // negate so decreasing
   int tokenID = 0;
   mTypeVec.resize(n_types(), Type("dummy"));
-  for(auto it = sortedTokenMap.begin(); it != sortedTokenMap.end(); ++it)
+  for(auto it = sortedTypeMap.begin(); it != sortedTypeMap.end(); ++it)
   { it->second.assign_index(tokenID);
-    mTypeVec[tokenID] = (*it).second;
+    mTypeIndexMap[it->second] = tokenID;
+    mTypeVec[tokenID] = it->second;
     ++tokenID;
   }
 }
+
+int
+TokenManager::index_of_type (Type const& t) const
+{
+  if(mTypeIndexMap.count(t))
+    return mTypeIndexMap.at(t);
+  else
+  { assert(false);  // type not found
+    return -1;
+  }
+}
+
 
 TokenManager::TypeVector
 TokenManager::type_vector()        const

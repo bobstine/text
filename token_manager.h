@@ -29,7 +29,7 @@ class POS
 
   int      index()                  const { assert(mIndex>=0); return mIndex; }
   
-  string   underlying_string()      const { return mStr; }
+  string   pos_as_string()          const { return mStr; }
   
   bool     operator==(POS const& p) const { return mStr == p.mStr; };
   bool     operator< (POS const& p) const { return mStr < p.mStr; };
@@ -49,8 +49,8 @@ class Type
  public:
   explicit Type(string s) : mStr(s), mIndex(-1) {}
 
-  int      index ()      const              { assert(mIndex>=0); return mIndex; }
-  string   underlying_string_representation() const { return mStr; }
+  int      index ()                  const              { assert(mIndex>=0); return mIndex; }
+  string   type_as_string ()         const { return mStr; }
   
   bool     operator==(Type const& p) const { return mStr == p.mStr; };
   bool     operator< (Type const& p) const { return mStr  < p.mStr; };
@@ -63,12 +63,12 @@ class Type
 
  inline
  std::ostream&
- operator<<(std::ostream &os, POS const& p) { os <<  p.underlying_string(); return os; }
+ operator<<(std::ostream &os, POS const& p) { os <<  p.pos_as_string(); return os; }
 
 
  inline
  std::ostream&
- operator<<(std::ostream &os, Type const& t) { os <<  t.underlying_string_representation(); return os; }
+ operator<<(std::ostream &os, Type const& t) { os <<  t.type_as_string(); return os; }
 
 
  class TokenManager
@@ -82,6 +82,7 @@ class Type
 
    std::list<std::pair<Type,POS>> mTokens;           // source data
    std::map<Type, int>            mTypeMap;          // count of Types among input tokens
+   std::map<Type, int>            mTypeIndexMap;     // map from type to canonical index
    std::map<POS,  int>            mPOSMap;           //           POS
 
    std::vector<Type>              mTypeVec;          // sorted order of the types, inverse of str to int map
@@ -91,20 +92,20 @@ class Type
   public:
 
    TokenManager (TokenManager const& tm)
-     : mTokens(tm.mTokens), mTypeMap(tm.mTypeMap), mPOSMap(tm.mPOSMap), mTypeVec(tm.mTypeVec),
+     : mTokens(tm.mTokens), mTypeMap(tm.mTypeMap), mTypeIndexMap(tm.mTypeIndexMap), mPOSMap(tm.mPOSMap), mTypeVec(tm.mTypeVec),
      mPOSVec(tm.mPOSVec),mTypePOSMap(tm.mTypePOSMap)
      { std::cerr << "WARNING: Copy Construct token map\n"; }
 
    TokenManager ()
-     : mTokens(), mTypeMap(), mPOSMap(), mTypeVec(), mPOSVec(),mTypePOSMap()
+     : mTokens(), mTypeMap(), mTypeIndexMap(), mPOSMap(), mTypeVec(), mPOSVec(),mTypePOSMap()
      { std::cerr << "WARNING: Construct empty token map\n"; }
 
    TokenManager (std::istream &input, float posThreshold = 0.0)
-     : mTokens(), mTypeMap(), mPOSMap(), mTypeVec(), mPOSVec(),mTypePOSMap()
+     : mTokens(), mTypeMap(), mTypeIndexMap(), mPOSMap(), mTypeVec(), mPOSVec(),mTypePOSMap()
      { init_from_stream(input, posThreshold); }
 
    TokenManager (std::string fileName, float posThreshold = 0.0)
-     : mTokens(), mTypeMap(), mPOSMap(), mTypeVec(), mPOSVec(),mTypePOSMap()
+     : mTokens(), mTypeMap(), mTypeIndexMap(), mPOSMap(), mTypeVec(), mPOSVec(),mTypePOSMap()
      { init_from_file(fileName, posThreshold); }
    
   int            input_length()                      const { return (int) mTokens.size(); }  
@@ -118,7 +119,8 @@ class Type
   
   int            n_POS()                             const { return (int) mPOSMap.size(); }
   POSVector      POS_vector()                        const;   
-  
+
+  int            index_of_type (Type const& t)       const; 
   Type           type_of_index (int i)               const { Type t = mTypeVec[i]; assert(t.index()==i); return t; }
   POS            POS_of_index (int i)                const { POS p = mPOSVec[i];   assert(p.index()==i); return p; }
   
