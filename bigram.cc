@@ -7,11 +7,11 @@ typedef Eigen::MatrixXf                   Matrix;
 typedef Eigen::SparseMatrix<float,Eigen::RowMajor> SparseMatrix;
 
 
+
 class ExtractPOSString: public std::unary_function<std::pair<Type,POS>, string>
 {
-
 public:
-  string operator()(std::pair<Type,POS> const& p) const { return p.second.pos_as_string(); }
+  string operator()(std::pair<Type,POS> const& p) const { return p.second; }
 };
 
 
@@ -26,11 +26,54 @@ public:
     return mClusterPOS[mTM.index_of_type(p.first)]; }
 };
 
+std::vector<POS>
+cluster_POS_vector (KMeansClusters::ClusterMap const& clusterMap, TokenManager const& tm)
+{
+  std::vector<Types> typeVec = tm.type_vector();
+  std::vector<POS>   posVec;
+  for(auto it=clusterMap.cbegin(); it!=clusterMap.cend(); ++it)
+  { std::map<POS,int> clusterPOSCount;
+    for(size_t i=0; i<it->second.size(); ++i)
+      ++clusterPOSCount[ tm.POS_of_type(typeVec[it->second[i]]) ];
+    POS maxPOS;
+    int maxCount = 0;
+    for(auto iter=clusterPOS.cbegin(); iter!=clusterPOS.cend(); ++i)
+      if(iter->second > maxCount)
+      { maxCount = iter->second;
+	maxPOS   = iter->first;
+      }
+    posVec.push_back(maxPOS);
+  }
+  return posVec;
+}
+
+std::map<Type,int>
+type_to_cluster_map (KMeansClusters::ClusterMap const& clusterMap, TokenManager const& tm)
+{
+  std::vector<Types> typeVec = tm.type_vector();
+  std::map<Type,int> mapTypeToCluster;
+  for(auto it=clusterMap.cbegin(); it!=clusterMap.cend(); ++it)
+    for(size_t i=0; i<it->second.size(); ++i)
+      mapTypeToCluster[ typeVec[it->second[i]] ] = it->first;
+}
+
+std::map<Type,POS>
+POS_classifier (std::map<Type,int> const& m1, std::map<int,POS> m2)
+{
+  std::map<Type,POS> map;
+  for(auto it = m1.cbegin(); it != m1.cend(); ++it)
+    map[it->first] = m2[it->second];
+  return map;
+}
+
 
 ConfusionMatrix
 build_confusion_matrix (TokenManager const& tm, KMeansClusters const& clusters)
 {
-  std::vector<string> posLabels (clusters.fitted_cluster_labels());
+  std::map<Type,POS>         classifer;
+  KMeansClusters::ClusterMap map (clusters.cluster_map());
+  std::vector<Type>          tm.type_vector();
+  
   return ConfusionMatrix(make_function_iterator(tm.token_list_begin(), ExtractPOSString),
 			 make_function_iterator(tm.token_list_end  (), ExtractPOSString),
 			 make_function_iterator(tm.token_list_begin(), Converter(posLabels, tm))
