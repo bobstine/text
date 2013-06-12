@@ -6,6 +6,9 @@
 
 const float sqrt2 = 1.41421356;
 
+inline int min(int x, int y) { return (x < y) ? x : y; }
+
+
 std::vector<int>
 KMeansClusters::assign_cluster_indices (Matrix *data) const
 {
@@ -15,17 +18,6 @@ KMeansClusters::assign_cluster_indices (Matrix *data) const
     intTags.push_back(closest_cluster(data->row(i), mClusterCenters));
   return intTags;
 }
-
-std::vector<string>
-KMeansClusters::assign_cluster_labels (Matrix *data) const
-{
-  std::vector<int> indices (assign_cluster_indices(data));
-  std::vector<string> labels (indices.size());
-  for(size_t i=0; i<indices.size(); ++i)
-    labels[i] = mClusterLabels[indices[i]];
-  return labels;
-}
-      
 
 void
 KMeansClusters::prepare_data(Matrix *data) const
@@ -102,46 +94,15 @@ KMeansClusters::find_clusters(int maxIterations)
 }
 
 
-KMeansClusters::Map
+KMeansClusters::ClusterMap
 KMeansClusters::cluster_map() const
 {
-  KMeansClusters::Map m;
+  KMeansClusters::ClusterMap m;
   for(int i=0; i<(int)mDataClusterIndex.size(); ++i)
     m[mDataClusterIndex[i]].push_back(i);
   return m;
 }
 
-
-void
-KMeansClusters::label_clusters (std::vector<std::string> const& caseLabels)
-{
-  // lookup table for case labels
-  std::map<std::string, int> labelMap;
-  for(int i=0; i<(int)caseLabels.size(); ++i)
-  { if (0 == labelMap.count(caseLabels[i]))
-    { labelMap[caseLabels[i]]=(int)mUniqueLabels.size();
-      mUniqueLabels.push_back(caseLabels[i]);
-    }
-    mDataLabelIndex[i] = labelMap[caseLabels[i]];
-  }
-  // identify indices of cases in various clusters
-  KMeansClusters::Map m = cluster_map();
-  for(int c=0; c<mNClusters; ++c)
-  { std::vector<int> const& casesInCluster = m[c];
-    std::map<std::string,int> counts;
-    for (int i=0; i<(int)casesInCluster.size(); ++i)
-      ++counts[caseLabels[casesInCluster[i]]];
-    int max=0;
-    std::string maxLabel = "";
-    for (auto it=counts.cbegin(); it!=counts.cend(); ++it)
-      if (it->second > max)
-      { max = it->second;
-	maxLabel = it->first;
-      }
-    mClusterLabels[c]=maxLabel;
-  }
-}
-  
 
 double
 KMeansClusters::relative_squared_distance (Matrix const& newCenters, Matrix const& oldCenters) const
@@ -151,81 +112,19 @@ KMeansClusters::relative_squared_distance (Matrix const& newCenters, Matrix cons
   std::clog << "KMCS: " << ((mUseL2) ? "L2 " : "Cos ") << "distance = " << dist << std::endl;
   return dist;
 }
-  
-float
-KMeansClusters::purity() const
-{
-  int nRight=0;
-  for(int i=0; i<mData.rows(); ++i)
-    if(mClusterLabels[mDataClusterIndex[i]] == mUniqueLabels[mDataLabelIndex[i]])
-      ++nRight;
-  return ((float)nRight)/mData.rows();
-}
-
-void
-KMeansClusters::fill_with_fitted_cluster_labels(KMeansClusters::OutIter b, KMeansClusters::OutIter e)   const
-{
-  for(int i=0; i<mData.rows(); ++i)
-  { assert (b != e);
-    *b = mClusterLabels[mDataClusterIndex[i]];
-    ++b;
-  }
-}
-
-std::vector<string>
-KMeansClusters::fitted_cluster_labels()   const
-{
-  StringVector labels(mData.rows());
-  for(int i=0; i<mData.rows(); ++i)
-    labels[i] = mClusterLabels[mDataClusterIndex[i]];
-  return labels;
-}
 
 
 void
-KMeansClusters::print_to_stream (std::ostream& os, bool showTag) const 
+KMeansClusters::print_to_stream (std::ostream& os) const 
 {
-  os << "K-Means cluster analysis, with " << mNClusters << " clusters of purity " << purity()
-     << " from observing " << mData.rows() << " items with the following "
-     << mUniqueLabels.size() << " unique group labels:\n   -->  ";
-  for(int i=0; i<(int)mUniqueLabels.size(); ++i)
-    os << mUniqueLabels[i] << " ";
-  os << std::endl;
-  Map m (cluster_map());
+  os << "K-Means cluster analysis, with " << mNClusters << " clusters with n=" << mData.rows() << std::endl;
+  ClusterMap m (cluster_map());
+  const int nShown = 25;
   for(int i=0; i<mNClusters; ++i)
   { int clusterSize = m[i].size();
-    os << "Cluster " << i << " <" << mClusterLabels[i] << "," << clusterSize << " items>: ";
-    if (clusterSize < 15)  // show the whole thing
-    { for(int j=0; j<clusterSize; ++j)
-      { int caseIndex = m[i][j];
-	if (showTag)
-	  os << " (" << caseIndex << " " << mUniqueLabels[mDataLabelIndex[caseIndex]] << ")";
-	else
-	  os << " " << caseIndex;
-      }
-      os << std::endl;
-    }
-    else // show summary for cluster
-    { std::vector<int> labelCounts (mUniqueLabels.size());
-      for(int j=0; j<clusterSize; ++j)
-      { int caseIndex = m[i][j];
-	++labelCounts.at(mDataLabelIndex[caseIndex]);
-      }
-      const bool descending = true;
-      const size_t maxPrint = 10;
-      std::vector<size_t> sortIdx = order(labelCounts, descending);
-      size_t nPrint=0;
-      for(size_t j=0; j<labelCounts.size(); ++j)
-      { size_t ii = sortIdx[j];
-	if (labelCounts[ii]>0)
-	{ ++nPrint;
-	  os << " [" << mUniqueLabels.at(ii) << "," << labelCounts.at(ii) << "]";
-	}
-	if (maxPrint == nPrint)
-	{ os << " ... ";
-	  break;
-	}
-      }
+    os << "Cluster " << i << " (" << clusterSize << " items): ";
+    { for(int j=0; j<min(clusterSize, nShown); ++j)  os << " " << m[i][j];
+      if(clusterSize > nShown)                       os << " + " << clusterSize-nShown << " more.";
       os << std::endl;
     }
   }
