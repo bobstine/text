@@ -12,6 +12,10 @@ int main()
       std::cout << "TEST: Could not open file.\n";
     else
     { TokenManager tm (fs);
+      std::vector<Type> typeVector = tm.type_vector();   // check indexing
+      std::cout << "TEST: first 10 types in type vector from Token Manager with index checks (should match)..." << std::endl;
+      for(int i=0; i<10; ++i)
+	std::cout << "i=" << i << " type=" << typeVector[i] << "  index=" << tm.type_index(typeVector[i]) << "   frequency=" << tm.type_freq(typeVector[i]) << std::endl;
       tm.print_to_stream(std::cout);
     }
   }
@@ -22,7 +26,11 @@ int main()
     if (!fs)
       std::cout << "TEST: Could not open file.\n";
     else
-    { TokenManager tm (fs, 0.01);     // 1% threshold for combining
+    { TokenManager tm (fs, 0.01);                       // 1% threshold for combining
+      std::vector<Type> typeVector = tm.type_vector();  // check indexing
+      std::cout << "TEST: first 10 types in type vector from Token Manager with index checks (should match)..." << std::endl;
+      for(int i=0; i<10; ++i)
+	std::cout << "i=" << i << " type=" << typeVector[i] << " type index of this type=" << tm.type_index(typeVector[i]) << std::endl;
       tm.print_to_stream(std::cout);
     }
   }
