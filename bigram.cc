@@ -124,8 +124,28 @@ int main(int argc, char **argv)
   bool useScaling (scaling != 0);
   KMeansClusters clusters(RP, wts, useL2, useScaling, nClusters, nIterations);
   clusters.print_to_stream(std::clog);
-  
-  ClusterClassifier classifier(clusters, tokenManager);
+
+  { // sum the most common pos in each cluster
+    KMeansClusters::ClusterMap cMap = clusters.cluster_map();
+    std::vector<Type> typeVec = tokenManager.type_vector();
+    int totalMax = 0;
+    for(auto it=cMap.cbegin(); it!=cMap.cend(); ++it)
+    { std::vector<int> elementsInCluster = it->second;
+      std::map<POS,int> posCounts;
+      for(size_t i=0; i<elementsInCluster.size(); ++i)
+      { Type t = typeVec[elementsInCluster[i]];
+	++posCounts[ tokenManager.POS_of_type(t) ];
+      }
+      int max=0;
+      for(auto iter = posCounts.cbegin(); iter!=posCounts.cend(); ++iter)
+	if(iter->second > max) max=iter->second;
+      totalMax += max;
+    }
+    std::clog << "MAIN: In type space... Sum of most common POS among all clusters is " << totalMax
+	      << " which gives 'purity' of " << totalMax/tokenManager.n_types() << std::endl;
+  }
+
+    ClusterClassifier classifier(clusters, tokenManager);
   {
     ConfusionMatrix table = make_confusion_matrix (classifier, tokenManager);
     table.print_to_stream(std::cout);
