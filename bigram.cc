@@ -83,7 +83,10 @@ int main(int argc, char **argv)
   {
     startTime = clock();
     fill_sparse_bigram_matrix(B, nSkip, tokenManager, tokenManager);
-    ss << "Init sparse bigram B[" << B.rows() << "x" << B.cols() << "] from map; sum +/,B= " << B.sum() << std::endl;
+    std::clog << "MAIN: Initial bigram row sums are "
+	      << B.row(0).sum() << " "<< B.row(1).sum() << " " << B.row(2).sum() << " "
+	      << B.row(3).sum() << " " << B.row(4).sum() << " " << std::endl;
+    ss << "Init sparse bigram B[" << B.rows() << "x" << B.cols() << "] from map; sum +/,B= " << B.sum();
     print_time(ss.str(), startTime, clock());
     ss.str("");
   }
@@ -104,7 +107,6 @@ int main(int argc, char **argv)
     RP.leftCols(nProjections/2) = B.transpose() * leftR;
   }
   ss << "Compute random projection RP[" << RP.rows() << "x" << RP.cols() << "]";
-  std::clog << "MAIN: Bigram random projection sums are " << RP.row(1).sum() << "  " << RP.row(20).sum() << std::endl;
   print_time(ss.str(), startTime, clock());
   ss.str("");
 

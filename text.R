@@ -2,8 +2,9 @@
 data <- readLines("/Users/bob/C/text/results/margins.txt")
 
 
-types <- scan(textConnection(data[2]), what=numeric(0), sep=" ")
-types <- types[!is.na(types)]
+types <- as.factor(scan(textConnection(data[2]), what=numeric(0), sep=","))
+tabulate(types)
+table(types)
 
 pos <- scan(textConnection(data[4]), what=numeric(0), sep=" ")
 pos <- pos[!is.na(pos)]

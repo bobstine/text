@@ -67,9 +67,9 @@ bigram: bigram.o k_means.o token_manager.o classifier.o confusion_matrix.o
 base_options = --threshold 0.0004 --scaling 1 --weighting 1 --iterations 20 --print 0
 
 bigram_test: bigram tagged/validation.tagged
-	head -n 600000 tagged/ptb45.tagged | \
-	./bigram                 --projections 200 --distance 2 --clusters 15                                         $(base_options)  \
-	> results/test/test.txt
+	cat tagged/ptb45.tagged | \
+	./bigram --bidirectional --projections 250 --distance c --clusters 1000                                        $(base_options)  \
+	> results/test/cos_b1_p250_c1000
 
 # for validation...
 #	./bigram                 --projections 200 --distance 2 --clusters 15 --validation tagged/validation.tagged   $(base_options)  \

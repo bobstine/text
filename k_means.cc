@@ -137,14 +137,15 @@ KMeansClusters::relative_squared_distance (Matrix const& newCenters, Matrix cons
 void
 KMeansClusters::print_to_stream (std::ostream& os) const 
 {
-  os << "K-Means cluster analysis, with " << mNClusters << " clusters with n=" << mData.rows() << std::endl;
+  os << "K-Means cluster analysis, building " << mNClusters << " clusters from n=" << mData.rows() << " cases." << std::endl;
   ClusterMap m (cluster_map());
-  const int nShown = 25;
-  for(int i=0; i<mNClusters; ++i)
+  const int maxClustersShown = 15;
+  const int maxShownEach     = 15;
+  for(int i=0; i<min(mNClusters, maxClustersShown); ++i)
   { int clusterSize = m[i].size();
     os << "Cluster " << i << " (" << clusterSize << " items): ";
-    { for(int j=0; j<min(clusterSize, nShown); ++j)  os << " " << m[i][j];
-      if(clusterSize > nShown)                       os << " + " << clusterSize-nShown << " more.";
+    { for(int j=0; j<min(clusterSize, maxShownEach); ++j)  os << " " << m[i][j];
+      if(clusterSize > maxShownEach)                       os << " + " << clusterSize-maxShownEach << " more.";
       os << std::endl;
     }
   }

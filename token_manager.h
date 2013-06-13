@@ -35,7 +35,7 @@ class Type: public string
   explicit Type(string s) : string(s)       { }
   explicit Type(char *s)  : string(s)       { }
 
-  void  print_to_stream(std::ostream &os) const   { os << static_cast<string>(*this) ; }
+  void  print_to_stream(std::ostream &os) const   { os << "`" << static_cast<string>(*this) << "'" ; }
  };
 
 
@@ -59,27 +59,29 @@ class Type: public string
    typedef  std::vector< std::pair<POS,int> >                POSCountVector;
 
    std::list<std::pair<Type,POS>> mTokens;           // source data
-   std::map<Type, int>            mTypeMap;          // count of Types among input tokens
-   std::map<Type, int>            mTypeIndexMap;     // map from type to canonical index
-   std::map<POS,  int>            mPOSMap;           //           POS
+   std::map<Type, int>            mTypeCountMap;     // count of Types among input tokens
+   std::map<Type, int>            mTypeIndexMap;     // map from type to index in type vector
+   TypeVector                     mTypeVector;       // types in frequency order
+   std::map<POS,  int>            mPOSCountMap;      //           POS
    POSMap                         mTypePOSMap;       // identifies all POSs observed for a type
 
   public:
 
    TokenManager (TokenManager const& tm)
-     : mTokens(tm.mTokens), mTypeMap(tm.mTypeMap), mTypeIndexMap(tm.mTypeIndexMap), mPOSMap(tm.mPOSMap), mTypePOSMap(tm.mTypePOSMap)
+     : mTokens(tm.mTokens), mTypeCountMap(tm.mTypeCountMap), mTypeIndexMap(tm.mTypeIndexMap), mTypeVector(tm.mTypeVector),
+     mPOSCountMap(tm.mPOSCountMap), mTypePOSMap(tm.mTypePOSMap)
      { std::cerr << "WARNING: Copy Construct token map\n"; }
 
    TokenManager ()
-     : mTokens(), mTypeMap(), mTypeIndexMap(), mPOSMap(), mTypePOSMap()
+     : mTokens(), mTypeCountMap(), mTypeIndexMap(), mTypeVector(), mPOSCountMap(), mTypePOSMap()
      { std::cerr << "WARNING: Construct empty token map\n"; }
 
    TokenManager (std::istream &input, float posThreshold = 0.0)
-     : mTokens(), mTypeMap(), mTypeIndexMap(), mPOSMap(), mTypePOSMap()
+     : mTokens(), mTypeCountMap(), mTypeIndexMap(), mTypeVector(), mPOSCountMap(), mTypePOSMap()
      { init_from_stream(input, posThreshold); }
 
    TokenManager (std::string fileName, float posThreshold = 0.0)
-     : mTokens(), mTypeMap(), mTypeIndexMap(), mPOSMap(), mTypePOSMap()
+     : mTokens(), mTypeCountMap(), mTypeIndexMap(), mTypeVector(), mPOSCountMap(), mTypePOSMap()
      { init_from_file(fileName, posThreshold); }
    
   int            input_length()                      const { return (int) mTokens.size(); }  
@@ -87,22 +89,26 @@ class Type: public string
   Iter           token_list_end()                    const { return mTokens.cend(); }
 
   int            n_ambiguous ()                      const;                             // number types with ambiguous POS
-  bool           known_type(std::string type)        const { return (mTypeMap.count(Type(type)) > 0); }
+  bool           known_type(std::string type)        const { return (mTypeCountMap.count(Type(type)) > 0); }
   
-  int            n_types ()                          const { return (int) mTypeMap.size(); }
+  int            n_types ()                          const
+  {
+    if(mTypeCountMap.size() != mTypeVector.size())
+      std::clog << "ERROR: Count map has " << mTypeCountMap.size() << " but Type vector has " << mTypeVector.size() << std::endl;  
+    return (int) mTypeCountMap.size();
+  }
   int            n_types_oov(TokenManager const& tm) const;
-  TypeVector     type_vector()                       const;                             // assert tm.type_index(typeVector[i]) == i
+  TypeVector     type_vector()                       const { return mTypeVector; }     // assert type_index(typeVector[i]) == i
   int            type_index(Type const& type)        const { return mTypeIndexMap.at(type); }
-  int            type_freq (Type const& type)        const { return mTypeMap.at(type); }
+  int            type_freq (Type const& type)        const { return mTypeCountMap.at(type); }
   
-  int            n_POS()                             const { return (int) mPOSMap.size(); }
+  int            n_POS()                             const { return (int) mPOSCountMap.size(); }
   POSVector      POS_vector()                        const;   
-  int            POS_freq (POS const& pos)           const { return mPOSMap.at(pos); }
+  int            POS_freq (POS const& pos)           const { return mPOSCountMap.at(pos); }
   
   POS            POS_of_type     (Type const& type)  const;                             // most common POS for this type
   POSCountVector POS_tags_of_type(Type const& type, bool sort=false) const;
 
-  void           fill_bigram_map(BigramMap &bm, int skip)         const;                // order based on type vector
   void           fill_bigram_map(BigramMap &bm, int skip, TokenManager const& tm, bool transpose=false) const; // use col index from other TM
 
   void           print_to_stream(std::ostream &os)                const;

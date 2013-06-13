@@ -17,6 +17,11 @@ int main()
       for(int i=0; i<10; ++i)
 	std::cout << "i=" << i << " type=" << typeVector[i] << "  index=" << tm.type_index(typeVector[i]) << "   frequency=" << tm.type_freq(typeVector[i]) << std::endl;
       tm.print_to_stream(std::cout);
+      std::cout << "TEST: filling bigram map\n";
+      std::map<std::pair<int,int>,int> bigramMap;
+      int skip = 1;
+      const bool transpose = false;
+      tm.fill_bigram_map(bigramMap, skip, tm, transpose);
     }
   }
 

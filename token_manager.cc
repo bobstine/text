@@ -9,6 +9,8 @@
 
 static std::string messageTag = "TKMG: ";
 
+inline size_t min(size_t a, size_t b) { return (a < b) ? a : b; }
+
 
 void
 TokenManager::init_from_file(std::string &fileName, float posThreshold)
@@ -30,22 +32,24 @@ TokenManager::init_from_stream(std::istream &input, float posThreshold)
     input >> typeStr;
     if (typeStr.empty()) break;   // end of file
     Type type(typeStr);
-    ++mTypeMap[type];
+    ++mTypeCountMap[type];
     string posStr;
     input >> posStr;
     POS pos(posStr);
     ++posMap[pos];
     mTokens.push_back(std::make_pair(type,pos));
   }
-  std::clog << messageTag << "Read " << n_types() << " types from input of " << mTokens.size() << " strings." << std::endl;
+  std::clog << messageTag << "Read " << mTypeCountMap.size() << " types from input of " << mTokens.size() << " strings." << std::endl;
   std::clog << messageTag << "Identified " << posMap.size() << " distinct POS." << std::endl;
-  if(posThreshold > 0.0)                                             // remove rare pos tags
+  if(posThreshold > 0.0) // remove rare pos tags
   { std::map<POS,bool> reduce;
     int reduceCount = 0;
     for(auto it=posMap.cbegin(); it != posMap.cend(); ++it)
     { float freq = ((float)it->second)/mTokens.size();
       if (freq < posThreshold)
-      { reduce[it->first] = true; ++reduceCount; }
+      { reduce[it->first] = true;
+	++reduceCount;
+      }
       else reduce[it->first]=false;
     }
     if (reduceCount > 0)
@@ -55,24 +59,26 @@ TokenManager::init_from_stream(std::istream &input, float posThreshold)
 	if (reduce[it->second]) it->second = POS(other);
     }
   }
-  for(auto it=mTokens.cbegin(); it != mTokens.cend(); ++it)          // build pos map for each type
-  { ++mPOSMap[it->second];
+  for(auto it=mTokens.cbegin(); it != mTokens.cend(); ++it) // build pos map for each type
+  { ++mPOSCountMap[it->second];
     ++mTypePOSMap[it->first][it->second];
   }
-  int typeIndex = 0;
-  for(auto it=mTypeMap.cbegin(); it != mTypeMap.cend(); ++it, ++typeIndex)
-    mTypeIndexMap[it->first] = typeIndex;
-}
-
-
-TokenManager::TypeVector
-TokenManager::type_vector()        const
-{
-  TypeVector sv;
-
-  for(auto it=mTypeMap.cbegin(); it != mTypeMap.cend(); ++it)
-    sv.push_back(it->first);
-  return sv;
+  std::multimap<int,Type> sortTypesMap;                          // sort types in frequency order
+  for(auto it = mTypeCountMap.cbegin(); it != mTypeCountMap.cend(); ++it)
+    sortTypesMap.insert( std::make_pair(it->second, it->first) );
+  int index = 0;
+  for(auto it=sortTypesMap.crbegin(); it != sortTypesMap.crend(); ++it, ++index) // reverse iter
+  { mTypeIndexMap[it->second] = index;
+    mTypeVector.push_back(it->second);
+  }
+  assert(mTypeVector.size()   == mTypeCountMap.size());
+  assert(mTypeIndexMap.size() == mTypeCountMap.size());
+  std::clog << messageTag << "Ten most common types are ";
+  for(int i=0; i<(int)min(mTypeVector.size(),10); ++i)
+  { assert(i == mTypeIndexMap[mTypeVector[i]]);                //  quick check of just a few
+    std::clog << mTypeVector[i] << " " << mTypeCountMap[mTypeVector[i]] << "   ";
+  }
+  std::clog << std::endl;
 }
 
 
@@ -81,7 +87,7 @@ TokenManager::POS_vector()        const
 {
   POSVector sv;
 
-  for(auto it=mPOSMap.cbegin(); it != mPOSMap.cend(); ++it)
+  for(auto it=mPOSCountMap.cbegin(); it != mPOSCountMap.cend(); ++it)
     sv.push_back(it->first);
   return sv;
 }
@@ -96,7 +102,7 @@ TokenManager::n_ambiguous ()       const
     int max=0;
     for(auto it2=it->second.cbegin(); it2 != it->second.cend(); ++it2)
       if (it2->second > max) max = it2->second;
-    nAmbiguous += mTypeMap.at(type)-max;
+    nAmbiguous += mTypeCountMap.at(type)-max;
   }
   return nAmbiguous;
 }
@@ -146,7 +152,7 @@ int
 TokenManager::n_types_oov(TokenManager const& tm) const
 {
   int nOOV = 0;
-  for (auto it = mTypeMap.cbegin(); it != mTypeMap.cend(); ++it)
+  for (auto it = mTypeCountMap.cbegin(); it != mTypeCountMap.cend(); ++it)
     if(tm.type_freq(it->first) == 0) ++ nOOV;
   return nOOV;
 }
@@ -193,7 +199,7 @@ TokenManager::print_type_tags(int maxToPrint) const
 {
   const bool sorted (true);
   int nPrinted = 0;
-  for(auto it = mTypeMap.cbegin(); it != mTypeMap.cend(); ++it, ++nPrinted)
+  for(auto it = mTypeCountMap.cbegin(); it != mTypeCountMap.cend(); ++it, ++nPrinted)
   { if (nPrinted == maxToPrint) break;
     POSCountVector v = POS_tags_of_type(it->first, sorted);
     std::clog << "    Type   '" << it->first << "'" << std::endl;
@@ -205,13 +211,13 @@ TokenManager::print_type_tags(int maxToPrint) const
 void
 TokenManager::write_frequencies_to_file(std::string fileName) const   // write type and counts 
 {
-  std::vector<int> posCounts (mPOSMap.size());
+  std::vector<int> posCounts (mPOSCountMap.size());
   int i = 0;
-  for(auto it=mPOSMap.cbegin(); it != mPOSMap.cend(); ++it)
+  for(auto it=mPOSCountMap.cbegin(); it != mPOSCountMap.cend(); ++it)
     posCounts[i++] = it->second; 
   std::ofstream output (fileName);
   output << "Types\n";
-  for (auto it=mTypeMap.cbegin(); it != mTypeMap.cend(); ++it)
+  for (auto it=mTypeCountMap.cbegin(); it != mTypeCountMap.cend(); ++it)
     output << it->second << ", ";
   output << "\nPOS\n";
   for (auto it=posCounts.cbegin(); it != posCounts.cend(); ++it)
@@ -228,6 +234,6 @@ TokenManager::print_to_stream (std::ostream&os) const
      << n_POS() << " parts of speech among " << n_types() << " unique types ("
      << n_ambiguous() << " ambiguous).\n";
   os << " POS Counts among input tokens are : \n";
-  for(auto it=mPOSMap.cbegin(); it != mPOSMap.cend(); ++it)
+  for(auto it=mPOSCountMap.cbegin(); it != mPOSCountMap.cend(); ++it)
     std::cout << "       " << it->first << " " << it->second << std::endl;
 }
