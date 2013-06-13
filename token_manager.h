@@ -20,7 +20,7 @@ class POS: public string
 {  
  public:
   
-  explicit POS()         : string("BLANK") { }
+  explicit POS()         : string("") { }
   explicit POS(string s) : string(s) { }
   explicit POS(char *s)  : string(s) { }
   
@@ -31,7 +31,7 @@ class POS: public string
 class Type: public string
 {
  public:
-  explicit Type()         : string("blank") { }
+  explicit Type()         : string("") { }
   explicit Type(string s) : string(s)       { }
   explicit Type(char *s)  : string(s)       { }
 

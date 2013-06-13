@@ -104,6 +104,7 @@ int main(int argc, char **argv)
     RP.leftCols(nProjections/2) = B.transpose() * leftR;
   }
   ss << "Compute random projection RP[" << RP.rows() << "x" << RP.cols() << "]";
+  std::clog << "MAIN: Bigram random projection sums are " << RP.row(1).sum() << "  " << RP.row(20).sum() << std::endl;
   print_time(ss.str(), startTime, clock());
   ss.str("");
 
@@ -121,6 +122,7 @@ int main(int argc, char **argv)
   bool useScaling (scaling != 0);
   KMeansClusters clusters(RP, wts, useL2, useScaling, nClusters, nIterations);
   clusters.print_to_stream(std::clog);
+  
   ClusterClassifier classifier(clusters, tokenManager);
   {
     ConfusionMatrix table = make_confusion_matrix (classifier, tokenManager);
