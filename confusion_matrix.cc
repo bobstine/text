@@ -5,7 +5,8 @@
 #include <iomanip>
 #include <assert.h>
 
-std::string messageTag ("CFMX: ");
+
+static std::string messageTag ("CFMX: ");
 
 
 inline

@@ -20,8 +20,9 @@ class POS: public string
 {  
  public:
   
+  explicit POS()         : string("BLANK") { }
   explicit POS(string s) : string(s) { }
-  explicit POS(char *s) : string(s) { }
+  explicit POS(char *s)  : string(s) { }
   
   void  print_to_stream(std::ostream &os) const   { os << "|" << static_cast<string>(*this) << "|"; }
 };
@@ -30,8 +31,9 @@ class POS: public string
 class Type: public string
 {
  public:
-  explicit Type(string s) : string(s) {}
-  explicit Type(char *s) : string(s) {}
+  explicit Type()         : string("blank") { }
+  explicit Type(string s) : string(s)       { }
+  explicit Type(char *s)  : string(s)       { }
 
   void  print_to_stream(std::ostream &os) const   { os << static_cast<string>(*this) ; }
  };
@@ -104,7 +106,7 @@ class Type: public string
   void           fill_bigram_map(BigramMap &bm, int skip, TokenManager const& tm, bool transpose=false) const; // use col index from other TM
 
   void           print_to_stream(std::ostream &os)                const;
-  void           print_type_tags()                                const;
+  void           print_type_tags(int maxToPrint)                  const;
   void           write_frequencies_to_file (string filename)      const;
   
  private:

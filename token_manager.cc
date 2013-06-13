@@ -7,7 +7,7 @@
 #include <ios>
 
 
-std::string messageTag = "TKMG: ";
+static std::string messageTag = "TKMG: ";
 
 
 void
@@ -189,11 +189,13 @@ TokenManager::fill_bigram_map(BigramMap &bm, int skip, TokenManager const& tm, b
 }
     
 void
-TokenManager::print_type_tags() const
+TokenManager::print_type_tags(int maxToPrint) const
 {
   const bool sorted (true);
-  for(auto it = mTypeMap.cbegin(); it != mTypeMap.cend(); ++it)
-  { POSCountVector v = POS_tags_of_type(it->first, sorted);
+  int nPrinted = 0;
+  for(auto it = mTypeMap.cbegin(); it != mTypeMap.cend(); ++it, ++nPrinted)
+  { if (nPrinted == maxToPrint) break;
+    POSCountVector v = POS_tags_of_type(it->first, sorted);
     std::clog << "    Type   '" << it->first << "'" << std::endl;
     for (auto vit=v.begin(); vit != v.end(); ++it)
       std::clog << "     " << vit->first << " " << vit->second << std::endl;

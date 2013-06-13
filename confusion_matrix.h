@@ -9,7 +9,6 @@
 #include <string>
 #include <iostream>
 
-
 using std::string;
 
 
@@ -61,4 +60,3 @@ public:
 };
 
 #endif
-

@@ -8,82 +8,6 @@ typedef Eigen::SparseMatrix<float,Eigen::RowMajor> SparseMatrix;
 
 
 
-class ExtractPOSString: public std::unary_function<std::pair<Type,POS>, string>
-{
-public:
-  string operator()(std::pair<Type,POS> const& p) const { return p.second; }
-};
-
-
-class Converter: public std::unary_function<std::pair<Type,POS>, string>
-{
-  std::vector<string> const& mClusterPOS;
-  TokenManager        const& mTM;
-public:
-  Converter(std::vector<string> vs, TokenManager const& tm) : mClusterPOS(vs), mTM(tm) {}
-
-  string operator()(std::pair<Type,POS> const& p) const {  // assign type to cluster, then cluster to POS
-    return mClusterPOS[mTM.index_of_type(p.first)]; }
-};
-
-std::vector<POS>
-cluster_POS_vector (KMeansClusters::ClusterMap const& clusterMap, TokenManager const& tm)
-{
-  std::vector<Types> typeVec = tm.type_vector();
-  std::vector<POS>   posVec;
-  for(auto it=clusterMap.cbegin(); it!=clusterMap.cend(); ++it)
-  { std::map<POS,int> clusterPOSCount;
-    for(size_t i=0; i<it->second.size(); ++i)
-      ++clusterPOSCount[ tm.POS_of_type(typeVec[it->second[i]]) ];
-    POS maxPOS;
-    int maxCount = 0;
-    for(auto iter=clusterPOS.cbegin(); iter!=clusterPOS.cend(); ++i)
-      if(iter->second > maxCount)
-      { maxCount = iter->second;
-	maxPOS   = iter->first;
-      }
-    posVec.push_back(maxPOS);
-  }
-  return posVec;
-}
-
-std::map<Type,int>
-type_to_cluster_map (KMeansClusters::ClusterMap const& clusterMap, TokenManager const& tm)
-{
-  std::vector<Types> typeVec = tm.type_vector();
-  std::map<Type,int> mapTypeToCluster;
-  for(auto it=clusterMap.cbegin(); it!=clusterMap.cend(); ++it)
-    for(size_t i=0; i<it->second.size(); ++i)
-      mapTypeToCluster[ typeVec[it->second[i]] ] = it->first;
-}
-
-std::map<Type,POS>
-POS_classifier (std::map<Type,int> const& m1, std::map<int,POS> m2)
-{
-  std::map<Type,POS> map;
-  for(auto it = m1.cbegin(); it != m1.cend(); ++it)
-    map[it->first] = m2[it->second];
-  return map;
-}
-
-
-ConfusionMatrix
-build_confusion_matrix (TokenManager const& tm, KMeansClusters const& clusters)
-{
-  std::map<Type,POS>         classifer;
-  KMeansClusters::ClusterMap map (clusters.cluster_map());
-  std::vector<Type>          tm.type_vector();
-  
-  return ConfusionMatrix(make_function_iterator(tm.token_list_begin(), ExtractPOSString),
-			 make_function_iterator(tm.token_list_end  (), ExtractPOSString),
-			 make_function_iterator(tm.token_list_begin(), Converter(posLabels, tm))
-			 // Don't understand why this code does not compile... missing a type def?
-			 //[&typeLabels,&tm](std::pair<string,string> const& p)->string
-			 //{ return typeLabels[ tm.index_of_type(p.first)]; }
-			 );
-}
-
-
 void
 print_time(std::string const& s, clock_t const& start, clock_t const& stop)
 {
@@ -138,13 +62,12 @@ int main(int argc, char **argv)
   // read tagged tokens and pos from input
   clock_t startTime = clock();
 
-  std::ifstream test_in ("test_in");
-  TokenManager tokenManager (test_in, posThreshold);
+  TokenManager tokenManager (std::cin, posThreshold);
     
   //  TokenManager tokenManager (std::cin, posThreshold);
   {
     print_time("Read tokens from cin, sort and assign IDs in TokenManager.", startTime, clock());
-    if (nPrint) tokenManager.print_tags(nPrint);
+    if (nPrint) tokenManager.print_type_tags(nPrint);
     int nAmbiguous = tokenManager.n_ambiguous();
     ss << "MAIN: Source has " << nAmbiguous << " ambiguous tokens among " << tokenManager.input_length()
        << "  (" << 100.0*(1.0 - ((float)nAmbiguous)/tokenManager.input_length()) << "% pure)" << std::endl;
@@ -193,47 +116,18 @@ int main(int argc, char **argv)
       if (0 == wts(i)) std::clog << "MAIN: row " << i << " of B sums to zero.\n";
     }
   }
-  std::vector<POS> posLabels = tokenManager.pos_vector();
-
-  { // Debugging
-    std::vector<Type> tLabels = tokenManager.type_vector();
-    for(int i=0; i<10; ++i)
-      std::clog << "MAIN: Count of type " << tLabels[i] << "[" << i << "] is " << tokenManager.type_freq(i)
-		<< " with bigram row sum " << B.row(i).sum() << std::endl; // counts should match and do
-    std::ofstream fs("/Users/bob/C/text/pos_labels.txt");
-    fs << "#\tType\tPOS\n";
-    for (size_t i=0; i<posLabels.size(); ++i)
-      fs << i << "\t" << tLabels[i] << "\t" << posLabels[i] << std::endl;
-  }
   
   bool useL2      ('2' == distance);
   bool useScaling (scaling != 0);
-  KMeansClusters clusters(RP, wts, posLabels, useL2, useScaling, nClusters, nIterations);
-  clusters.print_to_stream(std::clog, true);
-  Eigen::VectorXi estClusterPOS;
+  KMeansClusters clusters(RP, wts, useL2, useScaling, nClusters, nIterations);
+  clusters.print_to_stream(std::clog);
+  ClusterClassifier classifier(clusters, tokenManager);
   {
-    ConfusionMatrix table = build_confusion_matrix (tokenManager, clusters);
+    ConfusionMatrix table = make_confusion_matrix (classifier, tokenManager);
     table.print_to_stream(std::cout);
     table.print_to_stream(std::clog);
   }
-  // compare with estimated cluster tags
-  { 
-    std::vector<string> est_POS_of_types (tokenManager.n_types());
-    clusters.fill_with_fitted_cluster_labels(est_POS_of_types.begin(), est_POS_of_types.end());
-    int nRight=0;
-    int k=0;
-    for (auto it=tokenManager.token_list_begin(); it!=tokenManager.token_list_end(); ++it)
-    { std::string actualPOS = it->second;
-      int index = tokenManager.index_of_type(it->first);
-      std::string estPOS    = est_POS_of_types[index];
-      if(actualPOS == estPOS) ++nRight;
-      if (++k < 5)
-      { std::clog << "    Tokens are (" << it->first << "," << it->second
-		  << ") with type index= " << index <<  " and assigned POS = " << estPOS << std::endl;
-      }
-    }
-    std::clog << "MAIN: Count of correct POS tags is " << nRight << " of out " << tokenManager.input_length() << " tokens." << std::endl;
-  }
+  Eigen::VectorXi estClusterPOS;
 
 
   // optional validation which has same column indices as B
@@ -269,20 +163,15 @@ int main(int argc, char **argv)
     print_time(ss.str(), startTime, clock());
     ss.str("");
     std::clog << "MAIN: Assigning validation data to clusters." << std::endl; 
-    std::vector<string> vLabels = clusters.assign_cluster_labels(&vRP);
+    //  FIX HERE
+    std::vector<string> vLabels;
+    // std::vector<string> vLabels = clusters.assign_cluster_labels(&vRP);
     std::clog << "MAIN: Tabulating validation data." << std::endl;
     ConfusionMatrix vCM(make_second_iterator(validationTM.token_list_begin()),
 			make_second_iterator(validationTM.token_list_end()),
 			vLabels.begin());
     // check max count by direct computation from input tokens
-    int nRightPOS = 0;
-    std::vector<int> vTags = clusters.assign_cluster_indices(&vRP);
-    for(auto it=validationTM.token_list_begin(); it != validationTM.token_list_end(); ++it)
-    { int cluster = vTags[validationTM.index_of_type(it->first)];
-      int truPOS = tokenManager.index_of_POS(it->second);
-      if(estClusterPOS[cluster] == truPOS) ++nRightPOS;
-    }
-    std::clog << "MAIN: Direct token calculation finds correct tags assigned to " << nRightPOS << " tokens.\n";
+
     vCM.print_to_stream(std::cout);
     vCM.print_to_stream(std::clog);
 
@@ -298,33 +187,8 @@ int main(int argc, char **argv)
     */
   }
   
-  // Write original tags and cluster ids to file
-  if (false)
-  { std::ios_base::openmode mode = std::ios_base::trunc;
-    std::string fileName ("/Users/bob/Desktop/tags.txt");
-    std::ofstream file (fileName.c_str(), mode);
-    file << "Token\tPOS\tCluster" << std::endl;
-    KMeansClusters::Iterator clusterIndex = clusters.data_cluster_index_begin();
-    for(auto it = tokenManager.token_list_begin(); it != tokenManager.token_list_end(); ++it)
-      file << it->first << "\t" << it->second << "\t" << *(clusterIndex+tokenManager[it->first]) << std::endl;
-  }
-  
-  // SVD of random projection array
-  if (false)
-  { startTime = clock();
-    Eigen::JacobiSVD<Matrix, Eigen::HouseholderQRPreconditioner> svd(RP, Eigen::ComputeThinU);
-    Matrix UD = svd.matrixU() * svd.singularValues().asDiagonal();
-    // std::clog << " U matrix      : \n" << UD.topLeftCorner(10,nProjections) << std::endl;
-    std::clog << "Singular values: \n" << svd.singularValues().transpose().head(nProjections) << std::endl;
-    print_time("Compute SVD and extract U*D.", startTime, clock());
-  }
-  
-  // print first items in the map
-  /*
-    for(auto it = sortedTokenMap.begin(); it != sortedTokenMap.end(); ++it)
-    std::cout << it->second << " " << -it->first << std::endl;  
-  */
   return 0;
+
 }
 
 

@@ -55,25 +55,28 @@ tagged/validation.tagged:
 ##################
 
 level_1 = k_means.o token_manager.o confusion_matrix.o
-level_2 = bigram.o
-level_3 = 
+level_3 = classifier.o
+level_3 = bigram.o
+level_4 = 
 
-bigram: bigram.o k_means.o token_manager.o confusion_matrix.o
+bigram: bigram.o k_means.o token_manager.o classifier.o confusion_matrix.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
 
 #  options for folding in other tags, normalizing the bigram rows, weighed avg in clustering, cluster max iterations, tag printing
 base_options = --threshold 0.0004 --scaling 1 --weighting 1 --iterations 20 --print 0
 
+bigram_test: bigram tagged/validation.tagged
+	head -n 600000 tagged/ptb45.tagged | \
+	./bigram                 --projections 200 --distance 2 --clusters 15                                         $(base_options)  \
+	> results/test/test.txt
+
+# for validation...
+#	./bigram                 --projections 200 --distance 2 --clusters 15 --validation tagged/validation.tagged   $(base_options)  \
+# for bidirectional...
 #	./bigram --bidirectional --projections 200 --distance 2 --clusters 1000 --validation tagged/validation.tagged $(base_options)  \
 
-#bigram_test: bigram tagged/validation.tagged
-#	head -n 600000 tagged/ptb45.tagged | \
-#	./bigram                 --projections 200 --distance 2 --clusters 15 --validation tagged/validation.tagged $(base_options)  \
-#	> results/test/p100_d2_c50
 
-bigram_test: bigram test_in
-	./bigram   --projections 200 --distance 2 --clusters 15 > test_out
 
 # ----------------------------------------------------------------------------------------
 #  parallel make with fixed number of projections, varying num clusters, both cosine/L2
