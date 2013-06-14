@@ -26,12 +26,12 @@ fill_sparse_bigram_matrix(SparseMatrix &B, int skip, TokenManager const& tmRow, 
 }
 
 
+
 void
 parse_arguments(int argc, char** argv,
-		int &nSkip, float &posThreshold, bool &bidirectional,
-		int &nProj, int &scaling, char &dist, int &weighting, int &nClus, int &nIter, int &nPrint,
-		string &validationFileName);
-
+		int &nSkip, float &threshold, bool &bidirectional, int &nProj, bool &scaleData,
+		bool &weightCentroid, int &nClus, bool &scaleCentroid, int &nIter, int &nPrint,
+		std::string &vFileName);
   
 int main(int argc, char **argv)
 {
@@ -39,23 +39,22 @@ int main(int argc, char **argv)
   std::ostringstream ss;
 
   // argument defaults
-  int     nSkip         =  0;         // skipped words in bigram
-  float   posThreshold  = 0.0;        // accum all pos tags with relative frequency below this threshold
-  bool    bidirectional = false;
-  int     nProjections  = 30;
-  int     scaling       =  0;
-  char    distance      ='2';         // identify distance to use  (2 for L2, c for cosine)
-  int     weighting     =  1;
-  int     nClusters     = 10;
-  int     nIterations   = 10;
-  int     nPrint        =  0;
-  string  vFileName     = "";
+  int     nSkip          =     0;       // skipped words in bigram; 0 is usual bigram
+  float   posThreshold   =   0.0;       // accum all pos tags with relative frequency below this threshold
+  bool    bidirectional  = false;
+  int     nProjections   =    30;
+  bool    scaleData      =  true;
+  bool    weightCentroid =  true;
+  int     nClusters      =   100;
+  bool    scaleCentroid  =  true; 
+  int     nIterations    =    10;
+  int     nPrint         =     0;
+  string  vFileName      =    "";
 
-  parse_arguments(argc, argv, nSkip, posThreshold, bidirectional, nProjections, scaling, distance, weighting, nClusters, nIterations, nPrint, vFileName);
+  parse_arguments(argc, argv, nSkip, posThreshold, bidirectional, nProjections, scaleData, weightCentroid, nClusters, scaleCentroid, nIterations, nPrint, vFileName);
   std::cout << "MAIN: Arguments skip=" << nSkip << " threshold=" << posThreshold << " bidirectional=" << bidirectional
-	    << " nProjections=" << nProjections << " scaling=" << scaling
-	    << " distance=" << distance << " weighting=" << weighting << " nClusters=" << nClusters << " nIterations=" << nIterations
-	    << " nPrint=" << nPrint << " validation=" << vFileName << std::endl;
+	    << " projections=" << nProjections << " scale_data=" << scaleData << " weight_centroid=" << weightCentroid << " clusters=" << nClusters << " iterations=" << nIterations
+	    << " print=" << nPrint << " validation=" << vFileName << std::endl;
 
   const bool useValidation (vFileName.size() > 0);
   
@@ -72,7 +71,7 @@ int main(int argc, char **argv)
   ss.str("");
   tokenManager.write_frequencies_to_file("results/margins.txt");
   
-  // build the sparse bigram array using integer id for words
+  // build the sparse bigram array
   const int nTypes (tokenManager.n_types());
   SparseMatrix B(nTypes,nTypes);
   startTime = clock();
@@ -106,18 +105,17 @@ int main(int argc, char **argv)
   // cluster types using k-means
   startTime = clock();
   IntVector wts = IntVector::Ones(B.rows());
-  if (weighting)  
+  if (weightCentroid)  
   { for(int i=0; i<B.rows(); ++i)
     { wts(i) = B.row(i).sum();
       if (0 == wts(i)) std::clog << "MAIN: row " << i << " of B sums to zero.\n";
     }
   }  
-  bool useL2      ('2' == distance);
-  bool useScaling (scaling != 0);
-  KMeansClusters clusters(RP, wts, useL2, useScaling, nClusters, nIterations);
+  KMeansClusters clusters(RP, bidirectional, wts, scaleData, nClusters, scaleCentroid, nIterations);
   clusters.print_to_stream(std::clog);
 
-  { // sum the most common pos in each cluster
+  // sum frequency of most common pos in each cluster
+  {
     KMeansClusters::ClusterMap cMap = clusters.cluster_map();
     std::vector<Type> typeVec = tokenManager.type_vector();
     int totalMax = 0;
@@ -134,10 +132,10 @@ int main(int argc, char **argv)
       totalMax += max;
     }
     std::clog << "MAIN: In type space... Sum of most common POS among all clusters is " << totalMax
-	      << " which gives 'purity' of " << totalMax/tokenManager.n_types() << std::endl;
+	      << " which gives 'purity' of " << ((float)totalMax)/tokenManager.n_types() << std::endl;
   }
-
-    ClusterClassifier classifier(clusters, tokenManager);
+  
+  ClusterClassifier classifier(clusters, tokenManager);
   {
     ConfusionMatrix table = make_confusion_matrix (classifier, tokenManager);
     table.print_to_stream(std::cout);
@@ -211,8 +209,8 @@ int main(int argc, char **argv)
 
 void
 parse_arguments(int argc, char** argv,
-		int &nSkip, float &threshold, bool &bidirectional,
-		int &nProj, int &scaling, char &distance, int &weighting, int &nClus, int &nIter, int &nPrint,
+		int &nSkip, float &threshold, bool &bidirectional, int &nProj, bool &scaleData,
+		bool &weightCentroid, int &nClus, bool &scaleCentroid, int &nIter, int &nPrint,
 		std::string &vFileName)
 {
   static struct option long_options[] = {
@@ -221,11 +219,11 @@ parse_arguments(int argc, char** argv,
     {"threshold",    required_argument, 0, 't'},
     {"bidirectional",      no_argument, 0, 'b'},
     {"projections",  required_argument, 0, 'r'},
-    {"scaling",      required_argument, 0, 's'},
+    {"scale_data",         no_argument, 0, 's'},
     // clustering options
-    {"distance",     required_argument, 0, 'd'},
-    {"weighting",    required_argument, 0, 'w'},
+    {"weight_centroid",    no_argument, 0, 'w'},
     {"clusters",     required_argument, 0, 'c'},
+    {"scale_centroid",     no_argument, 0, 'C'},
     {"iterations",   required_argument, 0, 'n'},
     // misc
     {"print",        required_argument, 0, 'p'},
@@ -234,70 +232,23 @@ parse_arguments(int argc, char** argv,
   };
   int key;
   int option_index = 0;
-  while (-1 !=(key = getopt_long (argc, argv, "k:t:br:s:w:c:n:p:v:", long_options, &option_index))) // colon means has argument
+  while (-1 !=(key = getopt_long (argc, argv, "k:t:br:swc:Cn:p:v:", long_options, &option_index))) // colon means has argument
   {
     // std::cout << "Option key " << char(key) << " for option " << long_options[option_index].name << ", option_index=" << option_index << std::endl;
     switch (key)
     {
-    case 'k' :
-      {
-	nSkip = read_utils::lexical_cast<int>(optarg);
-	break;
-      }
-    case 'b' :
-      {
-	bidirectional = true;
-	break;
-      }
-    case 't' :
-      {
-	threshold = read_utils::lexical_cast<float>(optarg);
-	break;
-      }
-    case 'n' :
-      {
-	nIter = read_utils::lexical_cast<int>(optarg);
-	break;
-      }
-    case 'r' : 
-      {
-	nProj = read_utils::lexical_cast<int>(optarg);
-	break;
-      }
-    case 's' : 
-      {
-	scaling = read_utils::lexical_cast<int>(optarg);
-	break;
-      }
-    case 'd' : 
-      {
-	distance = read_utils::lexical_cast<char>(optarg);
-	break;
-      }
-    case 'w' : 
-      {
-	weighting = read_utils::lexical_cast<int>(optarg);
-	break;
-      }
-    case 'c' : 
-      {
-	nClus= read_utils::lexical_cast<int>(optarg);
-	break;
-      }
-    case 'p' : 
-      {
-	nPrint = read_utils::lexical_cast<int>(optarg);
-	break;
-      }
-    case 'v' : 
-      {
-	vFileName = optarg;
-	break;
-      }
-    default:
-      {
-	std::cout << "PARSE: Option not recognized; returning.\n";
-      }
+    case 'k' : { nSkip          = read_utils::lexical_cast<int>(optarg);   break; }
+    case 't' : { threshold      = read_utils::lexical_cast<float>(optarg); break; }
+    case 'b' : { bidirectional  = true;                                    break; }
+    case 'r' : { nProj          = read_utils::lexical_cast<int>(optarg);   break; }
+    case 's' : { scaleData      = true;                                    break; }
+    case 'w' : { weightCentroid = true;                                    break; }
+    case 'c' : { nClus          = read_utils::lexical_cast<int>(optarg);   break; }
+    case 'C' : { scaleCentroid  = true;                                    break; }
+    case 'n' : { nIter          = read_utils::lexical_cast<int>(optarg);   break; }
+    case 'p' : { nPrint         = read_utils::lexical_cast<int>(optarg);   break; }
+    case 'v' : { vFileName      = optarg;                                  break; }
+    default  : { std::cout << "PARSE: Option not recognized; returning.\n";       }
     } // switch
   } 
 }

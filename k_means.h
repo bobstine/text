@@ -9,26 +9,6 @@
 #include <iostream>
 #include <cmath>
 
-namespace k_means
-{
-  typedef Eigen::RowVectorXf RowVector;
-  typedef float (*Distance)(RowVector const&, RowVector const&);
-  
-  inline float
-    l2_distance(RowVector const& a, RowVector const& b)
-  {
-    return (a.array() - b.array()).matrix().squaredNorm();
-  }
-  
-  inline float
-    cosine_distance(RowVector const& a, RowVector const& b)
-  {
-    if (abs(a.norm() - 1.0) > 0.000001) { std::cerr << "Cosine input a has norm |a|=1+" << a.norm()-1 << std::endl; assert(false); }
-    if (abs(b.norm() - 1.0) > 0.000001) { std::cerr << "Cosine input b has norm |b|=1+" << b.norm()-1 << std::endl; assert(false); }
-    return 1.0 - a.dot(b);
-  }
-}
-
 class KMeansClusters
 {
   
@@ -38,25 +18,24 @@ class KMeansClusters
   typedef Eigen::VectorXi                  IntVector;
   typedef Eigen::RowVectorXf               RowVector;
   typedef std::map<int, std::vector<int>>  ClusterMap;
-  typedef k_means::Distance                Distance;
   typedef std::vector<int>                 IntegerVector; 
   typedef std::vector<int>::const_iterator Iterator;
 
  private:
   Matrix                   mData;                // need local copy of data since modified
+  bool                     mBidirectional;       // effects normalization
   IntVector const&         mWeights;
-  bool                     mUseL2;
-  Distance                 mDist;
-  bool                     mScaleData;           // always true for cosine
+  bool                     mScaleData;           // normalize to |x|=1 
   int                      mNClusters;
+  bool                     mScaleCentroid;       // normalize to |c|=1  (if both normed, then cosine distance)
   Matrix                   mClusterCenters;
   IntegerVector            mDataClusterIndex;    // cluster index for each data row
 
  public:
   
-  KMeansClusters (Matrix const& data, IntVector const& wts, bool l2, bool scaleData, int nClusters, int maxIterations = 10)
-    : mData(data), mWeights(wts), mUseL2(l2), mDist(l2 ? k_means::l2_distance : k_means::cosine_distance ), mScaleData(scaleData),
-      mNClusters(nClusters), mClusterCenters(Matrix::Zero(nClusters,data.cols())), mDataClusterIndex(data.rows())
+  KMeansClusters (Matrix const& data, bool biDir, IntVector const& wts, bool scaleData, int nClusters, bool scaleCentroid, int maxIterations = 10)
+    : mData(data), mBidirectional(biDir), mWeights(wts), mScaleData(scaleData), mNClusters(nClusters), mScaleCentroid(scaleCentroid),
+      mClusterCenters(Matrix::Zero(nClusters,data.cols())), mDataClusterIndex(data.rows())
     { prepare_data(&mData); find_clusters(maxIterations);  }
 
   int            number_of_cases()                                       const { return mData.rows(); }
@@ -73,10 +52,15 @@ class KMeansClusters
   void           print_to_stream (std::ostream& os)                      const;
   
  private:
-  void   prepare_data              (Matrix *data)                        const;  // note in place argument
-  void   find_clusters             (int maxIterations);
-  int    closest_cluster           (RowVector const& r, Matrix const& m) const;
+  void   prepare_data      (Matrix *m)                                   const;
+  void   find_clusters     (int maxIterations);
+  int    closest_cluster   (RowVector const& r, Matrix const& m)         const;
+  float  distance          (RowVector const& a, RowVector const& b)      const  { return (a.array() - b.array()).matrix().squaredNorm(); }
   double relative_squared_distance (Matrix const& a, Matrix const& b)    const;
+
+  std::vector<std::pair<int,float> > average_centroid_dist(Matrix const& centroids) const;
+
+
 };
 
 

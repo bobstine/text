@@ -64,12 +64,12 @@ bigram: bigram.o k_means.o token_manager.o classifier.o confusion_matrix.o
 
 
 #  options for folding in other tags, normalizing the bigram rows, weighed avg in clustering, cluster max iterations, tag printing
-base_options = --threshold 0.0004 --scaling 1 --weighting 1 --iterations 20 --print 0
+base_options = --skip 0 --threshold 0.0004 --weight_centroid --iterations 20 --print 0
 
 bigram_test: bigram tagged/validation.tagged
 	cat tagged/ptb45.tagged | \
-	./bigram --bidirectional --projections 100 --distance c --clusters 200                                        $(base_options)  \
-	> results/test/b1_p100_dc_c200
+	./bigram --bidirectional --scale_data                --projections 100 --clusters 200                       $(base_options)  \
+	> results/test/b1_p100_d2_c200
 
 # test accuracy   bidirectional projections distance clusters
 #     0.63            yes           100         2       200    diagonal apparent in confusion; singleton clusters

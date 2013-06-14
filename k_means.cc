@@ -3,6 +3,8 @@
 
 #include <utility>
 #include <iostream>
+#include <fstream>  // debug temporary
+#include <set>      // debug temporary
 
 const float sqrt2 = 1.41421356;
 
@@ -10,10 +12,10 @@ static std::string messageTag = "KMCS: ";
 
 
 float
-check_norm(float norm, int j)
+check_norm(float norm, std::string msg)
 {
   if ((norm <= 0) || (!std::isfinite(norm)))
-  { std::cerr << messageTag << "*** ERROR *** Norm=" << norm << " in item j=" << j << "; returning 1." << std::endl;
+  { std::cerr << messageTag << "*** ERROR *** Norm=" << norm << " " << msg << std::endl;
     return 1.0;
   }
   else
@@ -34,32 +36,31 @@ KMeansClusters::assign_cluster_indices (Matrix *data) const
 }
 
 void
-KMeansClusters::prepare_data(Matrix *data) const
+KMeansClusters::prepare_data(Matrix *mat) const
 {
-  if(mUseL2)                               // L2 norm on unit ball is optionally scaled
-  { if (mScaleData)
-    { for (int i=0; i<data->rows(); ++i)
-	data->row(i) /= check_norm(data->row(i).norm(),i);
+  if (mScaleData)
+  { if (mBidirectional)
+    { assert(0 == mat->cols() % 2);
+      const int n = mat->cols()/2;
+      for(int i=0; i<mat->rows(); ++i)
+      { mat->row(i).head(n).normalize();
+	mat->row(i).tail(n).normalize();
+	mat->row(i).array() /= sqrt2;
+      }
     }
-  }                              
-  else                                     // norm on split-ball, always scaled for cosine
-  { const int n = data->cols()/2;
-    assert (data->cols() == 2*n);          // implementation for cosine presumes bidirectional
-    for (int i=0; i<data->rows(); ++i)
-    { data->row(i).head(n) /= sqrt2*check_norm(data->row(i).head(n).norm(),i);
-      data->row(i).tail(n) /= sqrt2*check_norm(data->row(i).tail(n).norm(),i);
-    }
+    else
+      for (int i=0; i<mat->rows(); ++i)
+	mat->row(i).normalize();
   }
 }
-
-
+  
 int
 KMeansClusters::closest_cluster (RowVector const& r, Matrix const& m) const
 {
-  float minD = mDist(r,m.row(0));
+  float minD = distance(r, m.row(0));
   int   minI = 0;
   for (int i=1; i<m.rows(); ++i)
-  { float d = mDist(r,m.row(i));
+  { float d = distance(r,m.row(i));
     if (d < minD) { minD = d; minI = i; }
   }
   return minI;
@@ -68,6 +69,11 @@ KMeansClusters::closest_cluster (RowVector const& r, Matrix const& m) const
 void
 KMeansClusters::find_clusters(int maxIterations)
 {
+
+  // write data to file
+  std::ofstream kos ("/Users/bob/Desktop/kmeans_data.txt");
+  kos << mData << std::endl;
+
   // init cluster centers to top rows
   Matrix newCenters = Matrix (mNClusters,mData.cols());
   newCenters = mData.topLeftCorner(mNClusters, mData.cols());
@@ -78,11 +84,27 @@ KMeansClusters::find_clusters(int maxIterations)
   int itCount = 0;
   Matrix *pNew = &newCenters;
   Matrix *pOld = &oldCenters;
-  const int n = mData.cols()/2;
+  // const int n = mData.cols()/2;
   while ((0.001 < relative_squared_distance(*pNew,*pOld))  // prints message
 	 && (++itCount < maxIterations))
-  { for(int i=0; i<mData.rows(); ++i)
-      mDataClusterIndex[i] = closest_cluster(mData.row(i), *pNew);
+  {
+    std::set<int> clusterZero;
+    for(int i=0; i<mData.rows(); ++i)
+    { mDataClusterIndex[i] = closest_cluster(mData.row(i), *pNew);
+      if (0 == mDataClusterIndex[i])
+	clusterZero.insert(i);
+    }
+    // avg distance to cluster 0 centroid
+    std::clog << messageTag << clusterZero.size() << " cases in Cluster 0.";
+    if(clusterZero.size()>0)
+    { float mean = 0.0;
+      for(size_t i=0; i<clusterZero.size(); ++i)
+	mean += distance(mData.row(i), pNew->row(0));
+      mean /= clusterZero.size();
+      std::clog << messageTag << "Average distance to center is " << mean;
+    }
+    else std::clog << std::endl;
+     
     std::swap(pNew,pOld);
     // calculate new centers of clusters
     *pNew = Matrix::Zero(mNClusters, mData.cols());
@@ -91,19 +113,19 @@ KMeansClusters::find_clusters(int maxIterations)
     { pNew->row(mDataClusterIndex[i]) += mData.row(i) * mWeights(i);
       counts[mDataClusterIndex[i]] += mWeights(i);
     }
-    for(int i=0; i<mNClusters; ++i)
-    { if(counts[i])
-      {	pNew->row(i).array() /= counts[i];
-	if (!mUseL2)
-	{ pNew->row(i).head(n) /= sqrt2*pNew->row(i).head(n).norm();
-	  pNew->row(i).tail(n) /= sqrt2*pNew->row(i).tail(n).norm();
+    for(int c=0; c<mNClusters; ++c)
+      if(counts[c])
+      {	pNew->row(c).array() /= counts[c];
+	if (mScaleCentroid)
+	{ if (mBidirectional)
+	  { int half = mData.cols()/2;
+	    pNew->row(c).head(half).normalize();
+	    pNew->row(c).tail(half).normalize();
+	  }
+	  else pNew->row(c).normalize();
 	}
       }
-      else std::clog << messageTag << "Count=0 in cluster " << i << std::endl;
-    }
-    // std::clog << "Center counts   \n" ;
-    // for(int i=0;i<mNClusters; ++i) std::clog << counts[i] << " "; std::clog << std::endl;
-    // std::clog << "Centers at step " << itCount << ":\n" << *pNew << std::endl;
+      else std::clog << messageTag << "Count=0 in cluster " << c << std::endl;
   }
   for(int i=0; i<mData.rows(); ++i)
     mDataClusterIndex[i] = closest_cluster(mData.row(i), *pNew);
@@ -121,6 +143,24 @@ KMeansClusters::cluster_map() const
 }
 
 
+std::vector<std::pair<int,float> >
+KMeansClusters::average_centroid_dist(Matrix const& centroids) const
+{
+  std::vector<std::pair<int,float>> result;
+  KMeansClusters::ClusterMap m = cluster_map();
+  for(auto it=m.cbegin(); it != m.cend(); ++it)
+  { int                     cluster = it->first;
+    std::vector<int> const& cases   = it->second;
+    float xbar=0;
+    for (size_t i=0; i<cases.size(); ++i)
+      xbar += distance(mData.row(cases[i]), centroids.row(cluster));
+    if(cases.size()) xbar /=  cases.size();
+    result.push_back( std::make_pair(cases.size(), xbar) );
+  }
+  return result;
+}
+
+
 double
 KMeansClusters::relative_squared_distance (Matrix const& newCenters, Matrix const& oldCenters) const
 {
@@ -128,7 +168,7 @@ KMeansClusters::relative_squared_distance (Matrix const& newCenters, Matrix cons
   double oldNorm  = oldCenters.squaredNorm();
   double diffNorm = (newCenters.array() - oldCenters.array()).matrix().squaredNorm();
   double dist = diffNorm/oldNorm;
-  std::clog << messageTag << ((mUseL2) ? "L2 " : "Cos ") << "distance = " << dist << std::endl;
+  std::clog << messageTag << "distance = " << dist << std::endl;
   return dist;
 }
 
