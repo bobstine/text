@@ -58,7 +58,7 @@ class KMeansClusters
   float  distance          (RowVector const& a, RowVector const& b)      const  { return (a.array() - b.array()).matrix().squaredNorm(); }
   double relative_squared_distance (Matrix const& a, Matrix const& b)    const;
 
-  std::vector<std::pair<int,float> > average_centroid_dist(Matrix const& centroids) const;
+  float  average_within_cluster_variance(Matrix const& centroids)        const;
 
 
 };

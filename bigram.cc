@@ -43,10 +43,10 @@ int main(int argc, char **argv)
   float   posThreshold   =   0.0;       // accum all pos tags with relative frequency below this threshold
   bool    bidirectional  = false;
   int     nProjections   =    30;
-  bool    scaleData      =  true;
-  bool    weightCentroid =  true;
+  bool    scaleData      = false;
+  bool    weightCentroid = false;
   int     nClusters      =   100;
-  bool    scaleCentroid  =  true; 
+  bool    scaleCentroid  = false; 
   int     nIterations    =    10;
   int     nPrint         =     0;
   string  vFileName      =    "";

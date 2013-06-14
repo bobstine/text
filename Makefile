@@ -68,7 +68,7 @@ base_options = --skip 0 --threshold 0.0004 --weight_centroid --iterations 20 --p
 
 bigram_test: bigram tagged/validation.tagged
 	cat tagged/ptb45.tagged | \
-	./bigram --bidirectional --scale_data                --projections 100 --clusters 200                       $(base_options)  \
+	./bigram --bidirectional --scale_data --scale_centroid  --projections 100 --clusters 200                       $(base_options)  \
 	> results/test/b1_p100_d2_c200
 
 # test accuracy   bidirectional projections distance clusters

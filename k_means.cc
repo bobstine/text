@@ -69,11 +69,6 @@ KMeansClusters::closest_cluster (RowVector const& r, Matrix const& m) const
 void
 KMeansClusters::find_clusters(int maxIterations)
 {
-
-  // write data to file
-  std::ofstream kos ("/Users/bob/Desktop/kmeans_data.txt");
-  kos << mData << std::endl;
-
   // init cluster centers to top rows
   Matrix newCenters = Matrix (mNClusters,mData.cols());
   newCenters = mData.topLeftCorner(mNClusters, mData.cols());
@@ -85,28 +80,14 @@ KMeansClusters::find_clusters(int maxIterations)
   Matrix *pNew = &newCenters;
   Matrix *pOld = &oldCenters;
   // const int n = mData.cols()/2;
-  while ((0.001 < relative_squared_distance(*pNew,*pOld))  // prints message
+  while ((0.001 < relative_squared_distance(*pNew,*pOld))  // prints message without eol
 	 && (++itCount < maxIterations))
-  {
-    std::set<int> clusterZero;
-    for(int i=0; i<mData.rows(); ++i)
-    { mDataClusterIndex[i] = closest_cluster(mData.row(i), *pNew);
-      if (0 == mDataClusterIndex[i])
-	clusterZero.insert(i);
-    }
-    // avg distance to cluster 0 centroid
-    std::clog << messageTag << clusterZero.size() << " cases in Cluster 0.";
-    if(clusterZero.size()>0)
-    { float mean = 0.0;
-      for(size_t i=0; i<clusterZero.size(); ++i)
-	mean += distance(mData.row(i), pNew->row(0));
-      mean /= clusterZero.size();
-      std::clog << messageTag << "Average distance to center is " << mean;
-    }
-    else std::clog << std::endl;
-     
-    std::swap(pNew,pOld);
+  { for(int i=0; i<mData.rows(); ++i)
+      mDataClusterIndex[i] = closest_cluster(mData.row(i), *pNew);
+    // show concentrations within clusters
+    std::clog << " with sqrt(avg cluster var)=" << sqrt(average_within_cluster_variance(*pNew)) << std::endl;
     // calculate new centers of clusters
+    std::swap(pNew,pOld);
     *pNew = Matrix::Zero(mNClusters, mData.cols());
     for(int i=0; i<mNClusters; ++i) counts[i]=0;
     for(int i=0; i<mData.rows(); ++i)
@@ -127,6 +108,7 @@ KMeansClusters::find_clusters(int maxIterations)
       }
       else std::clog << messageTag << "Count=0 in cluster " << c << std::endl;
   }
+  std::clog << std::endl;
   for(int i=0; i<mData.rows(); ++i)
     mDataClusterIndex[i] = closest_cluster(mData.row(i), *pNew);
   mClusterCenters = *pNew;
@@ -143,21 +125,23 @@ KMeansClusters::cluster_map() const
 }
 
 
-std::vector<std::pair<int,float> >
-KMeansClusters::average_centroid_dist(Matrix const& centroids) const
+float 
+KMeansClusters::average_within_cluster_variance(Matrix const& centroids) const
 {
-  std::vector<std::pair<int,float>> result;
-  KMeansClusters::ClusterMap m = cluster_map();
-  for(auto it=m.cbegin(); it != m.cend(); ++it)
-  { int                     cluster = it->first;
-    std::vector<int> const& cases   = it->second;
-    float xbar=0;
-    for (size_t i=0; i<cases.size(); ++i)
-      xbar += distance(mData.row(cases[i]), centroids.row(cluster));
-    if(cases.size()) xbar /=  cases.size();
-    result.push_back( std::make_pair(cases.size(), xbar) );
+  IntVector counts = IntVector::Zero(mNClusters);
+  Vector    ss     = Vector::Zero(mNClusters);
+  for(int i=0; i<mData.rows(); ++i)
+  { counts(mDataClusterIndex[i]) += mWeights(i);
+    ss(mDataClusterIndex[i]) += mWeights(i) * distance(mData.row(i), centroids.row(mDataClusterIndex[i]));
   }
-  return result;
+  float avg=0;
+  int n = 0;
+  for(int c=0; c<mNClusters; ++c)
+    if(counts[c]>0)
+    { avg += ss[c]/counts[c];
+      ++n;
+    }      
+  return avg/n;
 }
 
 
@@ -168,7 +152,7 @@ KMeansClusters::relative_squared_distance (Matrix const& newCenters, Matrix cons
   double oldNorm  = oldCenters.squaredNorm();
   double diffNorm = (newCenters.array() - oldCenters.array()).matrix().squaredNorm();
   double dist = diffNorm/oldNorm;
-  std::clog << messageTag << "distance = " << dist << std::endl;
+  std::clog << messageTag << "distance = " << dist;
   return dist;
 }
 
