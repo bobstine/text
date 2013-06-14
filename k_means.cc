@@ -41,10 +41,10 @@ KMeansClusters::prepare_data(Matrix *data) const
     { for (int i=0; i<data->rows(); ++i)
 	data->row(i) /= check_norm(data->row(i).norm(),i);
     }
-  }
-  else                                        // norm on split-ball, always scaled for cosine
+  }                              
+  else                                     // norm on split-ball, always scaled for cosine
   { const int n = data->cols()/2;
-    assert (data->cols() == 2*n);
+    assert (data->cols() == 2*n);          // implementation for cosine presumes bidirectional
     for (int i=0; i<data->rows(); ++i)
     { data->row(i).head(n) /= sqrt2*check_norm(data->row(i).head(n).norm(),i);
       data->row(i).tail(n) /= sqrt2*check_norm(data->row(i).tail(n).norm(),i);
@@ -68,10 +68,10 @@ KMeansClusters::closest_cluster (RowVector const& r, Matrix const& m) const
 void
 KMeansClusters::find_clusters(int maxIterations)
 {
-  // init new cluster centers to top rows
+  // init cluster centers to top rows
   Matrix newCenters = Matrix (mNClusters,mData.cols());
   newCenters = mData.topLeftCorner(mNClusters, mData.cols());
-  // set 'old' center to zero so initial change is infinite
+  // set 'old' center to zero so initial rel change is infinite
   Matrix oldCenters = Matrix::Zero(mNClusters, mData.cols());
 
   std::vector<int> counts (mNClusters);
@@ -81,8 +81,7 @@ KMeansClusters::find_clusters(int maxIterations)
   const int n = mData.cols()/2;
   while ((0.001 < relative_squared_distance(*pNew,*pOld))  // prints message
 	 && (++itCount < maxIterations))
-  { // assign cases to clusters
-    for(int i=0; i<mData.rows(); ++i)
+  { for(int i=0; i<mData.rows(); ++i)
       mDataClusterIndex[i] = closest_cluster(mData.row(i), *pNew);
     std::swap(pNew,pOld);
     // calculate new centers of clusters

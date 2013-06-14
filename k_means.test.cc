@@ -42,7 +42,7 @@ int main (void)
     bool useL2 = false;
     bool scale = false;
     
-    float shift = 100;
+    float shift = 10;
     for(int i=0; i<nRows; ++i)
     { int offset = i % nClusters;
       for (int j=offset; j<nCols; j += nClusters)
@@ -50,7 +50,8 @@ int main (void)
     }
     //    std::cout << data << std::endl;
     Eigen::VectorXi wts = Eigen::VectorXi::Ones(nRows);
-    KMeansClusters clusters(data.leftCols(nCols), wts, useL2, scale, nClusters, maxIter);
+    const int nToFind = 7;
+    KMeansClusters clusters(data.leftCols(nCols), wts, useL2, scale, nToFind, maxIter);
     clusters.print_to_stream(std::cout);
   }
 }

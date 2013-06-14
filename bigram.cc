@@ -61,35 +61,28 @@ int main(int argc, char **argv)
   
   // read tagged tokens and pos from input
   clock_t startTime = clock();
-
   TokenManager tokenManager (std::cin, posThreshold);
-    
-  //  TokenManager tokenManager (std::cin, posThreshold);
-  {
-    print_time("Read tokens from cin, sort and assign IDs in TokenManager.", startTime, clock());
-    if (nPrint) tokenManager.print_type_tags(nPrint);
-    int nAmbiguous = tokenManager.n_ambiguous();
-    ss << "MAIN: Source has " << nAmbiguous << " ambiguous tokens among " << tokenManager.input_length()
-       << "  (" << 100.0*(1.0 - ((float)nAmbiguous)/tokenManager.input_length()) << "% pure)" << std::endl;
-    std::cout << ss.str();
-    std::clog << ss.str();
-    ss.str("");
-    tokenManager.write_frequencies_to_file("results/margins.txt");
-  }
+  print_time("Read tokens from cin, sort and assign IDs in TokenManager.", startTime, clock());
+  if (nPrint) tokenManager.print_type_tags(nPrint);
+  int nAmbiguous = tokenManager.n_ambiguous();
+  ss << "MAIN: Source has " << nAmbiguous << " ambiguous tokens among " << tokenManager.input_length()
+     << "  (" << 100.0*(1.0 - ((float)nAmbiguous)/tokenManager.input_length()) << "% pure)" << std::endl;
+  std::cout << ss.str();
+  std::clog << ss.str();
+  ss.str("");
+  tokenManager.write_frequencies_to_file("results/margins.txt");
   
   // build the sparse bigram array using integer id for words
   const int nTypes (tokenManager.n_types());
   SparseMatrix B(nTypes,nTypes);
-  {
-    startTime = clock();
-    fill_sparse_bigram_matrix(B, nSkip, tokenManager, tokenManager);
-    std::clog << "MAIN: Initial bigram row sums are "
-	      << B.row(0).sum() << " "<< B.row(1).sum() << " " << B.row(2).sum() << " "
-	      << B.row(3).sum() << " " << B.row(4).sum() << " " << std::endl;
-    ss << "Init sparse bigram B[" << B.rows() << "x" << B.cols() << "] from map; sum +/,B= " << B.sum();
-    print_time(ss.str(), startTime, clock());
-    ss.str("");
-  }
+  startTime = clock();
+  fill_sparse_bigram_matrix(B, nSkip, tokenManager, tokenManager);
+  std::clog << "MAIN: Initial bigram row sums are "
+	    << B.row(0).sum() << " "<< B.row(1).sum() << " " << B.row(2).sum() << " "
+	    << B.row(3).sum() << " " << B.row(4).sum() << " " << std::endl;
+  ss << "Init sparse bigram B[" << B.rows() << "x" << B.cols() << "] from map; sum +/,B= " << B.sum();
+  print_time(ss.str(), startTime, clock());
+  ss.str("");
   
   // Random projections of row and column spaces 
   startTime = clock();
@@ -115,11 +108,10 @@ int main(int argc, char **argv)
   IntVector wts = IntVector::Ones(B.rows());
   if (weighting)  
   { for(int i=0; i<B.rows(); ++i)
-    { wts(i) = B.row(i).sum();  // equiv to tokenManager.type_freq(i) so use as check
+    { wts(i) = B.row(i).sum();
       if (0 == wts(i)) std::clog << "MAIN: row " << i << " of B sums to zero.\n";
     }
-  }
-  
+  }  
   bool useL2      ('2' == distance);
   bool useScaling (scaling != 0);
   KMeansClusters clusters(RP, wts, useL2, useScaling, nClusters, nIterations);

@@ -68,8 +68,12 @@ base_options = --threshold 0.0004 --scaling 1 --weighting 1 --iterations 20 --pr
 
 bigram_test: bigram tagged/validation.tagged
 	cat tagged/ptb45.tagged | \
-	./bigram --bidirectional --projections 100 --distance 2 --clusters 1000                                        $(base_options)  \
-	> results/test/b1_p100_c1000
+	./bigram --bidirectional --projections 100 --distance c --clusters 200                                        $(base_options)  \
+	> results/test/b1_p100_dc_c200
+
+# test accuracy   bidirectional projections distance clusters
+#     0.63            yes           100         2       200    diagonal apparent in confusion; singleton clusters
+#     0.27            yes           100        cos      200    clusters appear to be a hodgepodge
 
 # for validation...
 #	./bigram                 --projections 200 --distance 2 --clusters 15 --validation tagged/validation.tagged   $(base_options)  \

@@ -108,8 +108,8 @@ class Type: public string
   
   POS            POS_of_type     (Type const& type)  const;                             // most common POS for this type
   POSCountVector POS_tags_of_type(Type const& type, bool sort=false) const;
-
-  void           fill_bigram_map(BigramMap &bm, int skip, TokenManager const& tm, bool transpose=false) const; // use col index from other TM
+                                                   
+  void           fill_bigram_map(BigramMap &bm, int skip, TokenManager const& tm, bool transpose=false) const; // skip=0 for standard bigram
 
   void           print_to_stream(std::ostream &os)                const;
   void           print_type_tags(int maxToPrint)                  const;

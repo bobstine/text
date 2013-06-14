@@ -7,6 +7,7 @@
 #include <vector>
 #include <map>
 #include <iostream>
+#include <cmath>
 
 namespace k_means
 {
@@ -22,6 +23,8 @@ namespace k_means
   inline float
     cosine_distance(RowVector const& a, RowVector const& b)
   {
+    if (abs(a.norm() - 1.0) > 0.000001) { std::cerr << "Cosine input a has norm |a|=1+" << a.norm()-1 << std::endl; assert(false); }
+    if (abs(b.norm() - 1.0) > 0.000001) { std::cerr << "Cosine input b has norm |b|=1+" << b.norm()-1 << std::endl; assert(false); }
     return 1.0 - a.dot(b);
   }
 }
@@ -40,11 +43,11 @@ class KMeansClusters
   typedef std::vector<int>::const_iterator Iterator;
 
  private:
-  Matrix                   mData;
+  Matrix                   mData;                // need local copy of data since modified
   IntVector const&         mWeights;
   bool                     mUseL2;
   Distance                 mDist;
-  bool                     mScaleData;
+  bool                     mScaleData;           // always true for cosine
   int                      mNClusters;
   Matrix                   mClusterCenters;
   IntegerVector            mDataClusterIndex;    // cluster index for each data row
