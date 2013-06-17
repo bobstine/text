@@ -60,8 +60,8 @@ class Type: public string
 
    std::list<std::pair<Type,POS>> mTokens;           // source data
    std::map<Type, int>            mTypeCountMap;     // count of Types among input tokens
-   std::map<Type, int>            mTypeIndexMap;     // map from type to index in type vector
-   TypeVector                     mTypeVector;       // types in frequency order
+   std::map<Type, int>            mTypeIndexMap;     // map from type to index in following type vector
+   TypeVector                     mTypeVector;       // holds all types, in order of decreasing frequency
    std::map<POS,  int>            mPOSCountMap;      //           POS
    POSMap                         mTypePOSMap;       // identifies all POSs observed for a type
 
@@ -91,20 +91,16 @@ class Type: public string
   int            n_ambiguous ()                      const;                             // number types with ambiguous POS
   bool           known_type(std::string type)        const { return (mTypeCountMap.count(Type(type)) > 0); }
   
-  int            n_types ()                          const
-  {
-    if(mTypeCountMap.size() != mTypeVector.size())
-      std::clog << "ERROR: Count map has " << mTypeCountMap.size() << " but Type vector has " << mTypeVector.size() << std::endl;  
-    return (int) mTypeCountMap.size();
-  }
+  int            n_types ()                          const; 
+ 
   int            n_types_oov(TokenManager const& tm) const;
   TypeVector     type_vector()                       const { return mTypeVector; }     // assert type_index(typeVector[i]) == i
-  int            type_index(Type const& type)        const { return mTypeIndexMap.at(type); }
-  int            type_freq (Type const& type)        const { return mTypeCountMap.at(type); }
+  int            type_index(Type const& type)        const;
+  int            type_freq (Type const& type)        const;
   
   int            n_POS()                             const { return (int) mPOSCountMap.size(); }
   POSVector      POS_vector()                        const;   
-  int            POS_freq (POS const& pos)           const { return mPOSCountMap.at(pos); }
+  int            POS_freq (POS const& pos)           const;
   
   POS            POS_of_type     (Type const& type)  const;                             // most common POS for this type
   POSCountVector POS_tags_of_type(Type const& type, bool sort=false) const;

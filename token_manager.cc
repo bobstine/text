@@ -12,6 +12,8 @@ static std::string messageTag = "TKMG: ";
 inline size_t min(size_t a, size_t b) { return (a < b) ? a : b; }
 
 
+//     Initialize     Initialize     Initialize     Initialize     Initialize     Initialize     Initialize     Initialize
+
 void
 TokenManager::init_from_file(std::string &fileName, float posThreshold)
 {
@@ -82,6 +84,20 @@ TokenManager::init_from_stream(std::istream &input, float posThreshold)
 }
 
 
+
+int
+TokenManager::n_types ()          const
+{
+  if(mTypeCountMap.size() != mTypeVector.size())
+  {  std::cerr << messageTag
+	       << "ERROR: Count map has " << mTypeCountMap.size() << " but Type vector has " << mTypeVector.size() << std::endl;
+     assert(false);
+  }
+  return (int) mTypeCountMap.size();
+}
+
+
+
 TokenManager::POSVector
 TokenManager::POS_vector()        const
 {
@@ -148,6 +164,28 @@ TokenManager::POS_tags_of_type (Type const& type, bool sort) const
 }
 
 
+//     Indices     Indices     Indices     Indices     Indices     Indices     Indices     Indices     Indices
+
+int
+TokenManager::type_index(Type const& type)        const
+{
+  auto it = mTypeIndexMap.find(type);
+  if(it != mTypeIndexMap.end())
+    return it->second;
+  else
+    return -1;
+}
+
+int
+TokenManager::type_freq (Type const& type)        const
+{
+  if(0 < mTypeCountMap.count(type))
+    return mTypeCountMap.at(type);
+  else
+    return 0;
+}
+
+
 int
 TokenManager::n_types_oov(TokenManager const& tm) const
 {
@@ -158,18 +196,31 @@ TokenManager::n_types_oov(TokenManager const& tm) const
 }
 
 
+int
+TokenManager::POS_freq (POS const& pos) const
+{
+  if(0 < mPOSCountMap.count(pos))
+    return mPOSCountMap.at(pos);
+  else
+    return 0;
+}
+
+
+//     Bigram     Bigram     Bigram     Bigram     Bigram     Bigram     Bigram     Bigram     Bigram     Bigram     
 
 void
 TokenManager::fill_bigram_map(BigramMap &bm, int skip, TokenManager const& tm, bool transpose) const
 {
+  int nNotFound = 0;
   std::pair<int,int> ij;                 // beyond those indices for tokens found in tm
   auto itBack = tm.token_list_begin();
+  std::ofstream os ("/Users/bob/Desktop/debug.txt");
   for (int i=0; i<skip+1; ++i) ++itBack;
-  int nNotFound = 0;
   if (!transpose)
   { for (auto it=mTokens.cbegin(); itBack != mTokens.cend(); ++it, ++itBack)
     { int i = type_index(it->first);                // i from this
       int j = tm.type_index(itBack->first);         // j from index set used in tm
+      os << i << "/" << j << "(" << nNotFound << ") " << std::endl;
       if (0 <= j)                                   // valid
       { ij.first = i;
 	ij.second = j;
@@ -177,6 +228,7 @@ TokenManager::fill_bigram_map(BigramMap &bm, int skip, TokenManager const& tm, b
       }
       else ++nNotFound;
     }
+    os << "Done\n";
   }
   else 
   { for (auto it=mTokens.cbegin(); itBack != mTokens.cend(); ++it, ++itBack)

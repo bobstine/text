@@ -48,8 +48,11 @@ tagged/ptb45.tagged:
 tagged/ptb17.tagged:
 	scp sob:/data/pos_eval_corpora/ptb17/ptb17.tagged  tagged
 
-tagged/validation.tagged:
-	tail -n 500000 tagged/ptb45.tagged > $@
+tagged/train.tagged:
+	head -n 100000 tagged/ptb45.tagged > $@
+
+tagged/test.tagged:
+	tail -n 100000 tagged/ptb45.tagged > $@
 
 
 ##################
@@ -64,12 +67,12 @@ bigram: bigram.o k_means.o token_manager.o classifier.o confusion_matrix.o
 
 
 #  options for folding in other tags, normalizing the bigram rows, weighed avg in clustering, cluster max iterations, tag printing
-base_options = --skip 0 --threshold 0.0004 --weight_centroid --iterations 20 --print 0
+base_options = --bidirectional --scale_data --skip 0 --threshold 0.0004 --weight_centroid --iterations 20 --print 0
 
-bigram_test: bigram tagged/validation.tagged
-	cat tagged/ptb45.tagged | \
-	./bigram --bidirectional --scale_data --scale_centroid  --projections 100 --clusters 200                       $(base_options)  \
-	> results/test/b1_p100_d2_c200
+bigram_test: bigram tagged/train.tagged tagged/test.tagged
+	cat tagged/train.tagged | \
+	./bigram --scale_centroid  --projections 100 --clusters 200 --validation tagged/test.tagged  $(base_options)  \
+	> results/test/p100_c200
 
 # test accuracy   bidirectional projections distance clusters
 #     0.63            yes           100         2       200    diagonal apparent in confusion; singleton clusters

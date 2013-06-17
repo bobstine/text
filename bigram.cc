@@ -21,7 +21,13 @@ void
 fill_sparse_bigram_matrix(SparseMatrix &B, int skip, TokenManager const& tmRow, TokenManager const& tmCol, bool transpose=false)
 {
   std::map<std::pair<int,int>,int> bgramMap;
+
+  std::clog << "MAIN: In fill_sparse_bigram_matrix  1  \n";
+
   tmRow.fill_bigram_map(bgramMap, skip, tmCol, transpose);    
+
+  std::clog << "MAIN: In fill_sparse_bigram_matrix  2  \n";
+  
   fill_sparse_matrix(B, bgramMap);
 }
 
@@ -115,7 +121,7 @@ int main(int argc, char **argv)
   clusters.print_to_stream(std::clog);
 
   // sum frequency of most common pos in each cluster
-  {
+  /*  {
     KMeansClusters::ClusterMap cMap = clusters.cluster_map();
     std::vector<Type> typeVec = tokenManager.type_vector();
     int totalMax = 0;
@@ -134,6 +140,7 @@ int main(int argc, char **argv)
     std::clog << "MAIN: In type space... Sum of most common POS among all clusters is " << totalMax
 	      << " which gives 'purity' of " << ((float)totalMax)/tokenManager.n_types() << std::endl;
   }
+  */
   
   ClusterClassifier classifier(clusters, tokenManager);
   {
@@ -141,8 +148,6 @@ int main(int argc, char **argv)
     table.print_to_stream(std::cout);
     table.print_to_stream(std::clog);
   }
-  Eigen::VectorXi estClusterPOS;
-
 
   // optional validation which has same column indices as B
   if (useValidation)
@@ -154,6 +159,9 @@ int main(int argc, char **argv)
     SparseMatrix V, Vt;
     startTime = clock();
     V.resize(validationTM.n_types(), tokenManager.n_types());
+
+    std::clog << "HERE 0\n";
+
     fill_sparse_bigram_matrix(V , nSkip, validationTM, tokenManager);
     ss << "Init validation sparse bigram V[" << V.rows() << "x" << V.cols() << "] from map; sum +/,V=" << V.sum();
     if (bidirectional)
@@ -164,6 +172,7 @@ int main(int argc, char **argv)
     print_time(ss.str(), startTime, clock());
     ss.str("");
 
+    std::clog << "HERE 1\n";
     Matrix vRP (V.rows(), nProjections); 
     startTime = clock();
     if (!bidirectional)
@@ -177,18 +186,11 @@ int main(int argc, char **argv)
     print_time(ss.str(), startTime, clock());
     ss.str("");
     std::clog << "MAIN: Assigning validation data to clusters." << std::endl; 
-    //  FIX HERE
-    std::vector<string> vLabels;
-    // std::vector<string> vLabels = clusters.assign_cluster_labels(&vRP);
-    std::clog << "MAIN: Tabulating validation data." << std::endl;
-    ConfusionMatrix vCM(make_second_iterator(validationTM.token_list_begin()),
-			make_second_iterator(validationTM.token_list_end()),
-			vLabels.begin());
-    // check max count by direct computation from input tokens
-
-    vCM.print_to_stream(std::cout);
-    vCM.print_to_stream(std::clog);
-
+    {
+      ConfusionMatrix table = make_confusion_matrix (classifier, validationTM);
+      table.print_to_stream(std::cout);
+      table.print_to_stream(std::clog);
+    }
     // repeat for just oov
     /*
       CrossTab oovCrossTab(nClusters, validationTM.n_POS());
