@@ -74,6 +74,10 @@ bigram_test: bigram tagged/train.tagged tagged/test.tagged
 	./bigram --scale_centroid  --projections 100 --clusters 200 --validation tagged/test.tagged  $(base_options)  \
 	> results/test/p100_c200
 
+bigram_debug: bigram tagged/train.tagged tagged/test.tagged
+	./bigram  --bidirectional --projections 100 --clusters 200 --weight_centroid --validation tagged/test.tagged
+
+
 # test accuracy   bidirectional projections distance clusters
 #     0.63            yes           100         2       200    diagonal apparent in confusion; singleton clusters
 #     0.27            yes           100        cos      200    clusters appear to be a hodgepodge

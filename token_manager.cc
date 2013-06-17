@@ -61,11 +61,11 @@ TokenManager::init_from_stream(std::istream &input, float posThreshold)
 	if (reduce[it->second]) it->second = POS(other);
     }
   }
-  for(auto it=mTokens.cbegin(); it != mTokens.cend(); ++it) // build pos map for each type
+  for(auto it=mTokens.cbegin(); it != mTokens.cend(); ++it)           // build pos map for each type
   { ++mPOSCountMap[it->second];
     ++mTypePOSMap[it->first][it->second];
   }
-  std::multimap<int,Type> sortTypesMap;                          // sort types in frequency order
+  std::multimap<int,Type> sortTypesMap;                               // sort types in frequency order
   for(auto it = mTypeCountMap.cbegin(); it != mTypeCountMap.cend(); ++it)
     sortTypesMap.insert( std::make_pair(it->second, it->first) );
   int index = 0;
@@ -75,24 +75,36 @@ TokenManager::init_from_stream(std::istream &input, float posThreshold)
   }
   assert(mTypeVector.size()   == mTypeCountMap.size());
   assert(mTypeIndexMap.size() == mTypeCountMap.size());
-  std::clog << messageTag << "Ten most common types are ";
-  for(int i=0; i<(int)min(mTypeVector.size(),10); ++i)
-  { assert(i == mTypeIndexMap[mTypeVector[i]]);                //  quick check of just a few
-    std::clog << mTypeVector[i] << " " << mTypeCountMap[mTypeVector[i]] << "   ";
-  }
-  std::clog << std::endl;
+  print_type_freq_summary(std::clog);
 }
 
+
+void
+TokenManager::print_type_freq_summary(std::ostream &os) const
+{
+  std::clog << messageTag << "Ten most common types are ";
+  for(int i=0; i<(int)min(mTypeVector.size(),10); ++i)
+  { assert(i == mTypeIndexMap.at(mTypeVector[i]));                       //  quick check of just a few
+    os << mTypeVector[i] << " " << mTypeCountMap.at(mTypeVector[i]) << "   ";
+  }
+  os << std::endl;
+  const int rareN=5;
+  std::vector<int> rareCounts (rareN+1);
+  for(int i=0; i<rareN+1; ++i) rareCounts[i]=0;
+  for(auto it = mTypeCountMap.begin(); it != mTypeCountMap.end(); ++it)
+    if (it->second <= rareN) ++rareCounts[it->second];
+  os << messageTag << "Frequencies of rare types are ";
+  os << rareCounts[1] << " occur once; ";
+  for (int i=2; i<=rareN; ++i)
+    os << rareCounts[i] << " occur " << i << "   ";
+  os << std::endl;
+}
 
 
 int
 TokenManager::n_types ()          const
 {
-  if(mTypeCountMap.size() != mTypeVector.size())
-  {  std::cerr << messageTag
-	       << "ERROR: Count map has " << mTypeCountMap.size() << " but Type vector has " << mTypeVector.size() << std::endl;
-     assert(false);
-  }
+  assert(mTypeCountMap.size() == mTypeVector.size());
   return (int) mTypeCountMap.size();
 }
 
@@ -213,14 +225,12 @@ TokenManager::fill_bigram_map(BigramMap &bm, int skip, TokenManager const& tm, b
 {
   int nNotFound = 0;
   std::pair<int,int> ij;                 // beyond those indices for tokens found in tm
-  auto itBack = tm.token_list_begin();
-  std::ofstream os ("/Users/bob/Desktop/debug.txt");
+  auto itBack = token_list_begin();
   for (int i=0; i<skip+1; ++i) ++itBack;
   if (!transpose)
   { for (auto it=mTokens.cbegin(); itBack != mTokens.cend(); ++it, ++itBack)
     { int i = type_index(it->first);                // i from this
       int j = tm.type_index(itBack->first);         // j from index set used in tm
-      os << i << "/" << j << "(" << nNotFound << ") " << std::endl;
       if (0 <= j)                                   // valid
       { ij.first = i;
 	ij.second = j;
@@ -228,7 +238,6 @@ TokenManager::fill_bigram_map(BigramMap &bm, int skip, TokenManager const& tm, b
       }
       else ++nNotFound;
     }
-    os << "Done\n";
   }
   else 
   { for (auto it=mTokens.cbegin(); itBack != mTokens.cend(); ++it, ++itBack)

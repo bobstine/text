@@ -109,8 +109,17 @@ KMeansClusters::find_clusters(int maxIterations)
       else std::clog << messageTag << "Count=0 in cluster " << c << std::endl;
   }
   std::clog << std::endl;
+  // include analysis of rare types
+  std::map<int,int> rareClusterCounts;
   for(int i=0; i<mData.rows(); ++i)
-    mDataClusterIndex[i] = closest_cluster(mData.row(i), *pNew);
+  { int cluster = closest_cluster(mData.row(i), *pNew);
+    mDataClusterIndex[i] = cluster;
+    if(mWeights(i) == 1) ++rareClusterCounts[cluster];
+  }
+  std::clog << messageTag << "Cases with weight 1 appear in these clusters:\n       ";
+  for(auto it = rareClusterCounts.cbegin(); it!=rareClusterCounts.end(); ++it)
+    std::clog << "(C" << it->first << ":" << it->second <<") ";
+  std::clog << std::endl;
   mClusterCenters = *pNew;
 }
 

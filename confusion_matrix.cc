@@ -37,7 +37,7 @@ void
 ConfusionMatrix::print_to_stream (std::ostream &os) const
 {
   using std::setw;
-  os << messageTag << " Accuracy=" << accuracy() << "  Purity=" << purity() << "      (rows=truth, cols=estimated)" << std::endl;
+  os << messageTag << "Accuracy=" << accuracy() << "  Purity=" << purity() << "      (rows=truth, cols=estimated)" << std::endl;
   int width = 2 + max(log10((float)mMaxFreq), mMaxLabelLen);
   
   os << std::setw(width) << messageTag << "  " << setw(width) << " ";

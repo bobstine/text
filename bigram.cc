@@ -21,13 +21,7 @@ void
 fill_sparse_bigram_matrix(SparseMatrix &B, int skip, TokenManager const& tmRow, TokenManager const& tmCol, bool transpose=false)
 {
   std::map<std::pair<int,int>,int> bgramMap;
-
-  std::clog << "MAIN: In fill_sparse_bigram_matrix  1  \n";
-
   tmRow.fill_bigram_map(bgramMap, skip, tmCol, transpose);    
-
-  std::clog << "MAIN: In fill_sparse_bigram_matrix  2  \n";
-  
   fill_sparse_matrix(B, bgramMap);
 }
 
@@ -66,7 +60,11 @@ int main(int argc, char **argv)
   
   // read tagged tokens and pos from input
   clock_t startTime = clock();
-  TokenManager tokenManager (std::cin, posThreshold);
+
+  // debug
+  std::ifstream is("/Users/bob/C/text/tagged/train.tagged");
+  TokenManager tokenManager (is, posThreshold);
+  
   print_time("Read tokens from cin, sort and assign IDs in TokenManager.", startTime, clock());
   if (nPrint) tokenManager.print_type_tags(nPrint);
   int nAmbiguous = tokenManager.n_ambiguous();
@@ -119,29 +117,6 @@ int main(int argc, char **argv)
   }  
   KMeansClusters clusters(RP, bidirectional, wts, scaleData, nClusters, scaleCentroid, nIterations);
   clusters.print_to_stream(std::clog);
-
-  // sum frequency of most common pos in each cluster
-  /*  {
-    KMeansClusters::ClusterMap cMap = clusters.cluster_map();
-    std::vector<Type> typeVec = tokenManager.type_vector();
-    int totalMax = 0;
-    for(auto it=cMap.cbegin(); it!=cMap.cend(); ++it)
-    { std::vector<int> elementsInCluster = it->second;
-      std::map<POS,int> posCounts;
-      for(size_t i=0; i<elementsInCluster.size(); ++i)
-      { Type t = typeVec[elementsInCluster[i]];
-	++posCounts[ tokenManager.POS_of_type(t) ];
-      }
-      int max=0;
-      for(auto iter = posCounts.cbegin(); iter!=posCounts.cend(); ++iter)
-	if(iter->second > max) max=iter->second;
-      totalMax += max;
-    }
-    std::clog << "MAIN: In type space... Sum of most common POS among all clusters is " << totalMax
-	      << " which gives 'purity' of " << ((float)totalMax)/tokenManager.n_types() << std::endl;
-  }
-  */
-  
   ClusterClassifier classifier(clusters, tokenManager);
   {
     ConfusionMatrix table = make_confusion_matrix (classifier, tokenManager);
@@ -150,7 +125,7 @@ int main(int argc, char **argv)
   }
 
   // optional validation which has same column indices as B
-  if (useValidation)
+  if (false) // (useValidation)
   { std::clog << "\n\nMAIN: Running validation.\n";
     TokenManager  validationTM(vFileName, posThreshold);
     int nOOV = validationTM.n_types_oov(tokenManager);
@@ -159,10 +134,7 @@ int main(int argc, char **argv)
     SparseMatrix V, Vt;
     startTime = clock();
     V.resize(validationTM.n_types(), tokenManager.n_types());
-
-    std::clog << "HERE 0\n";
-
-    fill_sparse_bigram_matrix(V , nSkip, validationTM, tokenManager);
+    fill_sparse_bigram_matrix(V, nSkip, validationTM, tokenManager);
     ss << "Init validation sparse bigram V[" << V.rows() << "x" << V.cols() << "] from map; sum +/,V=" << V.sum();
     if (bidirectional)
     { Vt.resize(validationTM.n_types(), tokenManager.n_types());
@@ -172,7 +144,6 @@ int main(int argc, char **argv)
     print_time(ss.str(), startTime, clock());
     ss.str("");
 
-    std::clog << "HERE 1\n";
     Matrix vRP (V.rows(), nProjections); 
     startTime = clock();
     if (!bidirectional)

@@ -109,6 +109,7 @@ class Type: public string
 
   void           print_to_stream(std::ostream &os)                const;
   void           print_type_tags(int maxToPrint)                  const;
+  void           print_type_freq_summary(std::ostream &os)        const;
   void           write_frequencies_to_file (string filename)      const;
   
  private:

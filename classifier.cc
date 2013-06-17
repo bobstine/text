@@ -54,6 +54,21 @@
  }
 
 
+//     Operators     Operators     Operators     Operators     Operators     Operators     Operators     Operators
+
+POS
+ClusterClassifier::operator()(Type const& t)                 const
+{
+  std::string labelOOV("OTH");
+  auto it = mMap.find(t);
+  if(it == mMap.end())
+    return POS(labelOOV);
+  else
+    return mMap.at(t);
+}
+
+
+
 //     ConfusionMatrix     ConfusionMatrix     ConfusionMatrix     ConfusionMatrix     ConfusionMatrix     ConfusionMatrix
 
 //   Iterators
