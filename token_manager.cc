@@ -1,4 +1,5 @@
 #include "token_manager.h"
+#include "utils.h"
 
 #include <algorithm>
 #include <set>
@@ -10,7 +11,6 @@
 static std::string messageTag = "TKMG: ";
 
 inline size_t min(size_t a, size_t b) { return (a < b) ? a : b; }
-
 
 //     Initialize     Initialize     Initialize     Initialize     Initialize     Initialize     Initialize     Initialize
 
@@ -75,12 +75,13 @@ TokenManager::init_from_stream(std::istream &input, float posThreshold)
   }
   assert(mTypeVector.size()   == mTypeCountMap.size());
   assert(mTypeIndexMap.size() == mTypeCountMap.size());
-  print_type_freq_summary(std::clog);
+  print_common_type_summary(std::clog); 
+  print_rare_type_summary(std::clog); 
 }
 
 
 void
-TokenManager::print_type_freq_summary(std::ostream &os) const
+TokenManager::print_common_type_summary(std::ostream &os) const
 {
   std::clog << messageTag << "Ten most common types are ";
   for(int i=0; i<(int)min(mTypeVector.size(),10); ++i)
@@ -88,16 +89,32 @@ TokenManager::print_type_freq_summary(std::ostream &os) const
     os << mTypeVector[i] << " " << mTypeCountMap.at(mTypeVector[i]) << "   ";
   }
   os << std::endl;
+}
+
+
+void
+TokenManager::print_rare_type_summary(std::ostream &os) const
+{
   const int rareN=5;
-  std::vector<int> rareCounts (rareN+1);
-  for(int i=0; i<rareN+1; ++i) rareCounts[i]=0;
-  for(auto it = mTypeCountMap.begin(); it != mTypeCountMap.end(); ++it)
-    if (it->second <= rareN) ++rareCounts[it->second];
+  std::vector<int> rareCounts (rareN+1, 0);
+  std::map<POS,int> c1Map;
+  std::map<POS,int> c2Map;
+  for(auto p : mTypeCountMap)
+  { if (p.second <= rareN)
+    { ++rareCounts[p.second];
+      if      (p.second == 1) ++c1Map[POS_of_type(p.first)];
+      else if (p.second == 2) ++c2Map[POS_of_type(p.first)];
+    }
+  }
   os << messageTag << "Frequencies of rare types are ";
   os << rareCounts[1] << " occur once; ";
   for (int i=2; i<=rareN; ++i)
     os << rareCounts[i] << " occur " << i << "   ";
   os << std::endl;
+  os << messageTag << "POS for types with frequency 1:\n     ";
+  for(auto p : utils::invert_map_descending(c1Map)) os << "(" << p.second << "," << p.first << ") "; os << std::endl;
+  os << messageTag << "POS for types with frequency 2:\n     ";
+  for(auto p : utils::invert_map_descending(c2Map)) os << "(" << p.second << "," << p.first << ") "; os << std::endl;
 }
 
 

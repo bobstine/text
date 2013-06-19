@@ -53,7 +53,8 @@ int main(int argc, char **argv)
 
   parse_arguments(argc, argv, nSkip, posThreshold, bidirectional, nProjections, scaleData, weightCentroid, nClusters, scaleCentroid, nIterations, nPrint, vFileName);
   std::cout << "MAIN: Arguments skip=" << nSkip << " threshold=" << posThreshold << " bidirectional=" << bidirectional
-	    << " projections=" << nProjections << " scale_data=" << scaleData << " weight_centroid=" << weightCentroid << " clusters=" << nClusters << " iterations=" << nIterations
+	    << " projections=" << nProjections << " scale_data=" << scaleData << " weight_centroid=" << weightCentroid
+	    << " clusters=" << nClusters << " iterations=" << nIterations
 	    << " print=" << nPrint << " validation=" << vFileName << std::endl;
 
   const bool useValidation (vFileName.size() > 0);
@@ -61,9 +62,11 @@ int main(int argc, char **argv)
   // read tagged tokens and pos from input
   clock_t startTime = clock();
 
-  // debug
-  std::ifstream is("/Users/bob/C/text/tagged/train.tagged");
-  TokenManager tokenManager (is, posThreshold);
+  // use for debug running gdb
+  //   std::ifstream is("/Users/bob/C/text/tagged/train.tagged");
+  //   TokenManager tokenManager (is, posThreshold);
+
+  TokenManager tokenManager = TokenManager(std::cin, posThreshold);
   
   print_time("Read tokens from cin, sort and assign IDs in TokenManager.", startTime, clock());
   if (nPrint) tokenManager.print_type_tags(nPrint);
@@ -117,6 +120,7 @@ int main(int argc, char **argv)
   }  
   KMeansClusters clusters(RP, bidirectional, wts, scaleData, nClusters, scaleCentroid, nIterations);
   clusters.print_to_stream(std::clog);
+  clusters.summarize_rare_cases(std::clog);
   ClusterClassifier classifier(clusters, tokenManager);
   {
     ConfusionMatrix table = make_confusion_matrix (classifier, tokenManager);

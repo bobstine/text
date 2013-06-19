@@ -50,11 +50,13 @@ class KMeansClusters
   IntegerVector  assign_cluster_indices (Matrix *data)                   const;  // note modifies argument
 
   void           print_to_stream (std::ostream& os)                      const;
-  
+  void           summarize_rare_cases (std::ostream& os)                 const;
+    
  private:
   void   prepare_data      (Matrix *m)                                   const;
   void   find_clusters     (int maxIterations);
   int    closest_cluster   (RowVector const& r, Matrix const& m)         const;
+
   float  distance          (RowVector const& a, RowVector const& b)      const  { return (a.array() - b.array()).matrix().squaredNorm(); }
   double relative_squared_distance (Matrix const& a, Matrix const& b)    const;
 

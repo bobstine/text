@@ -1,5 +1,6 @@
 #include "k_means.h"
 #include "order.h"
+#include "utils.h"
 
 #include <utility>
 #include <iostream>
@@ -109,17 +110,8 @@ KMeansClusters::find_clusters(int maxIterations)
       else std::clog << messageTag << "Count=0 in cluster " << c << std::endl;
   }
   std::clog << std::endl;
-  // include analysis of rare types
-  std::map<int,int> rareClusterCounts;
   for(int i=0; i<mData.rows(); ++i)
-  { int cluster = closest_cluster(mData.row(i), *pNew);
-    mDataClusterIndex[i] = cluster;
-    if(mWeights(i) == 1) ++rareClusterCounts[cluster];
-  }
-  std::clog << messageTag << "Cases with weight 1 appear in these clusters:\n       ";
-  for(auto it = rareClusterCounts.cbegin(); it!=rareClusterCounts.end(); ++it)
-    std::clog << "(C" << it->first << ":" << it->second <<") ";
-  std::clog << std::endl;
+    mDataClusterIndex[i] = closest_cluster(mData.row(i), *pNew);
   mClusterCenters = *pNew;
 }
 
@@ -131,6 +123,27 @@ KMeansClusters::cluster_map() const
   for(int i=0; i<(int)mDataClusterIndex.size(); ++i)
     m[mDataClusterIndex[i]].push_back(i);
   return m;
+}
+
+
+void
+KMeansClusters::summarize_rare_cases(std::ostream &os) const
+{
+  std::map<int,int> w1ClusterCounts; int nW1=0;
+  std::map<int,int> w2ClusterCounts; int nW2=0;
+  for(int i=0; i<mData.rows(); ++i)
+  { int cluster = mDataClusterIndex[i];
+    if      (mWeights(i) == 1) { ++w1ClusterCounts[cluster]; ++nW1; }
+    else if (mWeights(i) == 2) { ++w2ClusterCounts[cluster]; ++nW2; }
+  }
+  os << messageTag << nW1 << " cases with weight 1 appear in " << w1ClusterCounts.size() << " clusters:\n       ";
+  for(auto p : utils::invert_map_descending(w1ClusterCounts))
+    os << "(C" << p.second << ":" << p.first <<") ";
+  os << std::endl
+     << messageTag << nW2 << " cases with weight 2 appear in " << w2ClusterCounts.size() << " clusters:\n       ";
+  for(auto p : utils::invert_map_descending(w2ClusterCounts))
+    os << "(C" << p.second << ":" << p.first <<") ";
+  os << std::endl;
 }
 
 

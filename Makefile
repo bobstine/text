@@ -49,10 +49,10 @@ tagged/ptb17.tagged:
 	scp sob:/data/pos_eval_corpora/ptb17/ptb17.tagged  tagged
 
 tagged/train.tagged:
-	head -n 100000 tagged/ptb45.tagged > $@
+	head -n 1100000 tagged/ptb45.tagged > $@
 
 tagged/test.tagged:
-	tail -n 100000 tagged/ptb45.tagged > $@
+	tail -n 500000 tagged/ptb45.tagged > $@
 
 
 ##################
@@ -67,13 +67,15 @@ bigram: bigram.o k_means.o token_manager.o classifier.o confusion_matrix.o
 
 
 #  options for folding in other tags, normalizing the bigram rows, weighed avg in clustering, cluster max iterations, tag printing
-base_options = --bidirectional --scale_data --skip 0 --threshold 0.0004 --weight_centroid --iterations 20 --print 0
+#  --scale_data is on/off
+base_options = --scale_data --bidirectional  --skip 0 --threshold 0.0004 --weight_centroid --iterations 20 --print 0
 
 bigram_test: bigram tagged/train.tagged tagged/test.tagged
 	cat tagged/train.tagged | \
-	./bigram --scale_centroid  --projections 100 --clusters 200 --validation tagged/test.tagged  $(base_options)  \
+	./bigram --projections 100 --clusters 200 --validation tagged/test.tagged  $(base_options)  \
 	> results/test/p100_c200
 
+# for debugging, shrink the training/validation data to 100,000 cases and read from std::cin in bigram.cc
 bigram_debug: bigram tagged/train.tagged tagged/test.tagged
 	./bigram  --bidirectional --projections 100 --clusters 200 --weight_centroid --validation tagged/test.tagged
 

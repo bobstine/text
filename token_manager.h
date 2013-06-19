@@ -108,8 +108,9 @@ class Type: public string
   void           fill_bigram_map(BigramMap &bm, int skip, TokenManager const& tm, bool transpose=false) const; // skip=0 for standard bigram
 
   void           print_to_stream(std::ostream &os)                const;
-  void           print_type_tags(int maxToPrint)                  const;
-  void           print_type_freq_summary(std::ostream &os)        const;
+  void           print_type_tags(int maxToPrint)                  const;                // only most frequent types
+  void           print_rare_type_summary(std::ostream &os)        const;
+  void           print_common_type_summary(std::ostream &os)      const;
   void           write_frequencies_to_file (string filename)      const;
   
  private:
