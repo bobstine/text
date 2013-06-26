@@ -50,8 +50,12 @@ class KMeansClusters
   IntegerVector  assign_cluster_indices (Matrix *data)                   const;  // note modifies argument
 
   void           print_to_stream (std::ostream& os)                      const;
+  void           print_summary_stats(std::ostream &os)                   const;
   void           summarize_rare_cases (std::ostream& os)                 const;
-    
+
+  Matrix         within_cluster_summary_stats()                          const;  // for each cluster: n, avg dist to centroid, max dist, norm of centroid, then centroid
+
+  
  private:
   void   prepare_data      (Matrix *m)                                   const;
   void   find_clusters     (int maxIterations);

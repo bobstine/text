@@ -119,8 +119,17 @@ int main(int argc, char **argv)
     }
   }  
   KMeansClusters clusters(RP, bidirectional, wts, scaleData, nClusters, scaleCentroid, nIterations);
+  clusters.print_summary_stats(std::clog);
   clusters.print_to_stream(std::clog);
   clusters.summarize_rare_cases(std::clog);
+  {
+    std::ofstream deskTopFile ("/Users/bob/Desktop/centers.txt");
+    deskTopFile << "    n    Mean    Max    Norm ";  // space before name for JMP
+    for(int i=0; i<clusters.number_of_clusters(); ++i)
+      deskTopFile << " D" << i;
+    deskTopFile << std::endl << clusters.within_cluster_summary_stats() << std::endl;
+  }
+  
   ClusterClassifier classifier(clusters, tokenManager);
   {
     ConfusionMatrix table = make_confusion_matrix (classifier, tokenManager);

@@ -147,6 +147,59 @@ KMeansClusters::summarize_rare_cases(std::ostream &os) const
 }
 
 
+void
+KMeansClusters::print_summary_stats(std::ostream &os)                         const
+{
+  RowVector mean = mData.colwise().sum().array()/mData.rows();  // global mean
+  float maxClusterDist = 0.0;
+  float avgGlobalDist  = 0.0;
+  float avgClusterDist = 0.0;
+  float weightedClusterDist = 0.0;
+  float sumWeights = 0.0;
+  for (int i=0; i<mData.rows(); ++i)
+  { avgGlobalDist       += distance(mData.row(i),mean);
+    float dist = distance(mData.row(i), mClusterCenters.row(mDataClusterIndex[i]));
+    if (dist > maxClusterDist) maxClusterDist = dist;
+    avgClusterDist      += dist;
+    sumWeights          += mWeights(i);
+    weightedClusterDist += mWeights(i) * dist;
+  }
+  avgGlobalDist       /= mData.rows();
+  avgClusterDist      /= mData.rows();
+  weightedClusterDist /= sumWeights;
+   os << messageTag
+      << "k-means summary stats [k=" << mNClusters << ", n=" << mData.rows() << "]   "
+      << "  avg(dist to mean)=" << avgGlobalDist << " avg(dist to cluster)=" << avgClusterDist
+      << " (weighted " << weightedClusterDist << ") with max distance to cluster " << maxClusterDist
+     << std::endl;
+}
+  
+
+KMeansClusters::Matrix
+KMeansClusters::within_cluster_summary_stats() const         // for each cluster: n, avg dist to centroid, max dist, then centroid
+{
+  Matrix results (mNClusters, 4 + mClusterCenters.cols());
+  ClusterMap m = cluster_map();
+  
+  for(int k=0; k < mNClusters; ++k)
+  { results(k,0) = (float) m[k].size();
+    float sumD = 0.0;
+    float sumW = 0.0;
+    float maxD = 0.0;
+    for (auto i : m[k])
+    { float d = distance(mData.row(i), mClusterCenters.row(k));
+      sumW += mWeights(i);
+      sumD += mWeights(i) * d;
+      if(d > maxD) maxD = d;
+    } 
+    results(k,1) = sqrt(sumD/sumW);
+    results(k,2) = sqrt(maxD);
+    results(k,3) = mClusterCenters.row(k).norm();
+    results.row(k).tail(mClusterCenters.cols()) = mClusterCenters.row(k);
+  }
+  return results;
+}
+    
 float 
 KMeansClusters::average_within_cluster_variance(Matrix const& centroids) const
 {

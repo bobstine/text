@@ -15,43 +15,29 @@ using std::string;
 
 int main (void)
 {
-  // data vary from [-10,10] after randomize seed
+  // data vary from [-sigma, sigma] after randomize seed
   srand(time(NULL));
-  Eigen::MatrixXf baseData = 10.0 * Eigen::MatrixXf::Random(nRows,nCols+1);
-
+  const float sigma = 10.0;
+  Eigen::MatrixXf baseData = sigma * Eigen::MatrixXf::Random(nRows,nCols+1);
   
   const int nClusters = 4;
   const int maxIter = 10;
-  
-  if (false)   // l2 cluster
-  {
+
+  { // test data in row i are shifted by (i mod k)
+    // if sigma is 'small enough', see (k=4) clusters with 0 4 8 12 ...   1 5 9 13 ...  etc
     Eigen::MatrixXf data = baseData;
-    bool useL2 = true;
-    bool scale = true;
-    
     for(int i=0; i<nRows; ++i)
       data.row(i).array() += (i % nClusters);
+    
     Eigen::VectorXi wts = Eigen::VectorXi::Ones(nRows);
-    KMeansClusters clusters(data.leftCols(nCols), wts, useL2, scale, nClusters, maxIter);
+    bool biDir =  true;
+    bool scale = false;
+    KMeansClusters clusters(data.leftCols(nCols), biDir, wts, scale, nClusters, scale, maxIter);
+    clusters.print_summary_stats(std::cout);
+    std::cout << "TEST: Within cluster summary statistics (n, avg dist, max dist, norm, centroid) \n"
+	      << clusters.within_cluster_summary_stats()
+	      << std::endl;
     clusters.print_to_stream(std::cout);
   }
 
-  if (true)        // cosine centers
-  {
-    Eigen::MatrixXf data = baseData;
-    bool useL2 = false;
-    bool scale = false;
-    
-    float shift = 10;
-    for(int i=0; i<nRows; ++i)
-    { int offset = i % nClusters;
-      for (int j=offset; j<nCols; j += nClusters)
-        data(i,j) += shift;
-    }
-    //    std::cout << data << std::endl;
-    Eigen::VectorXi wts = Eigen::VectorXi::Ones(nRows);
-    const int nToFind = 7;
-    KMeansClusters clusters(data.leftCols(nCols), wts, useL2, scale, nToFind, maxIter);
-    clusters.print_to_stream(std::cout);
-  }
 }
