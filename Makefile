@@ -31,6 +31,8 @@ cls_path   = -classpath $(tag_path)stanford-postagger$(tag_vers).jar
 tagger     = edu.stanford.nlp.tagger.maxent.MaxentTagger 
 tag_model  = -model $(tag_path)models/wsj-0-18-bidirectional-nodistsim.
 
+# java -classpath stanford-postagger.jar edu.stanford.nlp.process.Morphology
+#                -stem  hellos.txt > hello.txt
 
 # script converts to lower case, deletes blank tokens (in call to sed, $$ converts in Make to $)
 get_twain: 
@@ -57,10 +59,16 @@ tagged/test.tagged:
 
 ##################
 
-level_1 = k_means.o token_manager.o confusion_matrix.o
-level_3 = classifier.o
+level_1 = k_means.o token_manager.o confusion_matrix.o porter.o regressor.o
+level_3 = classifier.o 
 level_3 = bigram.o
 level_4 = 
+
+porter: porter.o
+	$(GCC) $^ $(LDLIBS) -o  $@
+
+regressor: regressor.o
+	$(GCC) $^ $(LDLIBS) -o  $@
 
 bigram: bigram.o k_means.o token_manager.o classifier.o confusion_matrix.o
 	$(GCC) $^ $(LDLIBS) -o  $@
