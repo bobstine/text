@@ -2,6 +2,7 @@
 #define _TOKEN_MANAGER_H_
 
 #include "iterators.h"
+#include "base_classes.h"
 
 #include <string>
 #include <vector>
@@ -9,44 +10,10 @@
 #include <map>
 #include <iostream>
 
-
 using std::string;
 
 // In POS and Type objects, the index is assigned at the time that the token manager
 // inserts the objects into its vectors
-
-
-class POS: public string
-{  
- public:
-  
-  explicit POS()         : string("") { }
-  explicit POS(string s) : string(s) { }
-  explicit POS(char *s)  : string(s) { }
-  
-  void  print_to_stream(std::ostream &os) const   { os << "|" << static_cast<string>(*this) << "|"; }
-};
-
-
-class Type: public string
-{
- public:
-  explicit Type()         : string("") { }
-  explicit Type(string s) : string(s)       { }
-  explicit Type(char *s)  : string(s)       { }
-
-  void  print_to_stream(std::ostream &os) const   { os << "`" << static_cast<string>(*this) << "'" ; }
- };
-
-
- inline
- std::ostream&
- operator<<(std::ostream &os, POS const& p) { p.print_to_stream(os); return os; }
-
-
- inline
- std::ostream&
- operator<<(std::ostream &os, Type const& t) { t.print_to_stream(os); return os; }
 
 
  class TokenManager

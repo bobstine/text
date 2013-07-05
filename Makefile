@@ -24,6 +24,8 @@ USES = utils
 
 twain_path = text_src/twain/
 
+##################
+
 tag_path   = text_src/stanford-postagger-2013-04-04/
 tag_vers   = -3.1.5
 
@@ -57,24 +59,38 @@ tagged/test.tagged:
 	tail -n 500000 tagged/ptb45.tagged > $@
 
 
+##################  regressor for real estate text descriptions
+
+repath = text_src/real_estate/Set10Tokenized/
+
+$(repath)boston.txt: $(repath)BostonTokenized 
+	cat $^ | cut --delimiter=' ' --fields=1 --complement > $@
+
+
+
 ##################
 
-level_1 = k_means.o token_manager.o confusion_matrix.o porter.o regressor.o
-level_3 = classifier.o 
+level_1 = k_means.o token_manager.o confusion_matrix.o porter.o vocabulary.o
+level_3 = classifier.o regressor.o
 level_3 = bigram.o
 level_4 = 
 
 porter: porter.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
-regressor: regressor.o
+regressor: regressor.o vocabulary.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
 bigram: bigram.o k_means.o token_manager.o classifier.o confusion_matrix.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
 
-#  options for folding in other tags, normalizing the bigram rows, weighed avg in clustering, cluster max iterations, tag printing
+#  regression application
+regressor_test: regressor sample.txt
+	./regressor --vocab_file=$(repath)boston.txt --regr_file=$(repath)BostonTokenized
+
+#  classifier application for POS
+#   options for folding in other tags, normalizing the bigram rows, weighed avg in clustering, cluster max iterations, tag printing
 #  --scale_data is on/off
 base_options = --scale_data --bidirectional  --skip 0 --threshold 0.0004 --weight_centroid --iterations 20 --print 0
 
