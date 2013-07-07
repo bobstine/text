@@ -70,15 +70,19 @@ $(repath)boston.txt: $(repath)BostonTokenized
 
 ##################
 
-level_1 = k_means.o token_manager.o confusion_matrix.o porter.o vocabulary.o
+level_1 = k_means.o token_manager.o confusion_matrix.o porter.o vocabulary.o regex.o
 level_3 = classifier.o regressor.o
 level_3 = bigram.o
 level_4 = 
 
+regex_test: regex_test.o
+	$(GCC) $^ $(LDLIBS) -o $@
+	./regex_test
+
 porter: porter.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
-regressor: regressor.o vocabulary.o
+regressor: regressor.o vocabulary.o regex.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
 bigram: bigram.o k_means.o token_manager.o classifier.o confusion_matrix.o

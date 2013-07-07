@@ -76,19 +76,29 @@ int main(int argc, char** argv)
   std::clog << "MAIN : sum of row 0 of S is " << S.row(0).sum() << endl;
   std::clog << "MAIN : sum of row 1 of S is " << S.row(1).sum() << endl;
 
-  // compute dense projection coefficients, with room for Y and leading count column
+  // compute dense projection coefficients for common words
   Matrix X (S.rows(), 2+RP.cols());
-  X.col(0) = Y;
-  X.col(1) = S * Vector::Ones(S.cols());  // total tokens in a line
+  X.col(0) = Y;                                  // stuff Y into first column for output
+  X.col(1) = S * Vector::Ones(S.cols());         // put total count n of type into second col
   Vector irNorm (RP.colwise().norm().array().inverse());
-  RP = RP * irNorm.asDiagonal();         // normalize projection vectors
+  RP = RP * irNorm.asDiagonal();                 // normalize projection vector, sparse coefs so X has corr
   Vector isNorm (S.rows());
   for (int i=0; i<S.rows(); ++i)
     isNorm(i) = 1/S.row(i).norm();
   S = isNorm.asDiagonal() * S;
   X.rightCols(RP.cols()) = S * RP;
-  std::clog << "MAIN: First 3 rows of X are\n" << X.topRows(3);
+  std::clog << "MAIN: First 3 rows of X are\n" << X.topRows(3) << endl;
 
+  // handle oov words
+  { std::clog << "MAIN: 200 OOV words are...\n    ";
+    int i=0;
+    for(auto x : vocabulary.oov_map())
+    { ++i;
+      std::clog << " (" << x.first << "," << x.second << ")";
+      if (i > 200) break;
+    }
+    std::clog << endl;
+  }
   // write to file
   std::ofstream os("/Users/bob/Desktop/regr.txt");
   os << " Y n";
