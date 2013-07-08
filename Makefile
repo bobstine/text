@@ -20,6 +20,8 @@ OPT = -O3  -std=c++0x
 
 USES = utils
 
+EXTERNAL_USES = boost_regex
+
 ##################
 
 twain_path = text_src/twain/
