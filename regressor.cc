@@ -53,6 +53,14 @@ int main(int argc, char** argv)
 	    << B.row(0).sum() << "  (1)" << B.row(1).sum() << "  (2)"
 	    << B.row(2).sum() << "  (3)" << B.row(3).sum() << "  (4)" << B.row(4).sum() << std::endl;
 
+  // exact decomposition via SVD
+  std::clog << "MAIN: Computing SVD of bigram matrix begins.\n";
+  Eigen::JacobiSVD<Matrix> svd(B, Eigen::ComputeThinU|Eigen::ComputeThinV);
+  Matrix U = svd.matrixU() * Matrix::Identity(B.rows(), nProjections/2);
+  Matrix V = svd.matrixV() * Matrix::Identity(B.rows(), nProjections/2);
+  Vector s = svd.singularValues();
+  std::clog << "MAIN: Leading singular values are " << s.head(10) << endl;
+  
   // form random projections
   Matrix RP;
   {
@@ -97,9 +105,11 @@ int main(int argc, char** argv)
     std::ofstream os("/Users/bob/Desktop/dictionary.txt");
     os << "Type";
     for (int i=0; i<RP.cols(); ++i) os << " RP" << i;
+    for (int i=0; i< U.cols(); ++i) os << " U"  << i;
+    for (int i=0; i< V.cols(); ++i) os << " V"  << i;
     os << std::endl;
     for (int i=0; i<RP.rows(); ++i)
-      os << names[i] << " " << RP.row(i) << std::endl;
+      os << names[i] << " " << RP.row(i) << U.row(i) << V.row(i) << std::endl;
   }
 
   // convert data text lines into vectors
@@ -177,7 +187,7 @@ int main(int argc, char** argv)
   // write to file
   std::ofstream os("/Users/bob/Desktop/regr.txt");
   os << " Y n SqFt SqFt_Obs Bedrooms Bedroom_Obs Bathrooms Bathroom_Obs";
-  for(int i=0; i<RP.cols(); ++i) os << " X" << i;
+  for(int i=0; i<X.cols(); ++i) os << " X" << i;
   os << endl << X << endl;
   
   return 0;

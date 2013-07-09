@@ -93,7 +93,7 @@ bigram: bigram.o k_means.o token_manager.o classifier.o confusion_matrix.o
 
 #  regression application  # --bidirectional
 regressor_test: regressor sample.txt
-	./regressor --vocab_file=$(repath)boston.txt --regr_file=$(repath)BostonTokenized  --power_iter 0
+	./regressor --vocab_file=$(repath)boston.txt --regr_file=$(repath)BostonTokenized  --power_iter 1
 
 #  classifier application for POS
 #   options for folding in other tags, normalizing the bigram rows, weighed avg in clustering, cluster max iterations, tag printing
