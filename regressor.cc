@@ -19,6 +19,19 @@ using std::endl;
 typedef Eigen::VectorXf Vector;
 typedef Eigen::MatrixXf Matrix;
 
+void fill_random_bigram_projection(Matrix &P, Vocabulary::SparseMatrix const&B, int power)
+{
+  assert (B.rows() == P.rows());
+  Matrix R = B * Matrix::Random(B.cols(), P.cols());                                         //  return orthog system
+  P = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());  //  Eigen trick for thin Q
+  if (power > 0)
+  { Vocabulary::SparseMatrix BBt = B * B.transpose();
+    while (power--)
+    { R = BBt * P;
+      P = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());
+    }
+  }
+}
 
 void
 parse_arguments(int argc, char** argv,
@@ -54,62 +67,42 @@ int main(int argc, char** argv)
 	    << B.row(2).sum() << "  (3)" << B.row(3).sum() << "  (4)" << B.row(4).sum() << std::endl;
 
   // exact decomposition via SVD
+  /*
   std::clog << "MAIN: Computing SVD of bigram matrix begins.\n";
   Eigen::JacobiSVD<Matrix> svd(B, Eigen::ComputeThinU|Eigen::ComputeThinV);
   Matrix U = svd.matrixU() * Matrix::Identity(B.rows(), nProjections/2);
   Matrix V = svd.matrixV() * Matrix::Identity(B.rows(), nProjections/2);
   Vector s = svd.singularValues();
-  std::clog << "MAIN: Leading singular values are " << s.head(10) << endl;
+  std::clog << "MAIN: Leading singular values are " << s.transpose().head(20) << endl;
+  */
   
   // form random projections
-  Matrix RP;
-  {
-    if (!bidirectional)
-    { Matrix O = Matrix::Random(B.cols(), nProjections);
-      RP = B * O;
-      if (powerIterations)
-      { Vocabulary::SparseMatrix BBt = B * B.transpose();
-	while (powerIterations--)
-	{ Matrix Q = Eigen::HouseholderQR<Matrix>(RP).householderQ() * Matrix::Identity(RP.rows(),RP.cols());  // Eigen trick for thin Q
-	  RP = BBt * Q;
-	}
-      }
-    }
-    else
-    { Matrix rightR, leftR;
-      assert (nProjections % 2 == 0);
-      int half = nProjections/2;
-      RP.resize(B.rows(),nProjections);
-      rightR = Matrix::Random(B.cols(), half);
-      RP.rightCols(half) = B * rightR;
-      leftR = Matrix::Random(B.cols(), half);
-      RP.leftCols(half) = B.transpose() * leftR;
-      if (powerIterations)
-      { Vocabulary::SparseMatrix BBt = B * B.transpose();
-	Vocabulary::SparseMatrix BtB = B.transpose() * B;
-	while (powerIterations--)
-	{ Matrix Q = Eigen::HouseholderQR<Matrix>(RP.rightCols(half)).householderQ()  * Matrix::Identity(RP.rows(),half);  // Eigen trick for thin Q
-	  RP.rightCols(half) = BBt * Q;
-	  Q = Eigen::HouseholderQR<Matrix>(RP.leftCols(half)).householderQ() * Matrix::Identity(RP.rows(), half);
-	  RP.leftCols(half) = BtB * Q;
-	 }
-       }
-     }
-    std::clog << "MAIN: Completed random projection RP[" << RP.rows() << "x" << RP.cols() << "]";
-    if (powerIterations) std::clog << " with power iterations.";
-    std::clog << endl;
+  Matrix P(B.rows(), nProjections);
+  if (!bidirectional)
+    fill_random_bigram_projection(P, B, powerIterations);
+  else
+  { assert(0 == nProjections%2);
+    int half = nProjections/2;
+    Matrix Pl(B.rows(), half);
+    fill_random_bigram_projection(Pl, B, powerIterations);
+    Matrix Pr(B.rows(), half);
+    Vocabulary::SparseMatrix Bt = B.transpose();
+    fill_random_bigram_projection(Pr, Bt, powerIterations);
+    P.leftCols(half) = Pl;
+    P.rightCols(half)= Pr;
   }
-  
+  std::clog << "MAIN: Completed random projection P[" << P.rows() << "x" << P.cols() << "]";
+  if (powerIterations) std::clog << " with power iterations.";
+  std::clog << endl;
+
   { // write eigenwords to file
     Vocabulary::TypeVector names = vocabulary.types();
     std::ofstream os("/Users/bob/Desktop/dictionary.txt");
     os << "Type";
-    for (int i=0; i<RP.cols(); ++i) os << " RP" << i;
-    for (int i=0; i< U.cols(); ++i) os << " U"  << i;
-    for (int i=0; i< V.cols(); ++i) os << " V"  << i;
+    for (int i=0; i<P.cols(); ++i) os << " P" << i;
     os << std::endl;
-    for (int i=0; i<RP.rows(); ++i)
-      os << names[i] << " " << RP.row(i) << U.row(i) << V.row(i) << std::endl;
+    for (int i=0; i<P.rows(); ++i)
+      os << names[i] << " " << P.row(i) << std::endl;
   }
 
   // convert data text lines into vectors
@@ -156,7 +149,7 @@ int main(int argc, char** argv)
   }
 
   // compute dense projection coefficients for common words
-  Matrix X (S.rows(), 2+6+RP.cols());
+  Matrix X (S.rows(), 2+6+P.cols());
   X.col(0) = Y;                                  // stuff Y into first column for output
   X.col(1) = S * Vector::Ones(S.cols());         // put total count n of type into second col
   X.col(2) = sqft;
@@ -165,13 +158,13 @@ int main(int argc, char** argv)
   X.col(5) = bdrmObserved;
   X.col(6) = bath;
   X.col(7) = bathObserved;
-  Vector irNorm (RP.colwise().norm().array().inverse());
-  RP = RP * irNorm.asDiagonal();                 // normalize projection vector, sparse coefs so X has corr
+  Vector irNorm (P.colwise().norm().array().inverse());
+  P = P * irNorm.asDiagonal();                 // normalize projection vector, sparse coefs so X has corr
   Vector isNorm (S.rows());
   for (int i=0; i<S.rows(); ++i)
     isNorm(i) = 1/S.row(i).norm();
   S = isNorm.asDiagonal() * S;
-  X.rightCols(RP.cols()) = S * RP;
+  X.rightCols(P.cols()) = S * P;
   std::clog << "MAIN: First 10 rows of X are\n" << X.topRows(10) << endl;
   
   // handle oov words
