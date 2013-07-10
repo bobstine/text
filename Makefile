@@ -92,7 +92,7 @@ bigram: bigram.o k_means.o token_manager.o classifier.o confusion_matrix.o
 
 
 #  regression application; total of n projections
-regressor_test: regressor sample.txt
+regressor_test: regressor 
 	./regressor --vocab_file=$(repath)boston.txt --regr_file=$(repath)BostonTokenized  --n_projections 100 --power_iter 1  --bidirectional  
 
 #  classifier application for POS

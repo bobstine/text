@@ -66,16 +66,6 @@ int main(int argc, char** argv)
 	    << B.row(0).sum() << "  (1)" << B.row(1).sum() << "  (2)"
 	    << B.row(2).sum() << "  (3)" << B.row(3).sum() << "  (4)" << B.row(4).sum() << std::endl;
 
-  // exact decomposition via SVD
-  /*
-  std::clog << "MAIN: Computing SVD of bigram matrix begins.\n";
-  Eigen::JacobiSVD<Matrix> svd(B, Eigen::ComputeThinU|Eigen::ComputeThinV);
-  Matrix U = svd.matrixU() * Matrix::Identity(B.rows(), nProjections/2);
-  Matrix V = svd.matrixV() * Matrix::Identity(B.rows(), nProjections/2);
-  Vector s = svd.singularValues();
-  std::clog << "MAIN: Leading singular values are " << s.transpose().head(20) << endl;
-  */
-  
   // form random projections
   Matrix P(B.rows(), nProjections);
   if (!bidirectional)
@@ -95,6 +85,7 @@ int main(int argc, char** argv)
   if (powerIterations) std::clog << " with power iterations.";
   std::clog << endl;
 
+  if (false)
   { // write eigenwords to file
     Vocabulary::TypeVector names = vocabulary.types();
     std::ofstream os("/Users/bob/Desktop/dictionary.txt");
@@ -129,7 +120,7 @@ int main(int argc, char** argv)
     for (int i=0; i<nLines; ++i)
     { std::getline(is, line);
       sqft(i) = square_footage(line);
-      if (sqft(i)>0)
+      if ((0<sqft(i)) && (sqft(i)<100000))  // not too big!
       { sqftObserved(i) = 1; sqftSum += sqft(i); ++nSqft; }      
       bdrm(i) = number_bedrooms(line);
       if (bdrm(i)>0)
@@ -180,7 +171,7 @@ int main(int argc, char** argv)
   // write to file
   std::ofstream os("/Users/bob/Desktop/regr.txt");
   os << " Y n SqFt SqFt_Obs Bedrooms Bedroom_Obs Bathrooms Bathroom_Obs";
-  for(int i=0; i<X.cols(); ++i) os << " X" << i;
+  for(int i=0; i<X.cols()-8; ++i) os << " X" << i;
   os << endl << X << endl;
   
   return 0;
@@ -218,3 +209,15 @@ parse_arguments(int argc, char** argv,
     } // switch
   } 
 }
+
+
+  // exact decomposition via SVD
+  /*
+  std::clog << "MAIN: Computing SVD of bigram matrix begins.\n";
+  Eigen::JacobiSVD<Matrix> svd(B, Eigen::ComputeThinU|Eigen::ComputeThinV);
+  Matrix U = svd.matrixU() * Matrix::Identity(B.rows(), nProjections/2);
+  Matrix V = svd.matrixV() * Matrix::Identity(B.rows(), nProjections/2);
+  Vector s = svd.singularValues();
+  std::clog << "MAIN: Leading singular values are " << s.transpose().head(20) << endl;
+  */
+  
