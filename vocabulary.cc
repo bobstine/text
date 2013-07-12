@@ -53,13 +53,18 @@ Vocabulary::init_from_stream(std::istream&  is)
     ++fullVocab[Type(token)];
   }
   std::clog << messageTag << "Obtain full vocabulary of " << fullVocab.size() << " types from input of " << mNTokens << " tokens." << std::endl;
+  if(false) // write counts to file
+  { std::clog << messageTag << "Writing word counts to file\n";
+    std::ofstream os("/Users/bob/Desktop/word_counts.txt");
+    for(auto x: fullVocab)
+      os << x.second << std::endl;
+  }
   for (auto x : fullVocab)
   { if (x.second < mMinFrequency)             // mark as oov
     { mOOVMap.insert(x);
       mFreqMap[OOV] += x.second;
     }
-    else
-      mFreqMap.insert(x);                     // transfer
+    else mFreqMap.insert(x);                  // transfer
   }
   int checkSum (0);
   for (auto x: mFreqMap)

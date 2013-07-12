@@ -1,4 +1,5 @@
 #include "vocabulary.h"
+#include "eigenword_dictionary.h"
 #include "read_utils.h"
 #include "file_utils.h"
 #include "regex.h"
@@ -58,7 +59,16 @@ int main(int argc, char** argv)
   Vocabulary vocabulary(vocabFileName, minFrequency);
   std::clog << "MAIN: " << vocabulary << endl;
 
-  // compute bigram matrix
+  // find google eigenwords for rare terms
+  /*
+  EigenwordDictionary googleDict ("text_src/eigenwords/google.txt", 100000, 43);
+  std::clog << "MAIN: Google dictionary " << googleDict << " does not have types:\n   ";
+  for (auto t : vocabulary.types())
+    if (googleDict.type_index(t) < 0) std::clog << " " << t;
+  std::clog << endl << endl;
+  */
+  
+  // compute bigram matrix from vocabulary
   Vocabulary::SparseMatrix B (vocabulary.n_types(), vocabulary.n_types());
   vocabulary.fill_sparse_bigram_matrix(B, bigramSkip);
   std::clog << "MAIN: Init sparse bigram B[" << B.rows() << "x" << B.cols() << "] from map; sum +/,B= " << B.sum() << endl;
@@ -85,7 +95,7 @@ int main(int argc, char** argv)
   if (powerIterations) std::clog << " with power iterations.";
   std::clog << endl;
 
-  if (false)
+  if (true)
   { // write eigenwords to file
     Vocabulary::TypeVector names = vocabulary.types();
     std::ofstream os("/Users/bob/Desktop/dictionary.txt");
@@ -119,8 +129,8 @@ int main(int argc, char** argv)
     std::string line;
     for (int i=0; i<nLines; ++i)
     { std::getline(is, line);
-      sqft(i) = square_footage(line);
-      if ((0<sqft(i)) && (sqft(i)<100000))  // not too big!
+      sqft(i) = square_footage(line);                       // probably need some filtering limits here
+      if ((0<sqft(i)) && (sqft(i)<50000))                   // not too big!
       { sqftObserved(i) = 1; sqftSum += sqft(i); ++nSqft; }      
       bdrm(i) = number_bedrooms(line);
       if (bdrm(i)>0)
@@ -129,6 +139,7 @@ int main(int argc, char** argv)
       if (bath(i)>0)
       { bathObserved(i) = 1; bathSum += bath(i); ++nBath; }
     }
+    std::clog << "MAIN: Observed counts for " << nSqft << " sq feet, " << nBdrm << " bedroom, " << nBath << " bathrooms.\n";
     float sqftMean = sqftSum/nSqft;
     float bdrmMean = bdrmSum/nBdrm;
     float bathMean = bathSum/nBath;

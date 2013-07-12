@@ -13,34 +13,6 @@
 
 using std::string;
 
-class EigenwordDictionary
-{
- public:
-  typedef Eigen::VectorXf         Vector;
-  typedef Eigen::MatrixXf         Matrix;
-  typedef std::map<Type,int>      TypeMap;
-  typedef std::vector<Type>       TypeVector;
-
- private:
-  TypeVector mTypes;
-  TypeMap    mIndexMap;
-  Matrix     mEigenwords;
-
- public:
-  EigenwordDictionary (string fileName): mIndexMap(), mTypes(), mEigenwords() { init_from_file(fileName); }
-
-  int    number_types() const         { return mEigenwords.rows(); }
-  int    eigen_dim()    const         { return mEigenwords.cols(); }
-
-  int    type_index(Type const& t) const; // -1 if not found
-  Vector operator[](int row)       const  { return mEigenwords.row(row); }
-  Vector operator[](Type const& t) const;
-
- private:
-  void init_from_file(string fileName)
-
-};
-
 class Vocabulary
 {
  public:
