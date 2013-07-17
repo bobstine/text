@@ -59,15 +59,50 @@ int main(int argc, char** argv)
   Vocabulary vocabulary(vocabFileName, minFrequency);
   std::clog << "MAIN: " << vocabulary << endl;
 
-  // find google eigenwords for rare terms
-  /*
-  EigenwordDictionary googleDict ("text_src/eigenwords/google.txt", 100000, 43);
-  std::clog << "MAIN: Google dictionary " << googleDict << " does not have types:\n   ";
-  for (auto t : vocabulary.types())
-    if (googleDict.type_index(t) < 0) std::clog << " " << t;
-  std::clog << endl << endl;
-  */
-  
+  // find google eigenwords for rare terms... did not find 940 (for chicago)
+  if (true)
+  { EigenwordDictionary googleDict ("text_src/eigenwords/google.txt", 100000, 43);
+    int count = 0;
+    std::clog << "MAIN: Google dictionary " << googleDict << " does not have types:\n   ";
+    for (auto t : vocabulary.types())
+      if (googleDict.type_index(t) < 0) { std::clog << " " << t; ++count; }
+    std::clog << endl << "MAIN: Did not find " << count << " types in google bigram e-words.\n" << endl << endl;
+  }
+
+  // compare real estate vocab to google... did not find 349 types (mostly parsing issues like - $ # @ (as in e-mail))
+  if (false)
+  { std::ifstream is ("text_src/google/vocab");
+    std::map<Type,int> googleVocab;
+    int counter = 0;
+    while(true)
+    { std::string line, token, numStr;
+      int         count;
+      if (!getline(is, line)) break;
+      if (0 == line.size()) break;
+      auto it = line.begin();
+      while(it != line.end())
+      { if(*it == '\t') break;
+	token.push_back(*it++);
+      }
+      while(it != line.end())
+	numStr.push_back(*it++);
+      count = std::atoi(numStr.c_str());
+      googleVocab[Type(token)] = count;
+      if (counter++ < 60)
+	std::clog << "    Google " << token << " has count " << count << endl;
+    }
+    std::clog << "MAIN: Read " << googleVocab.size() << " types from google vocabulary.\n";
+    std::vector<Type> notFound;
+    for (auto t : vocabulary.types())
+    { if(googleVocab.find(t) == googleVocab.end())
+	notFound.push_back(t);
+    }
+    std::clog << "MAIN: Did not find following " << notFound.size() << " types in google vocab:\n    ";
+    for (auto x : notFound)
+      std::clog << " " << x;
+    std::clog << endl << endl;
+  }
+      
   // compute bigram matrix from vocabulary
   Vocabulary::SparseMatrix B (vocabulary.n_types(), vocabulary.n_types());
   vocabulary.fill_sparse_bigram_matrix(B, bigramSkip);

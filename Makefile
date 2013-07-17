@@ -72,11 +72,24 @@ $(repath)boston.txt: $(repath)BostonTokenized
 $(repath)chicago.txt: $(repath)ChicagoTokenized 
 	cut --delimiter=' ' --fields=1 --complement $^ > $@
 
+# google eigenwords
+# Error here: cut separates terms with embedded comma in string
 epath = text_src/eigenwords/
 
-# Error here: cut separates terms with embedded comma in string
 $(epath)google.txt: $(epath)pretty_2_grams_PC_100k_300.csv
 	sed 's/, / /g' $^ | cut --delimiter=' ' --fields=1,6-26,306-326 > $@
+
+$(epath)pretty_2_grams_PC_100k_300.csv:
+	scp sob:/data/pretty/pretty_2_grams_PC_100k_300.csv $(epath)
+
+# unigram vocabulary
+vpath = text_src/google/
+
+$(vpath)vocab: $(vpath)vocab.gz
+	gunzip $^
+
+$(vpath)vocab.gz:
+	scp sob:/data/google_data/1gms/vocab.gz $(vpath)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
