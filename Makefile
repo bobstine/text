@@ -108,6 +108,9 @@ porter: porter.o
 regressor: regressor.o vocabulary.o regex.o eigenword_dictionary.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
+lsa: lsa.o vocabulary.o regex.o eigenword_dictionary.o
+	$(GCC) $^ $(LDLIBS) -o  $@
+
 bigram: bigram.o k_means.o token_manager.o classifier.o confusion_matrix.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
@@ -115,6 +118,10 @@ bigram: bigram.o k_means.o token_manager.o classifier.o confusion_matrix.o
 #  regression application; total of n projections
 regressor_test: regressor $(epath)google.txt $(repath)chicago.txt
 	./regressor --vocab_file=$(repath)chicago.txt --regr_file=$(repath)ChicagoTokenized  --n_projections 100 --power_iter 1  --bidirectional  
+
+#  lsa application
+lsa_test: lsa $(epath)google.txt $(repath)chicago.txt
+	./lsa --vocab_file=$(repath)chicago.txt --n_projections 100 --power_iter 1
 
 #  classifier application for POS
 #   options for folding in other tags, normalizing the bigram rows, weighed avg in clustering, cluster max iterations, tag printing
