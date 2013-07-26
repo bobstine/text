@@ -57,8 +57,9 @@ int main(int argc, char** argv)
 
   // compute context matrix from vocabulary and source lines
   Eigen::SparseMatrix<int,Eigen::RowMajor> C;
+
   {
-    std::list<Eigen::Triplet<int>> triplets;
+    std::list< Eigen::Triplet<int> > triplets;
     std::ifstream is(vocabFileName);
     string line;
     int lineIndex = 0;
@@ -75,121 +76,42 @@ int main(int argc, char** argv)
     C.resize(vocabulary.n_types(), lineIndex);
     C.setFromTriplets(triplets.begin(), triplets.end());
   }
-    std::clog << "MAIN: Dim of context matrix C is " << C.rows() << "x" << C.cols() << " with row sums "
-	      << C.row(0).sum() << " " << C.row(1).sum() << " " << C.row(2).sum() << std::endl;
-    
-      /*
+  std::clog << "MAIN: Dim of context matrix C is " << C.rows() << "x" << C.cols() << " with row sums "
+	    << C.row(0).sum() << " " << C.row(1).sum() << " " << C.row(2).sum() << std::endl;
+  
   // form random projections
-  Matrix P(B.rows(), nProjections);
-  if (!bidirectional)
-    fill_random_bigram_projection(P, B, powerIterations);
-  else
-  { assert(0 == nProjections%2);
-    int half = nProjections/2;
-    Matrix Pl(B.rows(), half);
-    fill_random_bigram_projection(Pl, B, powerIterations);
-    Matrix Pr(B.rows(), half);
-    Vocabulary::SparseMatrix Bt = B.transpose();
-    fill_random_bigram_projection(Pr, Bt, powerIterations);
-    P.leftCols(half) = Pl;
-    P.rightCols(half)= Pr;
+  int half = nProjections/2;     assert(0 == nProjections%2);
+  Matrix L(C.rows(), half);
+  Matrix R(C.cols(), half);
+  {
+    fill_random_bigram_projection(L, C, powerIterations);
+    Vocabulary::SparseMatrix Ct = C.transpose();
+    fill_random_bigram_projection(R, Ct, powerIterations);
   }
-  std::clog << "MAIN: Completed random projection P[" << P.rows() << "x" << P.cols() << "]";
+  std::clog << "MAIN: Completed random projection.  L[" << L.rows() << "x" << L.cols() << "]    R[" << R.rows() << "x" << R.cols() << "]";
   if (powerIterations) std::clog << " with power iterations.";
   std::clog << endl;
 
   if (true)
-  { // write eigenwords to file
-    Vocabulary::TypeVector names = vocabulary.types();
-    std::ofstream os("/Users/bob/Desktop/dictionary.txt");
-    os << "Type";
-    for (int i=0; i<P.cols(); ++i) os << " P" << i;
-    os << std::endl;
-    for (int i=0; i<P.rows(); ++i)
-      os << names[i] << " " << P.row(i) << std::endl;
-  }
-
-  // convert data text lines into vectors
-  int nLines (FileUtils::count_lines(regrFileName));
-  std::clog << "MAIN: Building regressor matrix from " << nLines << " lines of input in file " << regrFileName << ".\n";
-  std::ifstream is(regrFileName);
-  Vocabulary::SparseMatrix S(nLines,vocabulary.n_types());
-  Vector Y (nLines);
-  vocabulary.fill_sparse_regr_design(Y, S, is);
-  std::clog << "MAIN : sum of row 0 of S is " << S.row(0).sum() << endl;
-  std::clog << "MAIN : sum of row 1 of S is " << S.row(1).sum() << endl;
-  is.close();
-  
-  // parse for domain-specific attributes
-  Vector sqft (nLines);  Vector sqftObserved = Vector::Zero(nLines);
-  Vector bdrm (nLines);  Vector bdrmObserved = Vector::Zero(nLines);
-  Vector bath (nLines);  Vector bathObserved = Vector::Zero(nLines);
-  {
-    double sqftSum (0.0); int nSqft (0);
-    float  bdrmSum (0.0); int nBdrm (0);
-    float  bathSum (0.0); int nBath (0);
-    is.open(regrFileName);
-    std::string line;
-    for (int i=0; i<nLines; ++i)
-    { std::getline(is, line);
-      sqft(i) = square_footage(line);                       // probably need some filtering limits here
-      if ((0<sqft(i)) && (sqft(i)<50000))                   // not too big!
-      { sqftObserved(i) = 1; sqftSum += sqft(i); ++nSqft; }      
-      bdrm(i) = number_bedrooms(line);
-      if (bdrm(i)>0)
-      { bdrmObserved(i) = 1; bdrmSum += bdrm(i); ++nBdrm; }
-      bath(i) = number_bathrooms(line);
-      if (bath(i)>0)
-      { bathObserved(i) = 1; bathSum += bath(i); ++nBath; }
+  { // write file for JMP input with column names
+    {
+      Vocabulary::TypeVector names = vocabulary.types();
+      std::ofstream os("/Users/bob/Desktop/left.txt");
+      os << "Type";
+      for (int i=0; i<L.cols(); ++i) os << " L" << i;
+      os << std::endl;
+      for (int i=0; i<L.rows(); ++i)
+	os << names[i] << " " << L.row(i) << std::endl;
     }
-    std::clog << "MAIN: Observed counts for " << nSqft << " sq feet, " << nBdrm << " bedroom, " << nBath << " bathrooms.\n";
-    float sqftMean = sqftSum/nSqft;
-    float bdrmMean = bdrmSum/nBdrm;
-    float bathMean = bathSum/nBath;
-    for (int i=0; i<nLines; ++i)
-    { if (0 == sqftObserved(i)) sqft(i) = sqftMean;
-      if (0 == bdrmObserved(i)) bdrm(i) = bdrmMean;
-      if (0 == bathObserved(i)) bath(i) = bathMean;
+    {
+      std::ofstream os("/Users/bob/Desktop/right.txt");
+      os << "Context";
+      for (int i=0; i<R.cols(); ++i) os << " R" << i;
+      os << std::endl;
+      for (int i=0; i<R.rows(); ++i)
+	os << i << " " << R.row(i) << std::endl;
     }
   }
-
-  // compute dense projection coefficients for common words
-  Matrix X (S.rows(), 2+6+P.cols());
-  X.col(0) = Y;                                  // stuff Y into first column for output
-  X.col(1) = S * Vector::Ones(S.cols());         // put total count n of type into second col
-  X.col(2) = sqft;
-  X.col(3) = sqftObserved;
-  X.col(4) = bdrm;
-  X.col(5) = bdrmObserved;
-  X.col(6) = bath;
-  X.col(7) = bathObserved;
-  Vector irNorm (P.colwise().norm().array().inverse());
-  P = P * irNorm.asDiagonal();                 // normalize projection vector, sparse coefs so X has corr
-  Vector isNorm (S.rows());
-  for (int i=0; i<S.rows(); ++i)
-    isNorm(i) = 1/S.row(i).norm();
-  S = isNorm.asDiagonal() * S;
-  X.rightCols(P.cols()) = S * P;
-  std::clog << "MAIN: First 10 rows of X are\n" << X.topRows(10) << endl;
-  
-  // handle oov words
-  { std::clog << "MAIN: 200 OOV words are...\n    ";
-    int i=0;
-    for(auto x : vocabulary.oov_map())
-    { ++i;
-      std::clog << " (" << x.first << "," << x.second << ")";
-      if (i > 200) break;
-    }
-    std::clog << endl;
-  }
-  // write to file
-  std::ofstream os("/Users/bob/Desktop/regr.txt");
-  os << " Y n SqFt SqFt_Obs Bedrooms Bedroom_Obs Bathrooms Bathroom_Obs";
-  for(int i=0; i<X.cols()-8; ++i) os << " X" << i;
-  os << endl << X << endl;
-
-      */
-  
   return 0;
 }
 
@@ -224,14 +146,4 @@ parse_arguments(int argc, char** argv,
   } 
 }
 
-
-  // exact decomposition via SVD
-  /*
-  std::clog << "MAIN: Computing SVD of bigram matrix begins.\n";
-  Eigen::JacobiSVD<Matrix> svd(B, Eigen::ComputeThinU|Eigen::ComputeThinV);
-  Matrix U = svd.matrixU() * Matrix::Identity(B.rows(), nProjections/2);
-  Matrix V = svd.matrixV() * Matrix::Identity(B.rows(), nProjections/2);
-  Vector s = svd.singularValues();
-  std::clog << "MAIN: Leading singular values are " << s.transpose().head(20) << endl;
-  */
   

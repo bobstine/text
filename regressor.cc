@@ -133,7 +133,7 @@ int main(int argc, char** argv)
   if (true)
   { // write eigenwords to file
     Vocabulary::TypeVector names = vocabulary.types();
-    std::ofstream os("/Users/bob/Desktop/dictionary.txt");
+    std::ofstream os("/Users/bob/Desktop/eigenwords.txt");
     os << "Type";
     for (int i=0; i<P.cols(); ++i) os << " P" << i;
     os << std::endl;

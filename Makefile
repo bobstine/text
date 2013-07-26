@@ -11,6 +11,13 @@ include ../c_flags
 # 
 ###########################################################################
 
+#
+#   Need to fix
+#
+#         #'s and USD parse terms come up as zero
+#         should reweight words?  (rare ones don't have much influence), cannot cluster words
+#         preprocessing... remove empty contexts  (ie, any line with just price token)
+#
 
 PROJECT_NAME = text
 

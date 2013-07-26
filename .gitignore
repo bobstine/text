@@ -9,6 +9,7 @@ a.out
 .#*
 porter
 regressor
+lsa
 bigram
 bigram.prj
 text_src
