@@ -60,7 +60,7 @@ int main(int argc, char** argv)
   std::clog << "MAIN: " << vocabulary << endl;
 
   // find google eigenwords for rare terms... did not find 940 (for chicago)
-  if (true)
+  if (false)
   { EigenwordDictionary googleDict ("text_src/eigenwords/google.txt", 100000, 43);
     int count = 0;
     std::clog << "MAIN: Google dictionary " << googleDict << " does not have types:\n   ";

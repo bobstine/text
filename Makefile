@@ -15,8 +15,8 @@ include ../c_flags
 #   Need to fix
 #
 #         #'s and USD parse terms come up as zero
-#         should reweight words?  (rare ones don't have much influence), cannot cluster words
-#         preprocessing... remove empty contexts  (ie, any line with just price token)
+#         Rare words: should reweight words?  (rare ones don't have much influence), cannot cluster words
+#         Short description: special handling for short descriptions
 #
 
 PROJECT_NAME = text
@@ -28,6 +28,32 @@ OPT = -O3  -std=c++0x
 USES = utils
 
 EXTERNAL_USES = boost_regex
+
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+level_1 = k_means.o token_manager.o confusion_matrix.o porter.o vocabulary.o eigenword_dictionary.o regex.o
+level_3 = classifier.o regressor.o
+level_3 = bigram.o
+level_4 = 
+
+regex_test: regex_test.o
+	$(GCC) $^ $(LDLIBS) -o $@
+	./regex_test
+
+porter: porter.o
+	$(GCC) $^ $(LDLIBS) -o  $@
+
+regressor: regressor.o vocabulary.o regex.o eigenword_dictionary.o
+	$(GCC) $^ $(LDLIBS) -o  $@
+
+lsa: lsa.o vocabulary.o regex.o eigenword_dictionary.o
+	$(GCC) $^ $(LDLIBS) -o  $@
+
+bigram: bigram.o k_means.o token_manager.o classifier.o confusion_matrix.o
+	$(GCC) $^ $(LDLIBS) -o  $@
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 ##################
 
@@ -67,19 +93,24 @@ tagged/train.tagged:
 tagged/test.tagged:
 	tail -n 500000 tagged/ptb45.tagged > $@
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-#  regressor for real estate text descriptions
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#  real estate text descriptions
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 repath = text_src/real_estate/Set10Tokenized/
 
-$(repath)boston.txt: $(repath)BostonTokenized 
+recity = NYC
+
+$(repath)$(recity).txt: $(repath)$(recity)Tokenized                   # removes lines with no text (need $$ to escape $ in make)
+	grep -v '^[0-9\,\.[:blank:]]\+$$' $^ > $@
+
+$(repath)$(recity)_woprice.txt: $(repath)$(recity).txt                # removes leading $value
 	cut --delimiter=' ' --fields=1 --complement $^ > $@
 
-$(repath)chicago.txt: $(repath)ChicagoTokenized 
-	cut --delimiter=' ' --fields=1 --complement $^ > $@
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#  google eigenwords
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-# google eigenwords
 # Error here: cut separates terms with embedded comma in string
 epath = text_src/eigenwords/
 
@@ -98,37 +129,17 @@ $(vpath)vocab: $(vpath)vocab.gz
 $(vpath)vocab.gz:
 	scp sob:/data/google_data/1gms/vocab.gz $(vpath)
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#  run commands
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-level_1 = k_means.o token_manager.o confusion_matrix.o porter.o vocabulary.o eigenword_dictionary.o regex.o
-level_3 = classifier.o regressor.o
-level_3 = bigram.o
-level_4 = 
-
-regex_test: regex_test.o
-	$(GCC) $^ $(LDLIBS) -o $@
-	./regex_test
-
-porter: porter.o
-	$(GCC) $^ $(LDLIBS) -o  $@
-
-regressor: regressor.o vocabulary.o regex.o eigenword_dictionary.o
-	$(GCC) $^ $(LDLIBS) -o  $@
-
-lsa: lsa.o vocabulary.o regex.o eigenword_dictionary.o
-	$(GCC) $^ $(LDLIBS) -o  $@
-
-bigram: bigram.o k_means.o token_manager.o classifier.o confusion_matrix.o
-	$(GCC) $^ $(LDLIBS) -o  $@
-
-
-#  regression application; total of n projections
-regressor_test: regressor $(epath)google.txt $(repath)chicago.txt
-	./regressor --vocab_file=$(repath)chicago.txt --regr_file=$(repath)ChicagoTokenized  --n_projections 100 --power_iter 1  --bidirectional  
+#  regression application; total of n projections (name recity above in real estate data)
+regressor_test: regressor $(epath)google.txt $(repath)$(recity).txt $(repath)$(recity)_woprice.txt
+	./regressor --vocab_file=$(repath)$(recity)_woprice.txt --regr_file=$(repath)$(recity).txt  --n_projections 100 --power_iter 1  --bidirectional  
 
 #  lsa application
-lsa_test: lsa $(epath)google.txt $(repath)chicago.txt
-	./lsa --vocab_file=$(repath)chicago.txt --n_projections 100 --power_iter 1
+lsa_test: lsa $(epath)google.txt $(repath)$(recity)_woprice.txt
+	./lsa --vocab_file=$(repath)$(recity)_woprice.txt --n_projections 100 --power_iter 1
 
 #  classifier application for POS
 #   options for folding in other tags, normalizing the bigram rows, weighed avg in clustering, cluster max iterations, tag printing
