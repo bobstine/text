@@ -99,7 +99,7 @@ tagged/test.tagged:
 
 repath = text_src/real_estate/Set10Tokenized/
 
-recity = NYC
+recity = Miami
 
 $(repath)$(recity).txt: $(repath)$(recity)Tokenized                   # removes lines with no text (need $$ to escape $ in make)
 	grep -v '^[0-9\,\.[:blank:]]\+$$' $^ > $@
