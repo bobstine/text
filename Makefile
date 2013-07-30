@@ -135,11 +135,11 @@ $(vpath)vocab.gz:
 
 #  regression application; total of n projections (name recity above in real estate data)
 regressor_test: regressor $(epath)google.txt $(repath)$(recity).txt $(repath)$(recity)_woprice.txt
-	./regressor --vocab_file=$(repath)$(recity)_woprice.txt --regr_file=$(repath)$(recity).txt  --n_projections 100 --power_iter 1  --bidirectional  
+	./regressor --vocab_file=$(repath)$(recity)_woprice.txt --regr_file=$(repath)$(recity).txt  --n_projections 200 --power_iter 1  --bidirectional  
 
 #  lsa application
 lsa_test: lsa $(epath)google.txt $(repath)$(recity)_woprice.txt
-	./lsa --vocab_file=$(repath)$(recity)_woprice.txt --n_projections 100 --power_iter 1
+	./lsa --vocab_file=$(repath)$(recity)_woprice.txt --n_projections 200 --power_iter 1
 
 #  classifier application for POS
 #   options for folding in other tags, normalizing the bigram rows, weighed avg in clustering, cluster max iterations, tag printing
