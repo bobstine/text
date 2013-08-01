@@ -93,6 +93,19 @@ tagged/train.tagged:
 tagged/test.tagged:
 	tail -n 500000 tagged/ptb45.tagged > $@
 
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#  federalist papers   0 Hamilton, 1 Madison, 11 Ham and Mad, 7 Ham or Mad, 10 Jay
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+fedpath = /Users/bob/data/federalist/
+
+$(fedpath)regr.txt: $(fedpath)federalist_regr.txt
+	tr '[:upper:]' '[:lower:]' < $^ > $@
+
+$(fedpath)temp.txt: $(fedpath)regr.txt                      # removes leading $value
+	cut --delimiter=' ' --fields=1 --complement $^ > $@
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  real estate text descriptions
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -132,6 +145,11 @@ $(vpath)vocab.gz:
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  run commands
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+#  regression application; total of n projections (name recity above in real estate data)
+federalist: regressor lsa $(fedpath)regr.txt $(fedpath)temp.txt
+	./regressor --vocab_file=$(fedpath)temp.txt --regr_file=$(fedpath)regr.txt  --n_projections 100 --power_iter 1  --bidirectional  
+	./lsa --vocab_file=$(fedpath)temp.txt --n_projections 100 --power_iter 1
 
 #  regression application; total of n projections (name recity above in real estate data)
 regressor_test: regressor $(epath)google.txt $(repath)$(recity).txt $(repath)$(recity)_woprice.txt

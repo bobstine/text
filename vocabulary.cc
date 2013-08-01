@@ -139,22 +139,25 @@ Vocabulary::fill_sparse_regr_design (Vector &Y, SparseMatrix &X, std::istream &i
   for (int i=0; i<X.rows(); ++i)
   { getline(is, line);
     std::istringstream is(line);
-    std::map<Type,int> map;
+    std::map<Type,int> counts;
     is >> Y(i);                // read y-value at head of line
     while (is >> token)
-      ++map[ Type(token) ];    // map of remaining text tokens
-    for (auto x : map)
+      ++counts[ Type(token) ];    // map of remaining text tokens
+    for (auto x : counts)
       triplets.push_back(T(i, type_index(x.first), x.second)); // convert to indices
   }
   X.setFromTriplets(triplets.begin(), triplets.end());
 }
+
 /*  // Extra code for debugging; all agreed when testing
       {
       IntVector counts = IntVector::Zero(n_types());
       std::istringstream is(line);
       std::string token;
+      std::clog << messageTag << "Read response y(" << i << ") = " << Y(i) << std::endl;
       while (is >> token)
       ++counts[ type_index(Type(token)) ];
+      std::clog << messageTag << "Size of map is " << counts.size() << std::endl;
       std::clog << "Direct calc for first line has sum " << counts.sum() << " with leading 100 elements " << counts.transpose().head(100) << std::endl;
       }
 */
