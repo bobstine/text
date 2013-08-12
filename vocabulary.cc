@@ -138,6 +138,7 @@ Vocabulary::fill_sparse_regr_design (Vector &Y, SparseMatrix &X, std::istream &i
   assert (Y.size() == X.rows());
   for (int i=0; i<X.rows(); ++i)
   { getline(is, line);
+    if (i < 10) std::clog << "TEST: Line " << i << " is    " << line << std::endl;
     std::istringstream is(line);
     std::map<Type,int> counts;
     is >> Y(i);                // read y-value at head of line
@@ -145,6 +146,12 @@ Vocabulary::fill_sparse_regr_design (Vector &Y, SparseMatrix &X, std::istream &i
       ++counts[ Type(token) ];    // map of remaining text tokens
     for (auto x : counts)
       triplets.push_back(T(i, type_index(x.first), x.second)); // convert to indices
+    if (i < 10)
+    { int sum=0;
+      for(auto x : counts)
+	sum += x.second;
+      std::clog << "TEST: Line " << i << " gens Y=" << Y(i) << " with total hits of " << sum << std::endl;
+    }
   }
   X.setFromTriplets(triplets.begin(), triplets.end());
 }
