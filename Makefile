@@ -112,7 +112,7 @@ $(fedpath)temp.txt: $(fedpath)regr.txt                      # removes leading $v
 
 repath = text_src/real_estate/Set10Tokenized/
 
-recity = Miami
+recity = Chicago
 
 $(repath)$(recity).txt: $(repath)$(recity)Tokenized                   # removes lines with no text (need $$ to escape $ in make)
 	grep -v '^[0-9\,\.[:blank:]]\+$$' $^ > $@
