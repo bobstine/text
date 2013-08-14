@@ -35,7 +35,8 @@ void fill_random_bigram_projection(Matrix &P, Vocabulary::SparseMatrix const&B, 
 
 void
 parse_arguments(int argc, char** argv,
-		string &vFileName, int &minFrequency, int &nProjections, int &powerIterations, string &rFileName);
+		string &vFileName, string &rFileName,
+		int &minFrequency, int &nProjections, int &powerIterations, string &outputFileName);
 
   
 int main(int argc, char** argv)
@@ -43,21 +44,21 @@ int main(int argc, char** argv)
   // read input options
   string vocabFileName   (  ""   );  // text used to build bigram, eigenwords
   string regrFileName    (  ""   );  // modeling text, with leading y followed by text
+  string outputFileName  (  ""   );
   int    powerIterations (   0   );
   int    minFrequency    (   3   );
   int    nProjections    (  50   );
-  parse_arguments(argc, argv, vocabFileName, minFrequency, nProjections, powerIterations, regrFileName);
-  std::clog << "MAIN: lsa --vocab_file=" << vocabFileName << " --regr_file=" << regrFileName
+  parse_arguments(argc, argv, vocabFileName, regrFileName, minFrequency, nProjections, powerIterations, outputFileName);
+  std::clog << "MAIN: lsa --vocab_file=" << vocabFileName << " --regr_file=" << regrFileName << " --output_file=" << outputFileName
 	    << " --min_frequency=" << minFrequency << " --n_projections=" << nProjections << " --power_iter " << powerIterations;
   std::clog << endl;
   
-  // build vocabulary from source
+  // build vocabulary
   Vocabulary vocabulary(vocabFileName, minFrequency);
   std::clog << "MAIN: " << vocabulary << endl;
 
   // compute context matrix from vocabulary and source lines
   Eigen::SparseMatrix<int,Eigen::RowMajor> C;
-
   {
     std::list< Eigen::Triplet<int> > triplets;
     std::ifstream is(vocabFileName);
@@ -92,10 +93,10 @@ int main(int argc, char** argv)
   if (powerIterations) std::clog << " with power iterations.";
   std::clog << endl;
 
-  if (true)
-  { // write file for JMP input with column names
-    {
-      Vocabulary::TypeVector names = vocabulary.types();
+  if (outputFileName.size()>0)
+  { 
+    if (false)  // this writes svd for the types
+    { Vocabulary::TypeVector names = vocabulary.types();
       std::ofstream os("/Users/bob/Desktop/left.txt");
       os << "Type";
       for (int i=0; i<L.cols(); ++i) os << " L" << i;
@@ -103,8 +104,9 @@ int main(int argc, char** argv)
       for (int i=0; i<L.rows(); ++i)
 	os << names[i] << " " << L.row(i) << std::endl;
     }
-    {
-      std::ofstream os("/Users/bob/Desktop/right.txt");
+    std::ofstream os (outputFileName);
+    if (os)
+    { std::clog << "MAIN: Writing output file to " << outputFileName << std::endl;
       os << "Context";
       for (int i=0; i<R.cols(); ++i) os << " R" << i;
       os << std::endl;
@@ -119,7 +121,8 @@ int main(int argc, char** argv)
 
 void
 parse_arguments(int argc, char** argv,
-		string &fileName, int &oovThreshold,  int &nProjections, int &powerIterations, string &regrFileName)
+		string &fileName, string &regrFileName,
+		int &oovThreshold,  int &nProjections, int &powerIterations, string &outputFileName)
 {
   static struct option long_options[] = {
     {"vocab_file",    required_argument, 0, 'v'},
@@ -127,11 +130,12 @@ parse_arguments(int argc, char** argv,
     {"min_frequency", required_argument, 0, 'f'},
     {"power_iter",    required_argument, 0, 'p'},
     {"n_projections", required_argument, 0, 'r'},
+    {"output_file",   required_argument, 0, 'o'},
     {0, 0, 0, 0}                             // terminator 
   };
   int key;
   int option_index = 0;
-  while (-1 !=(key = getopt_long (argc, argv, "v:i:f:p:r:", long_options, &option_index))) // colon means has argument
+  while (-1 !=(key = getopt_long (argc, argv, "v:i:f:p:r:o:", long_options, &option_index))) // colon means has argument
   {
     // std::cout << "Option key " << char(key) << " for option " << long_options[option_index].name << ", option_index=" << option_index << std::endl;
     switch (key)
@@ -141,6 +145,7 @@ parse_arguments(int argc, char** argv,
     case 'f' : { oovThreshold   = read_utils::lexical_cast<int>(optarg);   break; }
     case 'p' : { powerIterations= read_utils::lexical_cast<int>(optarg);   break; }
     case 'r' : { nProjections   = read_utils::lexical_cast<int>(optarg);   break; }
+    case 'o' : { outputFileName = optarg;                                  break; }
     default  : { std::cout << "PARSE: Option not recognized; returning.\n";       }
     } // switch
   } 

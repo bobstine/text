@@ -36,7 +36,9 @@ void fill_random_bigram_projection(Matrix &P, Vocabulary::SparseMatrix const&B, 
 
 void
 parse_arguments(int argc, char** argv,
-		string &vFileName, int &minFrequency, bool &bidirectional, int &nProjections, int &powerIterations, string &rFileName);
+		string &vFileName, string &rFileName,
+		int &minFrequency, bool &bidirectional, int &nProjections, int &powerIterations,
+		string &outputFileName);
 
   
 int main(int argc, char** argv)
@@ -44,22 +46,23 @@ int main(int argc, char** argv)
   // read input options
   string vocabFileName   (  ""   );  // text used to build bigram, eigenwords
   string regrFileName    (  ""   );  // modeling text, with leading y followed by text
+  string outputFileName  (  ""   );  // text file suitable for jmp or R
   int    powerIterations (   0   );
   int    minFrequency    (   3   );
   bool   bidirectional   ( false );
   int    nProjections    (  50   );
   int    bigramSkip      (   0   );
-  parse_arguments(argc, argv, vocabFileName, minFrequency, bidirectional, nProjections, powerIterations, regrFileName);
-  std::clog << "MAIN: regressor --vocab_file=" << vocabFileName << " --regr_file=" << regrFileName
+  parse_arguments(argc, argv, vocabFileName, regrFileName, minFrequency, bidirectional, nProjections, powerIterations, outputFileName);
+  std::clog << "MAIN: regressor --vocab_file=" << vocabFileName << " --regr_file=" << regrFileName << " --output_file=" << outputFileName
 	    << " --min_frequency=" << minFrequency << " --n_projections=" << nProjections << " --power_iter " << powerIterations;
   if (bidirectional) std::clog << " --bidirectional ";
   std::clog << endl;
   
-  // build vocabulary from source
+  // build vocabulary
   Vocabulary vocabulary(vocabFileName, minFrequency);
   std::clog << "MAIN: " << vocabulary << endl;
 
-  // find google eigenwords for rare terms... did not find 940 (for chicago)
+  // google eigenwords for rare terms... did not find 940 (for chicago)
   if (false)
   { EigenwordDictionary googleDict ("text_src/eigenwords/google.txt", 100000, 43);
     int count = 0;
@@ -202,10 +205,11 @@ int main(int argc, char** argv)
     isNorm(i) = 1/S.row(i).norm();
   S = isNorm.asDiagonal() * S;
   X.rightCols(P.cols()) = S * P;
-  std::clog << "MAIN: First 10 rows of X are\n" << X.topRows(10) << endl;
+  std::clog << "MAIN: First 5 rows of X are\n" << X.topRows(5) << endl;
   
   // handle oov words
-  { std::clog << "MAIN: 200 OOV words are...\n    ";
+  {
+    std::clog << "MAIN: 200 OOV words are...\n    ";
     int i=0;
     for(auto x : vocabulary.oov_map())
     { ++i;
@@ -214,11 +218,17 @@ int main(int argc, char** argv)
     }
     std::clog << endl;
   }
-  // write to file
-  std::ofstream os("/Users/bob/Desktop/regr.txt");
-  os << " Y n SqFt SqFt_Obs Bedrooms Bedroom_Obs Bathrooms Bathroom_Obs";
-  for(int i=0; i<X.cols()-8; ++i) os << " X" << i;
-  os << endl << X << endl;
+  
+  // write to output file if assigned
+  if (outputFileName.size() > 0)
+  { std::ofstream os(outputFileName);
+    if(os)
+    { std::clog << "MAIN: Writing data file to " << outputFileName << std::endl;
+      os << " Y n SqFt SqFt_Obs Bedrooms Bedroom_Obs Bathrooms Bathroom_Obs";
+      for(int i=0; i<X.cols()-8; ++i) os << " X" << i;
+      os << endl << X << endl;
+    }
+  }
   
   return 0;
 }
@@ -227,7 +237,8 @@ int main(int argc, char** argv)
 
 void
 parse_arguments(int argc, char** argv,
-		string &fileName, int &oovThreshold, bool &bidirectional, int &nProjections, int &powerIterations, string &regrFileName)
+		string &fileName, string &regrFileName,
+		int &oovThreshold, bool &bidirectional, int &nProjections, int &powerIterations, string &outputFileName)
 {
   static struct option long_options[] = {
     {"vocab_file",    required_argument, 0, 'v'},
@@ -236,11 +247,12 @@ parse_arguments(int argc, char** argv,
     {"bidirectional",       no_argument, 0, 'b'},
     {"power_iter",    required_argument, 0, 'p'},
     {"n_projections", required_argument, 0, 'r'},
+    {"output_file",   required_argument, 0, 'o'},
     {0, 0, 0, 0}                             // terminator 
   };
   int key;
   int option_index = 0;
-  while (-1 !=(key = getopt_long (argc, argv, "v:i:f:bp:r:", long_options, &option_index))) // colon means has argument
+  while (-1 !=(key = getopt_long (argc, argv, "v:i:f:bp:r:o:", long_options, &option_index))) // colon means has argument
   {
     // std::cout << "Option key " << char(key) << " for option " << long_options[option_index].name << ", option_index=" << option_index << std::endl;
     switch (key)
@@ -251,6 +263,7 @@ parse_arguments(int argc, char** argv,
     case 'b' : { bidirectional  = true ;                                   break; }
     case 'p' : { powerIterations= read_utils::lexical_cast<int>(optarg);   break; }
     case 'r' : { nProjections   = read_utils::lexical_cast<int>(optarg);   break; }
+    case 'o' : { outputFileName = optarg;                                  break; }
     default  : { std::cout << "PARSE: Option not recognized; returning.\n";       }
     } // switch
   } 

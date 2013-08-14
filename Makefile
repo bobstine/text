@@ -29,7 +29,6 @@ USES = utils
 
 EXTERNAL_USES = boost_regex
 
-
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 level_1 = k_means.o token_manager.o confusion_matrix.o porter.o vocabulary.o eigenword_dictionary.o regex.o
@@ -95,16 +94,25 @@ tagged/test.tagged:
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#  temp directory for all temp text files; emptied by make clean
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+temppath = text_src/temp/
+
+CLEAN = $(temppath)*
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  federalist papers   0 Hamilton, 1 Madison, 11 Ham and Mad, 7 Ham or Mad, 10 Jay
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 fedpath = /Users/bob/data/federalist/
 
-$(fedpath)regr.txt: $(fedpath)federalist_regr.txt
+$(temppath)fedregr.txt: $(fedpath)federalist_regr.txt
 	tr '[:upper:]' '[:lower:]' < $^ > $@
 
-$(fedpath)temp.txt: $(fedpath)regr.txt                      # removes leading $value
+$(temppath)fedx.txt: $(temppath)fedregr.txt                        # removes leading author
 	cut --delimiter=' ' --fields=1 --complement $^ > $@
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  real estate text descriptions
@@ -114,11 +122,12 @@ repath = text_src/real_estate/Set10Tokenized/
 
 recity = Chicago
 
-$(repath)$(recity).txt: $(repath)$(recity)Tokenized                   # removes lines with no text (need $$ to escape $ in make)
+$(temppath)$(recity).txt: $(repath)$(recity)Tokenized           # removes lines with no text (need $$ to escape $ in make)
 	grep -v '^[0-9\,\.[:blank:]]\+$$' $^ > $@
 
-$(repath)$(recity)_woprice.txt: $(repath)$(recity).txt                # removes leading $value
+$(temppath)$(recity)_woprice.txt: $(temppath)$(recity).txt      # removes leading $value
 	cut --delimiter=' ' --fields=1 --complement $^ > $@
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  google eigenwords
@@ -127,7 +136,7 @@ $(repath)$(recity)_woprice.txt: $(repath)$(recity).txt                # removes 
 # Error here: cut separates terms with embedded comma in string
 epath = text_src/eigenwords/
 
-$(epath)google.txt: $(epath)pretty_2_grams_PC_100k_300.csv
+$(temppath)google.txt: $(epath)pretty_2_grams_PC_100k_300.csv
 	sed 's/, / /g' $^ | cut --delimiter=' ' --fields=1,6-26,306-326 > $@
 
 $(epath)pretty_2_grams_PC_100k_300.csv:
@@ -147,18 +156,28 @@ $(vpath)vocab.gz:
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 #  regression application; total of n projections (name recity above in real estate data)
-federalist: regressor lsa $(fedpath)regr.txt $(fedpath)temp.txt
-	./regressor --vocab_file=$(fedpath)temp.txt --regr_file=$(fedpath)regr.txt  --n_projections 100 --power_iter 1  --bidirectional  
-	./lsa --vocab_file=$(fedpath)temp.txt --n_projections 100 --power_iter 1
+federalist: regressor lsa $(temppath)fedregr.txt $(temppath)fedx.txt
+	./regressor --vocab_file=$(temppath)fedx.txt --regr_file=$(temppath)fedregr.txt  --n_projections 100 --power_iter 1  --bidirectional  
+	./lsa --vocab_file=$(temppath)fedx.txt --n_projections 100 --power_iter 1
+
 
 #  regression application; total of n projections (name recity above in real estate data)
-regressor_test: regressor $(epath)google.txt $(repath)$(recity).txt $(repath)$(recity)_woprice.txt
-	./regressor --vocab_file=$(repath)$(recity)_woprice.txt --regr_file=$(repath)$(recity).txt  --n_projections 200 --power_iter 1  --bidirectional  
 
-#  lsa application
-lsa_test: lsa $(epath)google.txt $(repath)$(recity)_woprice.txt
-	./lsa --vocab_file=$(repath)$(recity)_woprice.txt --n_projections 200 --power_iter 1
+nProj = 200
+vFile = $(temppath)$(recity)_woprice.txt
+rFile = $(temppath)$(recity).txt
 
+$(temppath)$(recity)_bigram_regr.txt: regressor $(temppath)google.txt $(temppath)$(recity).txt $(temppath)$(recity)_woprice.txt
+	./regressor --vocab_file=$(vFile) --regr_file=$(rFile) --output_file=$@  --n_projections $(nProj) --power_iter 1  --bidirectional  
+
+$(temppath)$(recity)_lsa_regr.txt: lsa $(temppath)google.txt $(temppath)$(recity)_woprice.txt
+	./lsa --vocab_file=$(temppath)$(recity)_woprice.txt --output_file=$@ --n_projections $(nProj) --power_iter 1
+
+doit: $(temppath)$(recity)_bigram_regr.txt $(temppath)$(recity)_lsa_regr.txt 
+	paste -d ' ' $^ > $(temppath)$(recity)_data.txt 
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  classifier application for POS
 #   options for folding in other tags, normalizing the bigram rows, weighed avg in clustering, cluster max iterations, tag printing
 #  --scale_data is on/off
