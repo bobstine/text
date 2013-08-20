@@ -5,10 +5,14 @@
 nProj <- 200
 
 city  <- "Chicago"
-file  <- paste("/Users/bob/C/text/text_src/temp/",city,"_data.txt",sep="")
+file  <- paste("/Users/bob/C/text/text_src/temp/",city,"_bigram_regr.txt",sep="")
 
-Data <- read.table(file, header=TRUE, row.names="Context"); dim(Data)
+Data <- read.table(file, header=TRUE); dim(Data)
 
+# --- check two code versions (use doboth in makefile; force same seeds prior to rand projection)
+# X <- as.matrix(Data[,209:308])  # as computed within regressor.cc
+# Y <- as.matrix(Data[,309:408])  #                    lsa.cc
+# plot(cancor(X,Y)$cor)           # == 1
 
 # --- about 87% have 100 or fewer tokens (many of which are punctuation)
 nTokens  <- as.numeric(Data[,"n"])
@@ -38,8 +42,8 @@ x.parsed. <- as.matrix(Data[,parse.names])
 	x.parsed.[,"SqFt"] <- log(x.parsed.[,"SqFt"])   # transform to log (tiny improvement)
 	colnames(x.parsed.)[2] <- "LogSqFt"
 
-x.lsa.    <- as.matrix(Data[,paste("R",0:(nProj/2-1), sep="")])
-x.bigram. <- as.matrix(Data[,paste("X",0:(nProj  -1), sep="")])
+x.lsa.    <- as.matrix(Data[,paste("L",0:(nProj/2-1), sep="")])
+x.bigram. <- as.matrix(Data[,paste("H",0:(nProj  -1), sep="")])
 
 summary(regr.parsed        <- lm(logPrice ~ x.parsed.))
 summary(regr.lsa           <- lm(logPrice ~ x.lsa.   ))
@@ -64,10 +68,29 @@ anova(regr.bigram, regr.parsed.bigram)
 anova(regr.lsa   , regr.parsed.lsa)
 
 # --- estimated parsed variables in place of originals
+x.parsed.hat. <- x.parsed.
+for(j in 1:ncol(x.parsed.)) {
+	regr <- lm(x.parsed.[,j] ~ x.lsa.+ x.bigram.)
+	cat("For variable", colnames(x.parsed.)[j], " R2 = ", summary(regr)$r.squared,"\n")
+	x.parsed.hat.[,j] <- fitted.values(regr)
+	}
 
+#     just one at a time, skip n since redundant
+colnames(x.parsed.)
+
+#     n is worse when estimated, but all of the others improve
+j <- 6;
+colnames(x.parsed.)[j]
+summary(lm(logPrice ~ x.parsed.[,j] + x.parsed.hat.[,j]))
+
+#     all of them
+summary(regr.parsed)
+summary(regr.parsed.hat   <- lm(logPrice ~ x.parsed.hat.))
+
+	
 # --- canonical correlations are quite large, drop slowly
-cc <- cancor(x.lsa., x.bigram.)
-plot(cc$cor)
+ccb <- cancor(x.lsa., x.bigram.)
+plot(ccb$cor)
 
 # --- cca of the left/right bigram variables; inverted hockey stick
 #     Related to how many to keep?  
@@ -75,8 +98,8 @@ plot(cc$cor)
 #        only keep 'right' subspace that's not redundant with left
 left  <-   1        : (nProj/2)
 right <- (nProj/2+1):  nProj
-cc <- cancor(x.bigram.[,left], x.bigram.[,right])
-plot(cc$cor)
+ccw <- cancor(x.bigram.[,left], x.bigram.[,right])
+plot(ccw$cor)
 
 
 

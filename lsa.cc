@@ -41,6 +41,9 @@ parse_arguments(int argc, char** argv,
   
 int main(int argc, char** argv)
 {
+  // should set random seed from input options...
+  srand(2763);
+
   // read input options
   string vocabFileName   (  ""   );  // text used to build bigram, eigenwords
   string regrFileName    (  ""   );  // modeling text, with leading y followed by text
@@ -57,7 +60,7 @@ int main(int argc, char** argv)
   Vocabulary vocabulary(vocabFileName, minFrequency);
   std::clog << "MAIN: " << vocabulary << endl;
 
-  // compute context matrix from vocabulary and source lines
+  // compute context matrix from vocabulary and source lines (bags of word for each)
   Eigen::SparseMatrix<int,Eigen::RowMajor> C;
   {
     std::list< Eigen::Triplet<int> > triplets;

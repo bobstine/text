@@ -163,18 +163,23 @@ federalist: regressor lsa $(temppath)fedregr.txt $(temppath)fedx.txt
 
 #  regression application; total of n projections (name recity above in real estate data)
 
+seed  = 2763
 nProj = 200
 vFile = $(temppath)$(recity)_woprice.txt
 rFile = $(temppath)$(recity).txt
 
 $(temppath)$(recity)_bigram_regr.txt: regressor $(temppath)google.txt $(temppath)$(recity).txt $(temppath)$(recity)_woprice.txt
-	./regressor --vocab_file=$(vFile) --regr_file=$(rFile) --output_file=$@  --n_projections $(nProj) --power_iter 1  --bidirectional  
+	./regressor --vocab_file=$(vFile) --regr_file=$(rFile) --output_file=$@  -s $(seed) --n_projections $(nProj) --power_iter 1  --bidirectional  
 
 $(temppath)$(recity)_lsa_regr.txt: lsa $(temppath)google.txt $(temppath)$(recity)_woprice.txt
 	./lsa --vocab_file=$(temppath)$(recity)_woprice.txt --output_file=$@ --n_projections $(nProj) --power_iter 1
 
-doit: $(temppath)$(recity)_bigram_regr.txt $(temppath)$(recity)_lsa_regr.txt 
-	paste -d ' ' $^ > $(temppath)$(recity)_data.txt 
+doit:  $(temppath)$(recity)_bigram_regr.txt
+
+#doboth: $(temppath)$(recity)_bigram_regr.txt $(temppath)$(recity)_lsa_regr.txt
+#	paste -d ' ' $^ > $(temppath)$(recity)_data.txt 
+
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
