@@ -130,6 +130,16 @@ $(temppath)$(recity)_woprice.txt: $(temppath)$(recity).txt      # removes leadin
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#  simulated topic model text descriptions
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+simpath = text_src/sim/
+
+$(temppath)sim_woy.txt: $(simpath)sim.txt      # removes leading $value
+	cut --delimiter=' ' --fields=1 --complement $^ > $@
+
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  google eigenwords
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -161,7 +171,7 @@ federalist: regressor lsa $(temppath)fedregr.txt $(temppath)fedx.txt
 	./lsa --vocab_file=$(temppath)fedx.txt --n_projections 100 --power_iter 1
 
 
-#  regression application; total of n projections (name recity above in real estate data)
+#  regression application for real estate; total of n projections (name recity above in real estate data)
 
 seed  = 2763
 nProj = 200
@@ -178,6 +188,18 @@ doit:  $(temppath)$(recity)_bigram_regr.txt
 
 #doboth: $(temppath)$(recity)_bigram_regr.txt $(temppath)$(recity)_lsa_regr.txt
 #	paste -d ' ' $^ > $(temppath)$(recity)_data.txt 
+
+
+#  regressor application for simulated data
+
+nSimProj = 50
+vSimFile = $(temppath)sim_woy.txt
+rSimFile = $(simpath)sim.txt
+
+$(temppath)sim_regr.txt: regressor $(vSimFile) $(rSimFile)
+	./regressor --vocab_file=$(vSimFile) --regr_file=$(rSimFile) --output_file=$@  -s $(seed) --n_projections $(nSimProj) --power_iter 1  --bidirectional  
+
+dosim:  $(temppath)sim_regr.txt
 
 
 
