@@ -27,6 +27,14 @@ Vocabulary::print_to_stream(std::ostream & os) const
   }
 }
 
+void
+Vocabulary::write_type_freq(std::ostream & os) const
+{
+  for(auto x : mFreqMap)
+    os << x.second << " ";
+}
+
+
 //     init     init     init     init     init     init     init     init     init     init     init     init     
 
 void

@@ -113,47 +113,53 @@ rdirichlet <- function(a) {
     return(y / sum(y))
 }
 
+word.indices <- function(topics, P) {
+	M <- ncol(P); m<-length(topics)
+	z<-rep(0,m); 
+	for(t in 1:m) z[t]<-sample(M,1,prob=P[topics[t],])
+	z
+}
+
 # --- constants
 
-beta  <- c(1, 1, 1, 2, 2, 2, 3, 3,-2,-3) 	# topic weights
-alpha <- c(4, 3, 2, 1, 1, 1, 1, 1,.5,.5)	# dirichlet parms
-K <-  length(alpha)							# number of topics
+beta <- c(1, 1, 1, 2, 2, 2, 3, 3,-2,-3) 	# topic weights
+K    <- length(beta)		# number of topics
 
-M <- 1000										# word types in vocabulary
-n <- 4000										# num of documents
+M <- 1000					# word types in vocabulary
+n <- 4000					# num of documents
 
 
-# topic distributions over words in K x M matrix P
+# --- topic distributions over words in K x M matrix P
+alpha <- rep(.05, M)			# dirichlet parms, small alpha are spiky
 P <- matrix(0, nrow=K, ncol=M)
-for(k in 1:K) P[k,] <- rdirichlet(alpha/25)  # small alpha are spiky
-udv <- svd(P); plot(udv$d)
+for(k in 1:K) P[k,] <- rdirichlet(alpha)  
+
+#     check dependence/correlation among distributions
+round(P[1:10,1:12],3)
+udv <- svd(P); plot(udv$d); round(cor(t(P)),2)
+round(udv$u[,1],4); plot(udv$v[,1])
 
 
-# X[i,] is distribution of topics in document i (random Dirichlet)
+# --- X[i,] is distribution of topics in document i (random Dirichlet)
 X <- matrix(0, nrow=n, ncol=K);
 for(i in 1:n) X[i,] <- rdirichlet( rep(1/10,K) )
 
 # Y is the response
 Y <- X %*% beta + rnorm(n,sd=0.5)
 
-# check "true" model; note that the sum of the X's must be 1 so no intercept
+# check "true" model; sum of the X's = 1 so no intercept, R2 around 90%
 summary(regr <- lm(Y ~ X - 1))
 
-# --- simulate documents
-vocab <- paste("w",1:M,sep="")
-m <- rpois(n,lambda=rgamma(n,30,1))      	# lengths of the documents (neg bin)
 
-word.indices <- function(topics) {
-	z<-rep(0,length(topics)); 
-	for(t in 1:length(topics)) z[t]<-sample(M,1,prob=P[topics[t],])
-	z
-	}
+# --- simulate documents; lengths of the documents (neg bin)
+vocab <- paste("w",1:M,sep="")
+m <- rpois(n,lambda=rgamma(n,30,1))
 
 # words in doc assigned to topic, then pick word for that topic
 docs <- rep("",n)
 for(i in 1:n) {
-	topics <- sample(K, m[i],replace=TRUE, prob=X[i,]); 
-	docs[i] <- paste(round(Y[i],3), paste(vocab[word.indices(topics)], collapse=" "), sep=" ")
+	topics <- sample(K, m[i], replace=TRUE, prob=X[i,]); 
+	docs[i] <- paste(round(Y[i],3), paste(vocab[word.indices(topics,P)], collapse=" "), sep=" ")
 	}
 	
 # write words to file with response
@@ -162,7 +168,16 @@ write(docs,"/Users/bob/C/text/text_src/sim/sim.txt")
 
 # --- Analysis of C++ results
 
-file  <- paste("/Users/bob/C/text/text_src/temp/sim_regr.txt",sep="")
+# --- look at type frequencies, zipf plot
+type.cts <- sort(scan("/Users/bob/Desktop/type_freq.txt"), decreasing=TRUE)
+
+x <- log(1:length(type.cts)); y<-log(type.cts)
+plot(x,y, xlab="log rank", ylab="log frequency")
+abline(regr<-lm(y~x),col="red"); coefficients(regr)
+
+
+# --- get regression data
+file  <- "/Users/bob/C/text/text_src/temp/sim_regr.txt"
 
 Data <- read.table(file, header=TRUE); dim(Data)
 
@@ -175,7 +190,7 @@ x.lsa.    <- as.matrix(Data[,paste("L",0:(nProj/2-1), sep="")])
 x.bigram. <- as.matrix(Data[,paste("H",0:(nProj  -1), sep="")])
 
 summary(regr.lsa           <- lm(Y ~ x.lsa.   ))
-summary(regr.bigram        <- lm(Y ~ x.bigram.))
+summary(regr.bigram        <- lm(Y ~ x.bigram.))        # better fit
 cor(fitted.values(regr.lsa),fitted.values(regr.bigram)) #   high corr
 
 # --- cca shows several that are large (depending on separation)
@@ -189,11 +204,10 @@ j <- 1; cor(ccx[,j],ccy[,j]); x <- ccx[,j]
 summary( lm(Y ~ ccx) )
 
 # --- cca of the left/right bigram variables; inverted hockey stick
-#     these are the same subspaces
+#     these are the same subspaces; better count of number traits
 left  <-   1        : (nProj/2)
 right <- (nProj/2+1):  nProj
-ccw <- cancor(x.bigram.[,left], x.bigram.[,right])
-plot(ccw$cor)
+ccw <- cancor(x.bigram.[,left], x.bigram.[,right]); plot(ccw$cor)
 
 cx <- x.bigram.[, left] %*% ccw$xcoef		# canonical vars
 cy <- x.bigram.[,right] %*% ccw$ycoef

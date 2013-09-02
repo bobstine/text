@@ -64,6 +64,10 @@ int main(int argc, char** argv)
   // build vocabulary
   Vocabulary vocabulary(vocabFileName, minFrequency);
   std::clog << "MAIN: " << vocabulary << endl;
+  if(true) // write frequencies to file
+  { std::ofstream os ("/Users/bob/Desktop/type_freq.txt");
+    vocabulary.write_type_freq(os);
+  }
 
   // google eigenwords for rare terms... did not find 940 (for chicago)
   if (false)
