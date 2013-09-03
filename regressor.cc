@@ -244,8 +244,9 @@ int main(int argc, char** argv)
     if(os)
     { std::clog << "MAIN: Writing data file to " << outputFileName << std::endl;
       os << " Y n SqFt SqFt_Obs Bedrooms Bedroom_Obs Bathrooms Bathroom_Obs";
-      for(int i=0; i<P.cols(); ++i) os << " H" << i;
-      for(int i=0; i<L.cols(); ++i) os << " L" << i;
+      for(int i=0; i<P.cols()/2; ++i) os << " BL" << i;
+      for(int i=0; i<P.cols()/2; ++i) os << " BR" << i;
+      for(int i=0; i<L.cols(); ++i) os <<    " D" << i;
       os << endl << X << endl;
     }
   }

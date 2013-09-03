@@ -1,7 +1,33 @@
 ##################################################################################
-# Analysis of regressors 
+# Preliminaries 
 ##################################################################################
 
+reset <- function() {
+	par(mfrow=c(1,1), mgp=c(3,1,0), mar=c(5,4,4,2)+0.1)  # bottom left top right
+	}
+	
+
+
+##################################################################################
+# Analysis of text regressors 
+##################################################################################
+
+# --- look at type frequencies, zipf plot   (zipf.pdf)
+type.cts <- sort(scan("/Users/bob/Desktop/type_freq.txt"), decreasing=TRUE)
+
+x<-1:length(type.cts); y<-type.cts
+zipf.data <- data.frame(list(x=x,y=y,lx=log(x),ly=log(y)))
+
+plot(y~x, xlab="rank", ylab="frequency", log="xy", data=zipf.data)
+common.words <- c(".", ",", "and", "-", "in")
+text(0.9*x[1:5],0.7*y[1:5],common.words,cex=c(1,1,0.5,1,0.5))
+
+regr<-lm(ly~lx, data=zipf.data[1:500,]); coefficients(regr)
+lx <- log(x<-c(1,5000)); y <- exp(predict(regr, data.frame(lx=lx)))
+lines(x,y,col="red")
+
+
+# --- analysis of regression models
 nProj <- 200
 
 city  <- "Chicago"
@@ -9,31 +35,57 @@ file  <- paste("/Users/bob/C/text/text_src/temp/",city,"_bigram_regr.txt",sep=""
 
 Data <- read.table(file, header=TRUE); dim(Data)
 
+
+# --- analysis of prices
+y <- Data[,"Y"]
+par(mfrow=c(1,2))                                             # prices.pdf
+	hist(log10(y), breaks=30, main=" ",xlab="log10(Price)")
+	qqnorm(log10(y), ylab="log10(Price)"); abline(a=mean(log10(y)),b=sd(log10(y)))
+reset()
+
+
+# --- frequencies of missing data
+sum(Data[,"SqFt_Obs"])/nrow(Data)
+sum(Data[,"Bedroom_Obs"])/nrow(Data)
+sum(Data[,"Bathroom_Obs"])/nrow(Data)
+
+
 # --- check two code versions (use doboth in makefile; force same seeds prior to rand projection)
 # X <- as.matrix(Data[,209:308])  # as computed within regressor.cc
 # Y <- as.matrix(Data[,309:408])  #                    lsa.cc
 # plot(cancor(X,Y)$cor)           # == 1
 
-# --- about 87% have 100 or fewer tokens (many of which are punctuation)
+
+# --- length of documents; about 87% have 100 or fewer tokens (many of which are punctuation)
 nTokens  <- as.numeric(Data[,"n"])
-fivenum(nTokens); quantile(nTokens,0.87)
+
+mean(nTokens); fivenum(nTokens); quantile(nTokens,0.87)
+boxplot(nTokens, horizontal=TRUE, xlab="Lengths of Descriptions")   # boxplot.pdf
 hist(log10(nTokens))
 
-# --- prices are very skewed, even after dropping many
-price <- Data[,"Y"]
-hist(price, breaks=50); 
-hist(sort(price, decreasing=TRUE)[-(1:100)], breaks=50)
-plot(price ~ nTokens)  # dominated by outliers
 
+# --- simple models for log of prices
 logPrice <- as.numeric(log(Data[,"Y"]))
-hist(logPrice, breaks=30)
-plot(logPrice ~ nTokens);  # some common lengths (vertical stripe)
-   lines(lowess(nTokens,logPrice,f=0.1),col="red")
 plot(logPrice ~ I(log(nTokens) )) 
-   
-sqft <- Data[,"SqFt"]  # too many missing; need log scale
-plot(logPrice ~       sqft   )
-plot(logPrice ~ I(log(sqft)) )  # clear coding error... min=1  "1sfam" in source)
+lines(lowess(log(nTokens), logPrice, f=.3), col="red")
+
+
+sqft  <- Data[,"SqFt"]  # too many missing; need log scale
+baths <- Data[,"Bathrooms"]
+beds  <- Data[,"Bedrooms"]
+
+# --- plots of the parsed explanatory variables and response
+par(mfrow=c(2,2), mar=c(4,4,1,1), mgp=c(2,1,0))
+	plot(logPrice ~ nTokens)
+	  text(500,6, paste("r=",round(cor(logPrice,nTokens),2)))
+	plot(logPrice ~ baths,xlab="Number Bathrooms" ) 
+	  text(7,6, paste("r=",round(cor(logPrice,baths),2)))
+	plot(logPrice ~ beds ,xlab="Number Bedrooms"  )  
+	  text(7,6, paste("r=",round(cor(logPrice,beds),2)))
+	plot(logPrice ~ I(log(sqft)),xlab="log(Sq Ft)" )  # clear coding error... min=1  "1sfam" in source)
+	  text(1,6, paste("r=",round(cor(logPrice,log(sqft)),2)))
+	obs <- which(1==Data[,"SqFt_Obs"]); cor(logPrice[obs],log(sqft[obs]))
+par(mfrow=c(1,1))
 
 
 parse.names<-c("n","SqFt","SqFt_Obs","Bedrooms","Bedroom_Obs","Bathrooms","Bathroom_Obs")
@@ -42,19 +94,58 @@ x.parsed. <- as.matrix(Data[,parse.names])
 	x.parsed.[,"SqFt"] <- log(x.parsed.[,"SqFt"])   # transform to log (tiny improvement)
 	colnames(x.parsed.)[2] <- "LogSqFt"
 
-x.lsa.    <- as.matrix(Data[,paste("L",0:(nProj/2-1), sep="")])
-x.bigram. <- as.matrix(Data[,paste("H",0:(nProj  -1), sep="")])
-
 summary(regr.parsed        <- lm(logPrice ~ x.parsed.))
-summary(regr.lsa           <- lm(logPrice ~ x.lsa.   ))
+
+
+# --- SVD variables, D
+x.lsa.    <- as.matrix(Data[,paste("D",0:(nProj/2-1), sep="")])
+
+summary(regr.lsa           <- lm(logPrice ~ x.lsa.   ))    # pvalue_a
+	plot(coefficients(summary(regr.lsa))[,4], xlab="Singular Vector", ylab="P-value", main="")
+
+
+# --- SVD variables, B
+x.bigram. <- as.matrix(cbind(	Data[,paste("BL",0:(nProj/2-1), sep="")],
+									Data[,paste("BR",0:(nProj/2-1), sep="")]  ))
+
 summary(regr.bigram        <- lm(logPrice ~ x.bigram.))
+	plot(c(0,1:100,1:100),                                 # pvalue_b
+		coefficients(summary(regr.bigram))[,4], xlab="Singular Vector", ylab="P-value", main="")
+
+summary(regr.bigram        <- lm(logPrice ~ x.bigram.[,1:(nProj/2)]))
+
+
+# --- CCA of bigram left/right decomp
+
+left  <-   1        : (nProj/2)
+right <- (nProj/2+1):  nProj
+ccw <- cancor(x.bigram.[,left], x.bigram.[,right])
+plot(ccw$cor, xlab="Combination", ylab="Canonical Correlation")          # cca.pdf
+
+cx <- x.bigram.[, left] %*% ccw$xcoef		# canonical vars
+cy <- x.bigram.[,right] %*% ccw$ycoef
+
+cor(cx[,1],cy[,1])
+
+summary(regr.bigram        <- lm(logPrice ~ cx + cy ))
+
+
+# --- nested regression models
+
+summary(regr.parsed        <- lm(logPrice ~ x.parsed.         ))
 
 summary(regr.parsed.lsa    <- lm(logPrice ~ x.parsed. + x.lsa.))
+
 summary(regr.parsed.bigram <- lm(logPrice ~ x.parsed. + x.bigram.))
 
 summary(regr.all           <- lm(logPrice ~ x.parsed. + x.lsa. + x.bigram.))
 
+summary(regr.text          <- lm(logPrice ~             x.lsa. + x.bigram.))
+
+
 # --- compare nested models
+anova(regr.text, regr.all)
+
 # adding lsa/bigram to parsed + bigram/lsa
 anova(regr.parsed.lsa   , regr.all)
 anova(regr.parsed.bigram, regr.all)
@@ -125,7 +216,7 @@ word.indices <- function(topics, P) {
 beta <- c(1, 1, 1, 2, 2, 2, 3, 3,-2,-3) 	# topic weights
 K    <- length(beta)		# number of topics
 
-M <- 1000					# word types in vocabulary
+M <- 2000					# word types in vocabulary
 n <- 4000					# num of documents
 
 
@@ -172,7 +263,7 @@ write(docs,"/Users/bob/C/text/text_src/sim/sim.txt")
 type.cts <- sort(scan("/Users/bob/Desktop/type_freq.txt"), decreasing=TRUE)
 
 x <- log(1:length(type.cts)); y<-log(type.cts)
-plot(x,y, xlab="log rank", ylab="log frequency")
+plot(x,y, xlab="log rank", ylab="log frequency")        # simzipf.pdf
 abline(regr<-lm(y~x),col="red"); coefficients(regr)
 
 
@@ -186,8 +277,9 @@ resp <- Data[,"Y"]						# matches Y above
 
 nProj <- 50
 
-x.lsa.    <- as.matrix(Data[,paste("L",0:(nProj/2-1), sep="")])
-x.bigram. <- as.matrix(Data[,paste("H",0:(nProj  -1), sep="")])
+x.lsa.    <- as.matrix(Data[,paste( "D",0:(nProj/2-1), sep="")])
+x.bigram. <- as.matrix(cbind(Data[,paste("BR",0:(nProj/2-1), sep="")],
+							Data[,paste("BL",0:(nProj/2-1), sep="")]))
 
 summary(regr.lsa           <- lm(Y ~ x.lsa.   ))
 summary(regr.bigram        <- lm(Y ~ x.bigram.))        # better fit
@@ -207,7 +299,8 @@ summary( lm(Y ~ ccx) )
 #     these are the same subspaces; better count of number traits
 left  <-   1        : (nProj/2)
 right <- (nProj/2+1):  nProj
-ccw <- cancor(x.bigram.[,left], x.bigram.[,right]); plot(ccw$cor)
+ccw <- cancor(x.bigram.[,left], x.bigram.[,right]); 
+plot(ccw$cor, xlab="Canonical Variable", ylab="Canonical Correlation")           # simccab.pdf
 
 cx <- x.bigram.[, left] %*% ccw$xcoef		# canonical vars
 cy <- x.bigram.[,right] %*% ccw$ycoef
