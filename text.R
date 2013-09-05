@@ -28,7 +28,7 @@ lines(x,y,col="red")
 
 
 # --- analysis of regression models
-nProj <- 200
+nProj <- 800
 
 city  <- "Chicago"
 file  <- paste("/Users/bob/C/text/text_src/temp/",city,"_bigram_regr.txt",sep="")
@@ -70,19 +70,22 @@ plot(logPrice ~ I(log(nTokens) ))
 lines(lowess(log(nTokens), logPrice, f=.3), col="red")
 
 
-sqft  <- Data[,"SqFt"]  # too many missing; need log scale
-baths <- Data[,"Bathrooms"]
-beds  <- Data[,"Bedrooms"]
+sqft  <- Data[,"SqFt"];      sqft.obs <- Data[,"SqFt_Obs"]   
+baths <- Data[,"Bathrooms"]; bath.obs <- Data[,"Bathroom_Obs"]
+beds  <- Data[,"Bedrooms"];  beds.obs <- Data[,"Bedroom_Obs"]
 
-# --- plots of the parsed explanatory variables and response
+# --- plots of the parsed explanatory variables and response      parsed.pdf
 par(mfrow=c(2,2), mar=c(4,4,1,1), mgp=c(2,1,0))
-	plot(logPrice ~ nTokens)
+	plot(logPrice ~ nTokens, ylab= "Log Price",  xlab="Number of Tokens")
 	  text(500,6, paste("r=",round(cor(logPrice,nTokens),2)))
-	plot(logPrice ~ baths,xlab="Number Bathrooms" ) 
+	plot(logPrice ~ baths, ylab= "Log Price",
+	  xlab="Number Bathrooms   (74% missing)", col=c("gray","black")[1+bath.obs]) 
 	  text(7,6, paste("r=",round(cor(logPrice,baths),2)))
-	plot(logPrice ~ beds ,xlab="Number Bedrooms"  )  
+	plot(logPrice ~ beds , ylab= "Log Price", 
+	  xlab="Number Bedrooms  (58% missing)"  , col=c("gray","black")[1+beds.obs])   
 	  text(7,6, paste("r=",round(cor(logPrice,beds),2)))
-	plot(logPrice ~ I(log(sqft)),xlab="log(Sq Ft)" )  # clear coding error... min=1  "1sfam" in source)
+	plot(logPrice ~ I(log(sqft)),  ylab= "Log Price",
+	  xlab="log(Sq Ft)  (94% missing)",col=c("gray","black")[1+sqft.obs]) 
 	  text(1,6, paste("r=",round(cor(logPrice,log(sqft)),2)))
 	obs <- which(1==Data[,"SqFt_Obs"]); cor(logPrice[obs],log(sqft[obs]))
 par(mfrow=c(1,1))
@@ -101,16 +104,24 @@ summary(regr.parsed        <- lm(logPrice ~ x.parsed.))
 x.lsa.    <- as.matrix(Data[,paste("D",0:(nProj/2-1), sep="")])
 
 summary(regr.lsa           <- lm(logPrice ~ x.lsa.   ))    # pvalue_a
-	plot(coefficients(summary(regr.lsa))[,4], xlab="Singular Vector", ylab="P-value", main="")
-
+	plot(
+		x <- 1:(nProj/2),
+		y <- abs(coefficients(summary(regr.lsa))[-1,3]), 
+		xlab="Singular Vector of W", ylab="|t|", main="")
+	abline(h=-qnorm(.025/(nProj/2)), col="gray", lty=3)
+	lines(lowess(x,y), col="red")
 
 # --- SVD variables, B
 x.bigram. <- as.matrix(cbind(	Data[,paste("BL",0:(nProj/2-1), sep="")],
 									Data[,paste("BR",0:(nProj/2-1), sep="")]  ))
 
 summary(regr.bigram        <- lm(logPrice ~ x.bigram.))
-	plot(c(0,1:100,1:100),                                 # pvalue_b
-		coefficients(summary(regr.bigram))[,4], xlab="Singular Vector", ylab="P-value", main="")
+	plot(
+		x <- rep(1:(nProj/2),2),                                 # pvalue_b
+		y <- abs(coefficients(summary(regr.bigram))[-1,3]), 
+		xlab="Correlation Variable from Bigram", ylab="|t|", main="")
+	abline(h=-qnorm(.025/(nProj/2)), col="gray", lty=3)
+	lines(lowess(x,y), col="red")
 
 summary(regr.bigram        <- lm(logPrice ~ x.bigram.[,1:(nProj/2)]))
 

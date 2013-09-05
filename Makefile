@@ -172,9 +172,9 @@ federalist: regressor lsa $(temppath)fedregr.txt $(temppath)fedx.txt
 
 
 #  regression application for real estate; total of n projections (name recity above in real estate data)
-
+#  get half of nProj for W and nProj (both sides) for bigram
 seed  = 2763
-nProj = 200
+nProj = 800
 vFile = $(temppath)$(recity)_woprice.txt
 rFile = $(temppath)$(recity).txt
 
