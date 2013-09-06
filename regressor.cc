@@ -14,21 +14,23 @@
 #include <Eigen/SparseCore>
 #include <Eigen/SVD>
 
+#define MIN(A,B) (((A)<(B)) ? (A) : (B))
+
 using std::string;
 using std::endl;
 
 typedef Eigen::VectorXf Vector;
 typedef Eigen::MatrixXf Matrix;
 
-void fill_random_bigram_projection(Matrix &P, Vocabulary::SparseMatrix const&B, int power)
+void fill_random_projection(Matrix &P, Vocabulary::SparseMatrix const&M, int power)
 {
-  assert (B.rows() == P.rows());
-  Matrix R = B * Matrix::Random(B.cols(), P.cols());                                         //  return orthog system
+  assert (M.rows() == P.rows());
+  Matrix R = M * Matrix::Random(M.cols(), P.cols());                                         //  return orthog system
   P = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());  //  Eigen trick for thin Q
   if (power > 0)
-  { Vocabulary::SparseMatrix BBt = B * B.transpose();
+  { Vocabulary::SparseMatrix MMt = M * M.transpose();
     while (power--)
-    { R = BBt * P;
+    { R = MMt * P;
       P = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());
     }
   }
@@ -65,7 +67,7 @@ int main(int argc, char** argv)
   Vocabulary vocabulary(vocabFileName, minFrequency);
   std::clog << "MAIN: " << vocabulary << endl;
   if(true) // write frequencies to file
-  { std::ofstream os ("/Users/bob/Desktop/type_freq.txt");
+  { std::ofstream os ("text_src/temp/type_freq.txt");
     vocabulary.write_type_freq(os);
   }
 
@@ -121,18 +123,18 @@ int main(int argc, char** argv)
 	    << B.row(0).sum() << "  (1)" << B.row(1).sum() << "  (2)"
 	    << B.row(2).sum() << "  (3)" << B.row(3).sum() << "  (4)" << B.row(4).sum() << std::endl;
 
-  // form random projections
+  // form random projections of bigram matrix
   Matrix P(B.rows(), nProjections);
   if (!bidirectional)
-    fill_random_bigram_projection(P, B, powerIterations);
+    fill_random_projection(P, B, powerIterations);
   else
   { assert(0 == nProjections%2);
     int half = nProjections/2;
     Matrix Pl(B.rows(), half);
-    fill_random_bigram_projection(Pl, B, powerIterations);
+    fill_random_projection(Pl, B, powerIterations);
     Matrix Pr(B.rows(), half);
     Vocabulary::SparseMatrix Bt = B.transpose();
-    fill_random_bigram_projection(Pr, Bt, powerIterations);
+    fill_random_projection(Pr, Bt, powerIterations);
     P.leftCols(half) = Pl;
     P.rightCols(half)= Pr;
   }
@@ -155,17 +157,29 @@ int main(int argc, char** argv)
   int nLines (FileUtils::count_lines(regrFileName));
   std::clog << "MAIN: Building regressor matrix from " << nLines << " lines of input in file " << regrFileName << ".\n";
   std::ifstream is(regrFileName);
-  Vocabulary::SparseMatrix S(nLines,vocabulary.n_types());
+  Vocabulary::SparseMatrix W(nLines,vocabulary.n_types());
   Vector Y (nLines);
-  vocabulary.fill_sparse_regr_design(Y, S, is);
-  std::clog << "MAIN : sum of row 0 of S is " << S.row(0).sum() << endl;
-  std::clog << "MAIN : sum of row 1 of S is " << S.row(1).sum() << endl;
+  vocabulary.fill_sparse_regr_design(Y, W, is);
+  std::clog << "MAIN: sum of row 0 of W is " << W.row(0).sum() << endl;
+  std::clog << "MAIN: sum of row 1 of W is " << W.row(1).sum() << endl;
   is.close();
 
+  // optionally write W columns
+  if(true)  
+  { const int nColsToWrite = MIN(W.cols(),2000);
+    std::ofstream os("text_src/temp/w.txt");
+    Vocabulary::TypeVector tv = vocabulary.types();
+    for (int i=0; i<nColsToWrite; ++i)
+      os << " " << tv[i];
+    os << std::endl;
+    //  os << W.leftCols(nColsToWrite);
+    std::clog << "MAIN: Wrote W matrix to file w.txt." << std::endl;
+  }
+	
   // form random projections
   int half = nProjections/2;     assert(0 == nProjections%2);
-  Matrix L(S.rows(), half);
-  fill_random_bigram_projection(L, S, powerIterations);
+  Matrix L(W.rows(), half);
+  fill_random_projection(L, W, powerIterations);
   std::clog << "MAIN: Completed LSA random projection.  L[" << L.rows() << "x" << L.cols() << "]";
   if (powerIterations) std::clog << " with power iterations.";
   std::clog << endl;
@@ -205,24 +219,26 @@ int main(int argc, char** argv)
 
   // compute dense projection coefficients for common words
   int offset = 2 + 6;
-  Matrix X (S.rows(), offset+P.cols()+L.cols());
+  Matrix X (W.rows(), offset+P.cols()+L.cols());
   X.col(0) = Y;                                  // stuff Y into first column for output
   // custom variables
-  X.col(1) = S * Vector::Ones(S.cols());         // put total count n of type into second col
+  X.col(1) = W * Vector::Ones(W.cols());         // put total count n of type into second col (rowwise not avail for sparse)
   X.col(2) = sqft;
   X.col(3) = sqftObserved;
   X.col(4) = bdrm;
   X.col(5) = bdrmObserved;
   X.col(6) = bath;
   X.col(7) = bathObserved;
-  // bigram variables
-  Vector irNorm (P.colwise().norm().array().inverse());
-  P = P * irNorm.asDiagonal();                 // normalize projection vector, sparse coefs so X has corr
-  Vector isNorm (S.rows());
-  for (int i=0; i<S.rows(); ++i)
-    isNorm(i) = 1/S.row(i).norm();
-  S = isNorm.asDiagonal() * S;
-  X.block(0,offset,S.rows(),P.cols()) = S * P;
+  // build variables from bigram correlations
+  Vector irNorm (P.cols());
+  irNorm = P.colwise().norm().array().inverse();
+  P = P * irNorm.asDiagonal();                  // normalize projection vector, sparse coefs so X has corr
+  Vector isNorm (W.rows());
+  for (int i=0; i<W.rows(); ++i)
+    isNorm(i) = 1/W.row(i).norm();
+  W = isNorm.asDiagonal() * W;
+  X.block(0,offset,W.rows(),P.cols()) = W * P;
+
   // lsa variables
   X.rightCols(L.cols()) = L;
   std::clog << "MAIN: First 5 rows of X are\n" << X.topRows(5) << endl;

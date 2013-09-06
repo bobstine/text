@@ -29,7 +29,7 @@ class Type: public string
   explicit Type(string s) : string(s)       { }
   explicit Type(char *s)  : string(s)       { }
 
-  void  print_to_stream(std::ostream &os) const   { os << "`" << static_cast<string>(*this) << "'" ; }
+  void  print_to_stream(std::ostream &os) const   { os << "\"" << static_cast<string>(*this) << "\"" ; }
 };
 
 

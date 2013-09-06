@@ -161,6 +161,7 @@ $(vpath)vocab: $(vpath)vocab.gz
 $(vpath)vocab.gz:
 	scp sob:/data/google_data/1gms/vocab.gz $(vpath)
 
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  run commands
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -174,7 +175,7 @@ federalist: regressor lsa $(temppath)fedregr.txt $(temppath)fedx.txt
 #  regression application for real estate; total of n projections (name recity above in real estate data)
 #  get half of nProj for W and nProj (both sides) for bigram
 seed  = 2763
-nProj = 800
+nProj = 400
 vFile = $(temppath)$(recity)_woprice.txt
 rFile = $(temppath)$(recity).txt
 

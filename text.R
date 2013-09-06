@@ -28,7 +28,7 @@ lines(x,y,col="red")
 
 
 # --- analysis of regression models
-nProj <- 800
+nProj <- 400
 
 city  <- "Chicago"
 file  <- paste("/Users/bob/C/text/text_src/temp/",city,"_bigram_regr.txt",sep="")
@@ -42,7 +42,6 @@ par(mfrow=c(1,2))                                             # prices.pdf
 	hist(log10(y), breaks=30, main=" ",xlab="log10(Price)")
 	qqnorm(log10(y), ylab="log10(Price)"); abline(a=mean(log10(y)),b=sd(log10(y)))
 reset()
-
 
 # --- frequencies of missing data
 sum(Data[,"SqFt_Obs"])/nrow(Data)
@@ -70,6 +69,31 @@ plot(logPrice ~ I(log(nTokens) ))
 lines(lowess(log(nTokens), logPrice, f=.3), col="red")
 
 
+# --- regression with W count matrix
+W <- as.matrix(read.table("/Users/bob/C/text/text_src/temp/w.txt", header=FALSE)); dim(W)
+
+sr <- summary(  wregr <- lm(logPrice ~ W)   )
+#	Residual standard error: 0.6712 on 5694 degrees of freedom
+#	Multiple R-squared: 0.7692,	Adjusted R-squared: 0.6892 
+#	F-statistic: 9.621 on 1972 and 5694 DF,  p-value: < 2.2e-16 
+
+	
+y <- abs(coefficients(sr)[-1,3])
+x <- 1:length(y)  # some may be singular
+plot(x,y,	xlab="Word Counts", ylab="|t|", main="")
+	abline(h=-qnorm(.025/ncol(W)), col="gray", lty=4)
+	lines(lowess(x,y), col="red")
+
+#     half-normal plot
+k <- length(y)          
+plot(x <- qnorm(.5+(0:(k-1))/(2*k)), y <- sort(y), xlab="Normal Quantile", ylab="Sorted |t|"); 
+summary(regr <- lm(y[1:250] ~ x[1:250]))
+abline(0,1, col="gray")
+abline(regr,col="red")
+
+
+
+# --- parsed variables
 sqft  <- Data[,"SqFt"];      sqft.obs <- Data[,"SqFt_Obs"]   
 baths <- Data[,"Bathrooms"]; bath.obs <- Data[,"Bathroom_Obs"]
 beds  <- Data[,"Bedrooms"];  beds.obs <- Data[,"Bedroom_Obs"]
@@ -103,13 +127,30 @@ summary(regr.parsed        <- lm(logPrice ~ x.parsed.))
 # --- SVD variables, D
 x.lsa.    <- as.matrix(Data[,paste("D",0:(nProj/2-1), sep="")])
 
-summary(regr.lsa           <- lm(logPrice ~ x.lsa.   ))    # pvalue_a
-	plot(
-		x <- 1:(nProj/2),
-		y <- abs(coefficients(summary(regr.lsa))[-1,3]), 
+sr <- summary(     regr.lsa <- lm(logPrice ~ x.lsa. + f   )); sr    # pvalue_a.pdf
+
+frame <- data.frame(logPrice,x.lsa.[,1:20])
+br  <- lm(logPrice ~ .      , data = frame)
+br2 <- lm(logPrice ~ . + .*., data = frame)
+
+anova(br,br2)
+
+cor(fitted.values(regr.lsa), f <- fitted.values(br2))
+
+plot(	x <- 1:(nProj/2),
+		y <- abs(coefficients(sr)[-1,3]), 
 		xlab="Singular Vector of W", ylab="|t|", main="")
 	abline(h=-qnorm(.025/(nProj/2)), col="gray", lty=3)
 	lines(lowess(x,y), col="red")
+
+#     half-normal plot
+k <- length(y)          
+plot(x <- qnorm(.5+(0:(k-1))/(2*k)), y <- sort(y), xlab="Normal Quantile", ylab="Sorted |t|"); 
+summary(regr <- lm(y[1:250] ~ x[1:250]))
+abline(0,1, col="gray")
+abline(regr,col="red")
+
+
 
 # --- SVD variables, B
 x.bigram. <- as.matrix(cbind(	Data[,paste("BL",0:(nProj/2-1), sep="")],
@@ -228,13 +269,15 @@ beta <- c(1, 1, 1, 2, 2, 2, 3, 3,-2,-3) 	# topic weights
 K    <- length(beta)		# number of topics
 
 M <- 2000					# word types in vocabulary
-n <- 4000					# num of documents
+n <- 5000					# num of documents
 
 
 # --- topic distributions over words in K x M matrix P
-alpha <- rep(.05, M)			# dirichlet parms, small alpha are spiky
 P <- matrix(0, nrow=K, ncol=M)
-for(k in 1:K) P[k,] <- rdirichlet(alpha)  
+n.common <- 150
+common <- rdirichlet( rep(1,n.common) ) # dist over common words
+alpha <- rep(.05, M)			            # dirichlet parms, small alpha are spiky
+for(k in 1:K) P[k,] <- (common + rdirichlet(alpha))/2
 
 #     check dependence/correlation among distributions
 round(P[1:10,1:12],3)
@@ -271,11 +314,11 @@ write(docs,"/Users/bob/C/text/text_src/sim/sim.txt")
 # --- Analysis of C++ results
 
 # --- look at type frequencies, zipf plot
-type.cts <- sort(scan("/Users/bob/Desktop/type_freq.txt"), decreasing=TRUE)
+type.cts <- sort(scan("/Users/bob/C/text/text_src/temp/type_freq.txt"), decreasing=TRUE)
 
 x <- log(1:length(type.cts)); y<-log(type.cts)
 plot(x,y, xlab="log rank", ylab="log frequency")        # simzipf.pdf
-abline(regr<-lm(y~x),col="red"); coefficients(regr)
+abline(regr<-lm(y[1:500]~x[1:500]),col="red"); coefficients(regr)
 
 
 # --- get regression data
@@ -293,8 +336,8 @@ x.bigram. <- as.matrix(cbind(Data[,paste("BR",0:(nProj/2-1), sep="")],
 							Data[,paste("BL",0:(nProj/2-1), sep="")]))
 
 summary(regr.lsa           <- lm(Y ~ x.lsa.   ))
-summary(regr.bigram        <- lm(Y ~ x.bigram.))        # better fit
-cor(fitted.values(regr.lsa),fitted.values(regr.bigram)) #   high corr
+summary(regr.bigram        <- lm(Y ~ x.bigram.))        #   better fit
+cor(fitted.values(regr.lsa),fitted.values(regr.bigram)) #   high corr if good fits
 
 # --- cca shows several that are large (depending on separation)
 ccb <- cancor(x.lsa., x.bigram.); plot(ccb$cor)
