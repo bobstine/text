@@ -70,7 +70,7 @@ lines(lowess(log(nTokens), logPrice, f=.3), col="red")
 
 
 # --- regression with W count matrix
-W <- as.matrix(read.table("/Users/bob/C/text/text_src/temp/w.txt", header=FALSE)); dim(W)
+W <- as.matrix(read.table("/Users/bob/C/text/text_src/temp/w.txt", header=TRUE)); dim(W)
 
 sr <- summary(  wregr <- lm(logPrice ~ W)   )
 #	Residual standard error: 0.6712 on 5694 degrees of freedom
