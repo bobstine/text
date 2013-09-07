@@ -139,8 +139,8 @@ Vocabulary::fill_bigram_map(BigramMap &bm, int skip) const
 void
 Vocabulary::fill_sparse_regr_design (Vector &Y, Vocabulary::SparseMatrix &X, std::istream &is) const
 {
-  typedef Eigen::Triplet<float> T;   // int was ok in Eigen 3.1.3
-  std::vector<T> triplets;
+  typedef Eigen::Triplet<int> T;
+  std::vector<T> triplets;         // list worked in Eigen 3.1.3
   std::string line;
   std::string token;
   assert (Y.size() == X.rows());
