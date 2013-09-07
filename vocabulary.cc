@@ -137,10 +137,10 @@ Vocabulary::fill_bigram_map(BigramMap &bm, int skip) const
 //     build count vector     build count vector     build count vector     build count vector     build count vector
 
 void
-Vocabulary::fill_sparse_regr_design (Vector &Y, SparseMatrix &X, std::istream &is) const
+Vocabulary::fill_sparse_regr_design (Vector &Y, Vocabulary::SparseMatrix &X, std::istream &is) const
 {
-  typedef Eigen::Triplet<int> T;
-  std::list<T> triplets;
+  typedef Eigen::Triplet<float> T;   // int was ok in Eigen 3.1.3
+  std::vector<T> triplets;
   std::string line;
   std::string token;
   assert (Y.size() == X.rows());
@@ -148,9 +148,9 @@ Vocabulary::fill_sparse_regr_design (Vector &Y, SparseMatrix &X, std::istream &i
   { getline(is, line);
     std::istringstream is(line);
     std::map<Type,int> counts;
-    is >> Y(i);                // read y-value at head of line
+    is >> Y(i);                     // read y-value at head of line
     while (is >> token)
-      ++counts[ Type(token) ];    // map of remaining text tokens
+      ++counts[ Type(token) ];      // map of remaining text tokens
     for (auto x : counts)
       triplets.push_back(T(i, type_index(x.first), x.second)); // convert to indices
   }
