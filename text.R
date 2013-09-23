@@ -6,6 +6,14 @@ reset <- function() {
 	par(mfrow=c(1,1), mgp=c(3,1,0), mar=c(5,4,4,2)+0.1)  # bottom left top right
 	}
 	
+half.normal.plot <- function(y) {
+	k <- length(y)          
+	plot(x <- qnorm(.5+(0:(k-1))/(2*k)), y <- sort(y), 
+		xlab="Normal Quantile", ylab="Sorted |t|"); 
+	summary(regr <- lm(y[1:250] ~ x[1:250]))
+	abline(0,1, col="gray")
+	abline(regr,col="red")
+	}
 
 
 ##################################################################################
@@ -73,6 +81,8 @@ lines(lowess(log(nTokens), logPrice, f=.3), col="red")
 W <- as.matrix(read.table("/Users/bob/C/text/text_src/temp/w.txt", header=TRUE)); dim(W)
 
 sr <- summary(  wregr <- lm(logPrice ~ W)   )
+ts <- sr$coefficients[,3]
+sr$coefficients[(order(-abs(ts))[2:11]),]
 #	Residual standard error: 0.6712 on 5694 degrees of freedom
 #	Multiple R-squared: 0.7692,	Adjusted R-squared: 0.6892 
 #	F-statistic: 9.621 on 1972 and 5694 DF,  p-value: < 2.2e-16 
@@ -80,16 +90,12 @@ sr <- summary(  wregr <- lm(logPrice ~ W)   )
 	
 y <- abs(coefficients(sr)[-1,3])
 x <- 1:length(y)  # some may be singular
-plot(x,y,	xlab="Word Counts", ylab="|t|", main="")
-	abline(h=-qnorm(.025/ncol(W)), col="gray", lty=4)
-	lines(lowess(x,y), col="red")
-
-#     half-normal plot
-k <- length(y)          
-plot(x <- qnorm(.5+(0:(k-1))/(2*k)), y <- sort(y), xlab="Normal Quantile", ylab="Sorted |t|"); 
-summary(regr <- lm(y[1:250] ~ x[1:250]))
-abline(0,1, col="gray")
-abline(regr,col="red")
+par(mfrow=c(1,2))           # tstatRegrInd.pdf
+	plot(x,y,	xlab="Word Counts", ylab="|t|", main="")
+		abline(h=-qnorm(.025/ncol(W)), col="gray", lty=4)
+		lines(lowess(x,y), col="red")
+	half.normal.plot(y)
+reset()
 
 
 
@@ -124,32 +130,27 @@ x.parsed. <- as.matrix(Data[,parse.names])
 summary(regr.parsed        <- lm(logPrice ~ x.parsed.))
 
 
-# --- SVD variables, D
+# --- SVD variables, W
 x.lsa.    <- as.matrix(Data[,paste("D",0:(nProj/2-1), sep="")])
 
-sr <- summary(     regr.lsa <- lm(logPrice ~ x.lsa. + f   )); sr    # pvalue_a.pdf
+sr <- summary(     regr.lsa <- lm(logPrice ~ x.lsa.   )); sr    # pvalue_a.pdf
 
 frame <- data.frame(logPrice,x.lsa.[,1:20])
-br  <- lm(logPrice ~ .      , data = frame)
-br2 <- lm(logPrice ~ . + .*., data = frame)
+br  <- lm(logPrice ~ .      , data = frame); summary(br)
+br2 <- lm(logPrice ~ . + .*., data = frame); summary(br2)
+
 
 anova(br,br2)
 
 cor(fitted.values(regr.lsa), f <- fitted.values(br2))
 
-plot(	x <- 1:(nProj/2),
-		y <- abs(coefficients(sr)[-1,3]), 
+par(mfrow=c(1,2))    # regrW.pdf
+	plot(	x <- 1:(nProj/2),y <- abs(coefficients(sr)[-1,3]), 
 		xlab="Singular Vector of W", ylab="|t|", main="")
-	abline(h=-qnorm(.025/(nProj/2)), col="gray", lty=3)
-	lines(lowess(x,y), col="red")
-
-#     half-normal plot
-k <- length(y)          
-plot(x <- qnorm(.5+(0:(k-1))/(2*k)), y <- sort(y), xlab="Normal Quantile", ylab="Sorted |t|"); 
-summary(regr <- lm(y[1:250] ~ x[1:250]))
-abline(0,1, col="gray")
-abline(regr,col="red")
-
+		abline(h=-qnorm(.025/(nProj/2)), col="gray", lty=3)
+		lines(lowess(x,y), col="red")
+	half.normal.plot(y)
+reset()
 
 
 # --- SVD variables, B
@@ -157,12 +158,15 @@ x.bigram. <- as.matrix(cbind(	Data[,paste("BL",0:(nProj/2-1), sep="")],
 									Data[,paste("BR",0:(nProj/2-1), sep="")]  ))
 
 summary(regr.bigram        <- lm(logPrice ~ x.bigram.))
-	plot(
-		x <- rep(1:(nProj/2),2),                                 # pvalue_b
+
+par(mfrow=c(1,2))    # regrB.pdf
+	plot( x <- rep(1:(nProj/2),2),                      
 		y <- abs(coefficients(summary(regr.bigram))[-1,3]), 
 		xlab="Correlation Variable from Bigram", ylab="|t|", main="")
-	abline(h=-qnorm(.025/(nProj/2)), col="gray", lty=3)
-	lines(lowess(x,y), col="red")
+		abline(h=-qnorm(.025/(nProj/2)), col="gray", lty=3)
+		lines(lowess(x,y), col="red")
+	half.normal.plot(y)
+reset()
 
 summary(regr.bigram        <- lm(logPrice ~ x.bigram.[,1:(nProj/2)]))
 

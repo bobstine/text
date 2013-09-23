@@ -172,7 +172,7 @@ int main(int argc, char** argv)
     for (int i=0; i<nColsToWrite; ++i)
       os << " " << tv[i];
     os << std::endl;
-    //  os << W.leftCols(nColsToWrite);
+    os << W.leftCols(nColsToWrite);
     std::clog << "MAIN: Wrote W matrix to file w.txt." << std::endl;
   }
 	
