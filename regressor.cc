@@ -165,7 +165,8 @@ int main(int argc, char** argv)
   is.close();
 
   // optionally write W columns
-  if(true)  
+  const bool writeW = false;
+  if(writeW)  
   { const int nColsToWrite = MIN(W.cols(),2000);
     std::ofstream os("text_src/temp/w.txt");
     Vocabulary::TypeVector tv = vocabulary.types();
@@ -175,6 +176,7 @@ int main(int argc, char** argv)
     os << W.leftCols(nColsToWrite);
     std::clog << "MAIN: Wrote W matrix to file w.txt." << std::endl;
   }
+  else std::clog << "MAIN: Skipping output of W matrix to file.\n";
 	
   // form random projections
   int half = nProjections/2;     assert(0 == nProjections%2);

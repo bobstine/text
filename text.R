@@ -10,9 +10,10 @@ half.normal.plot <- function(y) {
 	k <- length(y)          
 	plot(x <- qnorm(.5+(0:(k-1))/(2*k)), y <- sort(y), 
 		xlab="Normal Quantile", ylab="Sorted |t|"); 
-	summary(regr <- lm(y[1:250] ~ x[1:250]))
+	regr <- lm(y[1:250] ~ x[1:250])
 	abline(0,1, col="gray")
 	abline(regr,col="red")
+	summary(regr)
 	}
 
 
@@ -36,7 +37,7 @@ lines(x,y,col="red")
 
 
 # --- analysis of regression models
-nProj <- 400
+nProj <- 800
 
 city  <- "Chicago"
 file  <- paste("/Users/bob/C/text/text_src/temp/",city,"_bigram_regr.txt",sep="")
@@ -77,6 +78,7 @@ plot(logPrice ~ I(log(nTokens) ))
 lines(lowess(log(nTokens), logPrice, f=.3), col="red")
 
 
+
 # --- regression with W count matrix
 W <- as.matrix(read.table("/Users/bob/C/text/text_src/temp/w.txt", header=TRUE)); dim(W)
 
@@ -91,12 +93,13 @@ sr$coefficients[(order(-abs(ts))[2:11]),]
 y <- abs(coefficients(sr)[-1,3])
 x <- 1:length(y)  # some may be singular
 par(mfrow=c(1,2))           # tstatRegrInd.pdf
-	plot(x,y,	xlab="Word Counts", ylab="|t|", main="")
-		abline(h=-qnorm(.025/ncol(W)), col="gray", lty=4)
+	plot(x,y,	xlab="Word Column in W", ylab="|t|", main="")
+		abline(h=-qnorm(.025/length(y)), col="gray", lty=4)
 		lines(lowess(x,y), col="red")
 	half.normal.plot(y)
 reset()
-
+#     number bigger than Bonferroni
+sum(y>-qnorm(.025/length(y)))
 
 
 # --- parsed variables
