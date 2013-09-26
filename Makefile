@@ -193,7 +193,7 @@ doit:  $(temppath)$(recity)_bigram_regr.txt
 
 #  regressor application for simulated data
 
-nSimProj = 50
+nSimProj = 200
 vSimFile = $(temppath)sim_woy.txt
 rSimFile = $(simpath)sim.txt
 

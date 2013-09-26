@@ -3,9 +3,11 @@
 ##################################################################################
 
 reset <- function() {
-	par(mfrow=c(1,1), mgp=c(3,1,0), mar=c(5,4,4,2)+0.1)  # bottom left top right
+	# par(mfrow=c(1,1), mgp=c(3,1,0), mar=c(5,4,4,2)+0.1)      # default
+	par(mfrow=c(1,1), mgp=c(1.5,0.5,0), mar=c(3,2.5,2,1)+0.1)  # bottom left top right
 	}
-	
+
+
 half.normal.plot <- function(y) {
 	k <- length(y)          
 	plot(x <- qnorm(.5+(0:(k-1))/(2*k)), y <- sort(y), 
@@ -15,6 +17,8 @@ half.normal.plot <- function(y) {
 	abline(regr,col="red")
 	summary(regr)
 	}
+	
+jitter <- function(x) { x + 0.05 * sd(x) * rnorm(length(x)) }
 
 
 ##################################################################################
@@ -102,7 +106,10 @@ reset()
 sum(y>-qnorm(.025/length(y)))
 
 
-# --- parsed variables
+##################################################################################
+# Parsed variables
+##################################################################################
+
 sqft  <- Data[,"SqFt"];      sqft.obs <- Data[,"SqFt_Obs"]   
 baths <- Data[,"Bathrooms"]; bath.obs <- Data[,"Bathroom_Obs"]
 beds  <- Data[,"Bedrooms"];  beds.obs <- Data[,"Bedroom_Obs"]
@@ -133,7 +140,12 @@ x.parsed. <- as.matrix(Data[,parse.names])
 summary(regr.parsed        <- lm(logPrice ~ x.parsed.))
 
 
-# --- SVD variables, W
+
+##################################################################################
+# SVD variables
+##################################################################################
+
+# --- LSA analysis W
 x.lsa.    <- as.matrix(Data[,paste("D",0:(nProj/2-1), sep="")])
 
 sr <- summary(     regr.lsa <- lm(logPrice ~ x.lsa.   )); sr    # pvalue_a.pdf
@@ -189,7 +201,10 @@ cor(cx[,1],cy[,1])
 summary(regr.bigram        <- lm(logPrice ~ cx + cy ))
 
 
-# --- nested regression models
+
+##################################################################################
+# Comparison of regression models
+##################################################################################
 
 summary(regr.parsed        <- lm(logPrice ~ x.parsed.         ))
 
@@ -198,8 +213,10 @@ summary(regr.parsed.lsa    <- lm(logPrice ~ x.parsed. + x.lsa.))
 summary(regr.parsed.bigram <- lm(logPrice ~ x.parsed. + x.bigram.))
 
 summary(regr.all           <- lm(logPrice ~ x.parsed. + x.lsa. + x.bigram.))
+summary(regr.all)$adj.r.squared
 
 summary(regr.text          <- lm(logPrice ~             x.lsa. + x.bigram.))
+summary(regr.text)$adj.r.squared
 
 
 # --- compare nested models
@@ -253,7 +270,9 @@ plot(ccw$cor)
 
 
 ##################################################################################
+#
 # Simulate data from topic model
+#
 ##################################################################################
 
 # --- functions
@@ -263,8 +282,9 @@ rdirichlet <- function(a) {
     return(y / sum(y))
 }
 
-word.indices <- function(topics, P) {
-	M <- ncol(P); m<-length(topics)
+word.indices <- function(topics, P) { 
+	# generate word by sampling distribution of topics
+	M <- ncol(P); m<-length(topics) 
 	z<-rep(0,m); 
 	for(t in 1:m) z[t]<-sample(M,1,prob=P[topics[t],])
 	z
@@ -276,31 +296,35 @@ beta <- c(1, 1, 1, 2, 2, 2, 3, 3,-2,-3) 	# topic weights
 K    <- length(beta)		# number of topics
 
 M <- 2000					# word types in vocabulary
-n <- 5000					# num of documents
-
+n <- 6000					# num of documents
 
 # --- topic distributions over words in K x M matrix P
 P <- matrix(0, nrow=K, ncol=M)
-n.common <- 150
-common <- rdirichlet( rep(1,n.common) ) # dist over common words
-alpha <- rep(.05, M)			            # dirichlet parms, small alpha are spiky
+                                           # generate words shared by topics
+n.common <- 0                              # number shared words 
+common <- c(rdirichlet( rep(2,n.common) ), rep(0,M-n.common) ) 
+alpha <- rep(.05, M)			               # dirichlet parms, small alpha are spiky
 for(k in 1:K) P[k,] <- (common + rdirichlet(alpha))/2
+if(n.common==0) P <- 2 * P
+round(P[1:10,1:12],3); apply(P,1,sum)      # prob dist so sum to 1
 
 #     check dependence/correlation among distributions
-round(P[1:10,1:12],3)
-udv <- svd(P); plot(udv$d); round(cor(t(P)),2)
-round(udv$u[,1],4); plot(udv$v[,1])
+udv <- svd(P); plot(udv$d); 
+#     common words along diagonal
+round(cor(t(P)),2);  plot(jitter(P[1,]),jitter(P[2,]), main="Scatter of Two Dist")
+round(udv$u[,1],4); 
+plot(udv$v[,1])    # common words are the leading n.col values
 
 
-# --- X[i,] is distribution of topics in document i (random Dirichlet)
-X <- matrix(0, nrow=n, ncol=K);
-for(i in 1:n) X[i,] <- rdirichlet( rep(1/10,K) )
+# --- Z[i,] is distribution of topics in document i (random Dirichlet)
+Z <- matrix(0, nrow=n, ncol=K);
+for(i in 1:n) Z[i,] <- rdirichlet( rep(1/10,K) )
 
-# Y is the response
-Y <- X %*% beta + rnorm(n,sd=0.5)
+#     Y is the response
+Y <- Z %*% beta + rnorm(n,sd=0.5)
 
-# check "true" model; sum of the X's = 1 so no intercept, R2 around 90%
-summary(regr <- lm(Y ~ X - 1))
+#     check "true" model; sum of the X's = 1 so no intercept, R2 around 90%
+summary(regr <- lm(Y ~ Z - 1))
 
 
 # --- simulate documents; lengths of the documents (neg bin)
@@ -309,16 +333,23 @@ m <- rpois(n,lambda=rgamma(n,30,1))
 
 # words in doc assigned to topic, then pick word for that topic
 docs <- rep("",n)
+n.topics <- rep(0,n)
 for(i in 1:n) {
-	topics <- sample(K, m[i], replace=TRUE, prob=X[i,]); 
+	topics <- sample(K, m[i], replace=TRUE, prob=Z[i,]); 
+	n.topics[i] <- length(unique(topics))
 	docs[i] <- paste(round(Y[i],3), paste(vocab[word.indices(topics,P)], collapse=" "), sep=" ")
 	}
+# count avg number unique topics
+hist(n.topics); mean(n.topics)
 	
 # write words to file with response
 write(docs,"/Users/bob/C/text/text_src/sim/sim.txt")
 
 
 # --- Analysis of C++ results
+#
+#      RUN C++ here (make dosim)
+#
 
 # --- look at type frequencies, zipf plot
 type.cts <- sort(scan("/Users/bob/C/text/text_src/temp/type_freq.txt"), decreasing=TRUE)
@@ -344,7 +375,11 @@ x.bigram. <- as.matrix(cbind(Data[,paste("BR",0:(nProj/2-1), sep="")],
 
 summary(regr.lsa           <- lm(Y ~ x.lsa.   ))
 summary(regr.bigram        <- lm(Y ~ x.bigram.))        #   better fit
-cor(fitted.values(regr.lsa),fitted.values(regr.bigram)) #   high corr if good fits
+
+plot(fitted.values(regr.lsa),fitted.values(regr.bigram))
+lines(lowess(fitted.values(regr.lsa),fitted.values(regr.bigram), f=1/3),  col="red")
+
+cor(fitted.values(regr.lsa),fitted.values(regr.bigram)) # high corr if good fits  simfits.pdf
 
 # --- cca shows several that are large (depending on separation)
 ccb <- cancor(x.lsa., x.bigram.); plot(ccb$cor)
