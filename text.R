@@ -148,6 +148,9 @@ summary(regr.parsed        <- lm(logPrice ~ x.parsed.))
 # --- LSA analysis W
 x.lsa.    <- as.matrix(Data[,paste("D",0:(nProj/2-1), sep="")])
 
+write.csv(cbind(logPrice,x.lsa.), "~/Desktop/regr.csv")
+
+
 sr <- summary(     regr.lsa <- lm(logPrice ~ x.lsa.   )); sr    # pvalue_a.pdf
 
 frame <- data.frame(logPrice,x.lsa.[,1:20])
