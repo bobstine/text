@@ -20,6 +20,27 @@ half.normal.plot <- function(y) {
 	
 jitter <- function(x) { x + 0.05 * sd(x) * rnorm(length(x)) }
 
+cross.validate <- function(regr, B) {  # 10-fold CV, need x,y in regr	set.seed(23479)     # same cases for each fixed n
+	x <- regr$x[,-1];  # remove intercept
+	y <- regr$y;
+	n <- length(y);
+	i <- c(rep(TRUE,floor(0.9*n)),rep(FALSE,n-floor(0.9*n)))
+	sse <- rep(0,B)
+	for(k in 1:B) {
+		cat(k," ");
+		is <- sample(i,n) # permutation
+		ys <- y[is]; xs <- x[is,]
+		r <- lm(ys ~ xs)
+		xs <- x[!is,]
+		err <- y[!is] - predict( r, as.data.frame(xs) );
+		sse[k] <- sum(err^2)
+		}
+	sse/length(err) 
+	}
+	
+mse <- cross.validate(regr.bigram, 10)
+# Pct: 0.799 unweighted or 0.785 weighted by sqrt    Counts: 0.806 counts
+mse <- cross.validate(regr.lsa   , 20); sqrt(mean(mse)) 
 
 ##################################################################################
 # Analysis of text regressors 
@@ -150,8 +171,8 @@ x.lsa.    <- as.matrix(Data[,paste("D",0:(nProj/2-1), sep="")])
 
 write.csv(cbind(logPrice,x.lsa.), "~/Desktop/regr.csv")
 
-
-sr <- summary(     regr.lsa <- lm(logPrice ~ x.lsa.   )); sr    # pvalue_a.pdf
+w <- sqrt(Data$n)
+sr <- summary(regr.lsa <- lm(logPrice ~ x.lsa., weights=w, x=TRUE, y=TRUE)); sr
 
 frame <- data.frame(logPrice,x.lsa.[,1:20])
 br  <- lm(logPrice ~ .      , data = frame); summary(br)
@@ -175,7 +196,7 @@ reset()
 x.bigram. <- as.matrix(cbind(	Data[,paste("BL",0:(nProj/2-1), sep="")],
 									Data[,paste("BR",0:(nProj/2-1), sep="")]  ))
 
-summary(regr.bigram        <- lm(logPrice ~ x.bigram.))
+summary(regr.bigram        <- lm(logPrice ~ x.bigram., x=TRUE,y=TRUE))
 
 par(mfrow=c(1,2))    # regrB.pdf
 	plot( x <- rep(1:(nProj/2),2),                      

@@ -22,10 +22,16 @@ using std::endl;
 typedef Eigen::VectorXf Vector;
 typedef Eigen::MatrixXf Matrix;
 
-void fill_random_projection(Matrix &P, Vocabulary::SparseMatrix const&M, int power)
+void fill_random_projection(Matrix &P, Vocabulary::SparseMatrix const& M, Vector const& wts, int power)
 {
   assert (M.rows() == P.rows());
-  Matrix R = M * Matrix::Random(M.cols(), P.cols());                                         //  return orthog system
+  Matrix R;
+  if(wts.size() > 0)
+  { std::clog << "MAIN: Weighting in random projection.\n";
+    R = wts.asDiagonal() * (M * Matrix::Random(M.cols(), P.cols()));
+  }
+  else
+    R = M * Matrix::Random(M.cols(), P.cols());    
   P = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());  //  Eigen trick for thin Q
   if (power > 0)
   { Vocabulary::SparseMatrix MMt = M * M.transpose();
@@ -125,16 +131,17 @@ int main(int argc, char** argv)
 
   // form random projections of bigram matrix
   Matrix P(B.rows(), nProjections);
+  Vector emptyVec = Vector::Zero(0);
   if (!bidirectional)
-    fill_random_projection(P, B, powerIterations);
+    fill_random_projection(P, B, emptyVec, powerIterations);
   else
   { assert(0 == nProjections%2);
     int half = nProjections/2;
     Matrix Pl(B.rows(), half);
-    fill_random_projection(Pl, B, powerIterations);
+    fill_random_projection(Pl, B, emptyVec, powerIterations);
     Matrix Pr(B.rows(), half);
     Vocabulary::SparseMatrix Bt = B.transpose();
-    fill_random_projection(Pr, Bt, powerIterations);
+    fill_random_projection(Pr, Bt, emptyVec, powerIterations);
     P.leftCols(half) = Pl;
     P.rightCols(half)= Pr;
   }
@@ -160,8 +167,9 @@ int main(int argc, char** argv)
   Vocabulary::SparseMatrix W(nLines,vocabulary.n_types());
   Vector Y (nLines);
   vocabulary.fill_sparse_regr_design(Y, W, is);
-  std::clog << "MAIN: sum of row 0 of W is " << W.row(0).sum() << endl;
-  std::clog << "MAIN: sum of row 1 of W is " << W.row(1).sum() << endl;
+  Vector m = W * Vector::Ones(W.cols());                   // total count
+  std::clog << "MAIN: sum of row 0 of W is " << m(0) << endl;
+  std::clog << "MAIN: sum of row 1 of W is " << m(1) << endl;
   is.close();
 
   // optionally write W columns
@@ -178,10 +186,10 @@ int main(int argc, char** argv)
   }
   else std::clog << "MAIN: Skipping output of W matrix to file.\n";
 	
-  // form random projections
+  // form random projections of LSA variables
   int half = nProjections/2;     assert(0 == nProjections%2);
   Matrix L(W.rows(), half);
-  fill_random_projection(L, W, powerIterations);
+  fill_random_projection(L, W, /* emptyVec */ m.array().inverse(), powerIterations);
   std::clog << "MAIN: Completed LSA random projection.  L[" << L.rows() << "x" << L.cols() << "]";
   if (powerIterations) std::clog << " with power iterations.";
   std::clog << endl;
@@ -224,7 +232,7 @@ int main(int argc, char** argv)
   Matrix X (W.rows(), offset+P.cols()+L.cols());
   X.col(0) = Y;                                  // stuff Y into first column for output
   // custom variables
-  X.col(1) = W * Vector::Ones(W.cols());         // put total count n of type into second col (rowwise not avail for sparse)
+  X.col(1) = m;                                  // put total count n of type into second col (rowwise not avail for sparse)
   X.col(2) = sqft;
   X.col(3) = sqftObserved;
   X.col(4) = bdrm;
