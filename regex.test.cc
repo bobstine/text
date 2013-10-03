@@ -25,6 +25,25 @@ int main ()
 
   cout << endl << endl;
 
+  // wrapped in parser object
+  Parser nBedrmFunc ("bedrooms", number_bedrooms);
+  cout << "TEST: Wrapped as parser gives " << nBedrmFunc(desc) << " bedrooms " << endl;
+
+  const std::vector<Parser> parsers { Parser("SqFt", square_footage), Parser("Bedrooms", number_bedrooms), Parser("Bathrooms", number_bathrooms) };
+  std::cout << "TEST: vector of parsers...  using string    " << desc << endl << "         ";
+  for (auto f : parsers)
+    cout << f(desc) << " " << f.name() << "   ";
+  cout << endl;
+
+
+  desc = "3 bsdfdrm   2ssdbth  1800sdf";
+  std::cout << "TEST: vector of parsers...  using string    " << desc << endl << "         ";
+  for (auto f : parsers)
+    cout << f(desc) << " " << f.name() << "   ";
+  cout << endl;
+
+
+    
   
   // remove OOV by encoding numeric fields, phone numbers, etc
   //  string     input         ("Axxxx asmdjb 3jdh 333-333-3333 234-087 46464 $100  $100k  $123,123.12  $98.62");

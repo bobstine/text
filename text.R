@@ -21,7 +21,7 @@ half.normal.plot <- function(y) {
 jitter <- function(x) { x + 0.05 * sd(x) * rnorm(length(x)) }
 
 cross.validate <- function(regr, B) {  # 10-fold CV, need x,y in regr	set.seed(23479)     # same cases for each fixed n
-	x <- regr$x[,-1];  # remove intercept
+	x <- regr$x[,-1];   # remove intercept
 	y <- regr$y;
 	n <- length(y);
 	i <- c(rep(TRUE,floor(0.9*n)),rep(FALSE,n-floor(0.9*n)))
@@ -38,9 +38,9 @@ cross.validate <- function(regr, B) {  # 10-fold CV, need x,y in regr	set.seed(2
 	sse/length(err) 
 	}
 	
-mse <- cross.validate(regr.bigram, 10)
+# mse <- cross.validate(regr.bigram, 10)
 # Pct: 0.799 unweighted or 0.785 weighted by sqrt    Counts: 0.806 counts
-mse <- cross.validate(regr.lsa   , 20); sqrt(mean(mse)) 
+# mse <- cross.validate(regr.lsa   , 20); sqrt(mean(mse)) 
 
 ##################################################################################
 # Analysis of text regressors 
@@ -62,9 +62,9 @@ lines(x,y,col="red")
 
 
 # --- analysis of regression models
-nProj <- 800
+nProj <- 200
 
-city  <- "Chicago"
+city  <- "ChicagoNew"
 file  <- paste("/Users/bob/C/text/text_src/temp/",city,"_bigram_regr.txt",sep="")
 
 Data <- read.table(file, header=TRUE); dim(Data)
@@ -77,10 +77,10 @@ par(mfrow=c(1,2))                                             # prices.pdf
 	qqnorm(log10(y), ylab="log10(Price)"); abline(a=mean(log10(y)),b=sd(log10(y)))
 reset()
 
-# --- frequencies of missing data
-sum(Data[,"SqFt_Obs"])/nrow(Data)
-sum(Data[,"Bedroom_Obs"])/nrow(Data)
-sum(Data[,"Bathroom_Obs"])/nrow(Data)
+# --- percentages missing in parsed data
+sum(0==Data[,"SqFt"])/nrow(Data)
+sum(0==Data[,"Bedrooms"])/nrow(Data)
+sum(0==Data[,"Bathrooms"])/nrow(Data)
 
 
 # --- check two code versions (use doboth in makefile; force same seeds prior to rand projection)
@@ -131,32 +131,34 @@ sum(y>-qnorm(.025/length(y)))
 # Parsed variables
 ##################################################################################
 
-sqft  <- Data[,"SqFt"];      sqft.obs <- Data[,"SqFt_Obs"]   
-baths <- Data[,"Bathrooms"]; bath.obs <- Data[,"Bathroom_Obs"]
-beds  <- Data[,"Bedrooms"];  beds.obs <- Data[,"Bedroom_Obs"]
+sqft  <- Data[,"SqFt"];      sqft.obs <- 0<Data[,"SqFt"]         
+sqft[!sqft.obs] <- mean( sqft[sqft.obs] )
+baths <- Data[,"Bathrooms"]; bath.obs <- 0<Data[,"Bathrooms"]
+baths[!bath.obs] <- mean( baths[bath.obs] )
+beds  <- Data[,"Bedrooms"];  beds.obs <- 0<Data[,"Bedrooms"]
+beds[!beds.obs] <- mean( beds[beds.obs] )
 
-# --- plots of the parsed explanatory variables and response      parsed.pdf
+# --- plots of the parsed explanatory variables and response           parsed.pdf
 par(mfrow=c(2,2), mar=c(4,4,1,1), mgp=c(2,1,0))
 	plot(logPrice ~ nTokens, ylab= "Log Price",  xlab="Number of Tokens")
 	  text(500,6, paste("r=",round(cor(logPrice,nTokens),2)))
 	plot(logPrice ~ baths, ylab= "Log Price",
-	  xlab="Number Bathrooms   (74% missing)", col=c("gray","black")[1+bath.obs]) 
-	  text(7,6, paste("r=",round(cor(logPrice,baths),2)))
+	  xlab="Number Bathrooms   (74% missing)", col="gray") 
+	  text(5,6, paste("r=",round(cor(logPrice,baths),2)))
+	points(baths[which(1==bath.obs)], logPrice[which(1==bath.obs)])  # overplot gray
 	plot(logPrice ~ beds , ylab= "Log Price", 
 	  xlab="Number Bedrooms  (58% missing)"  , col=c("gray","black")[1+beds.obs])   
 	  text(7,6, paste("r=",round(cor(logPrice,beds),2)))
-	plot(logPrice ~ I(log(sqft)),  ylab= "Log Price",
-	  xlab="log(Sq Ft)  (94% missing)",col=c("gray","black")[1+sqft.obs]) 
-	  text(1,6, paste("r=",round(cor(logPrice,log(sqft)),2)))
-	obs <- which(1==Data[,"SqFt_Obs"]); cor(logPrice[obs],log(sqft[obs]))
+	plot(logPrice ~ I(log(sqft)),  ylab= "Log Price", 
+	  xlab="Log(Sq Ft)  (94% missing)", col="gray")
+	  text(10,6, paste("r=",round(cor(logPrice,log(sqft)),2)))
+	points(log(sqft)[which(1==sqft.obs)], logPrice[which(1==sqft.obs)])
 par(mfrow=c(1,1))
 
 
-parse.names<-c("n","SqFt","SqFt_Obs","Bedrooms","Bedroom_Obs","Bathrooms","Bathroom_Obs")
-
-x.parsed. <- as.matrix(Data[,parse.names])
-	x.parsed.[,"SqFt"] <- log(x.parsed.[,"SqFt"])   # transform to log (tiny improvement)
-	colnames(x.parsed.)[2] <- "LogSqFt"
+x.parsed. <- cbind(Data[,"n"], log(sqft), sqft.obs, beds, beds.obs, baths, bath.obs)
+colnames(x.parsed.)<-c("n","Log SqFt","SqFt Obs",
+               "Bedrooms","Bedroom Obs","Bathrooms","Bathroom Obs")
 
 summary(regr.parsed        <- lm(logPrice ~ x.parsed.))
 
@@ -166,13 +168,13 @@ summary(regr.parsed        <- lm(logPrice ~ x.parsed.))
 # SVD variables
 ##################################################################################
 
-# --- LSA analysis W
+# --- LSA analysis from matrix W
 x.lsa.    <- as.matrix(Data[,paste("D",0:(nProj/2-1), sep="")])
 
-write.csv(cbind(logPrice,x.lsa.), "~/Desktop/regr.csv")
+# write.csv(cbind(logPrice,x.lsa.), "~/Desktop/regr.csv")
 
-w <- sqrt(Data$n)
-sr <- summary(regr.lsa <- lm(logPrice ~ x.lsa., weights=w, x=TRUE, y=TRUE)); sr
+m <- sqrt(Data$n)
+sr <- summary(regr.lsa <- lm(logPrice ~ x.lsa., x=TRUE, y=TRUE)); sr  # weights=m,
 
 frame <- data.frame(logPrice,x.lsa.[,1:20])
 br  <- lm(logPrice ~ .      , data = frame); summary(br)
@@ -184,7 +186,7 @@ anova(br,br2)
 cor(fitted.values(regr.lsa), f <- fitted.values(br2))
 
 par(mfrow=c(1,2))    # regrW.pdf
-	plot(	x <- 1:(nProj/2),y <- abs(coefficients(sr)[-1,3]), 
+	plot(	x <- 1:(nProj/2), y <- abs(coefficients(sr)[-1,3]), 
 		xlab="Singular Vector of W", ylab="|t|", main="")
 		abline(h=-qnorm(.025/(nProj/2)), col="gray", lty=3)
 		lines(lowess(x,y), col="red")

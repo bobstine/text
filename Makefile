@@ -120,13 +120,10 @@ $(temppath)fedx.txt: $(temppath)fedregr.txt                        # removes lea
 
 repath = text_src/real_estate/Set10Tokenized/
 
-recity = Chicago
+recity = ChicagoNew
 
 $(temppath)$(recity).txt: $(repath)$(recity)Tokenized           # removes lines with no text (need $$ to escape $ in make)
 	grep -v '^[0-9\,\.[:blank:]]\+$$' $^ > $@
-
-$(temppath)$(recity)_woprice.txt: $(temppath)$(recity).txt      # removes leading $value
-	cut --delimiter=' ' --fields=1 --complement $^ > $@
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -134,9 +131,6 @@ $(temppath)$(recity)_woprice.txt: $(temppath)$(recity).txt      # removes leadin
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 simpath = text_src/sim/
-
-$(temppath)sim_woy.txt: $(simpath)sim.txt      # removes leading $value
-	cut --delimiter=' ' --fields=1 --complement $^ > $@
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -175,11 +169,11 @@ federalist: regressor lsa $(temppath)fedregr.txt $(temppath)fedx.txt
 #  regression application for real estate; total of n projections (name recity above in real estate data)
 #  get half of nProj for W and nProj (both sides) for bigram
 seed  = 2763
-nProj = 800
-vFile = $(temppath)$(recity)_woprice.txt
+nProj =  200
+vFile = $(temppath)$(recity).txt
 rFile = $(temppath)$(recity).txt
 
-$(temppath)$(recity)_bigram_regr.txt: regressor $(temppath)google.txt $(temppath)$(recity).txt $(temppath)$(recity)_woprice.txt
+$(temppath)$(recity)_bigram_regr.txt: regressor $(temppath)google.txt $(vFile) $(rfile) 
 	./regressor --vocab_file=$(vFile) --regr_file=$(rFile) --output_file=$@  -s $(seed) --n_projections $(nProj) --power_iter 1  --bidirectional  
 
 $(temppath)$(recity)_lsa_regr.txt: lsa $(temppath)google.txt $(temppath)$(recity)_woprice.txt

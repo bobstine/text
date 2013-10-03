@@ -1,6 +1,6 @@
 #include "vocabulary.h"
 #include "eigen_utils.h"
-#include "regex.h"
+#include "regex.h"            // parse_numeric_string
 
 #include <assert.h>
 #include <fstream>
@@ -13,6 +13,9 @@ static std::string messageTag ("VOCB: ");
 static std::string oovStr ("OOV");
 Type Vocabulary::OOV = Type(oovStr);
 
+static std::string eolStr ("EOL");     // marks end of document/line
+Type Vocabulary::EOL = Type(eolStr);
+
 
 //     print     print     print     print     print     print     print     print     print     print     print     
 
@@ -20,8 +23,8 @@ void
 Vocabulary::print_to_stream(std::ostream & os) const
 {
   os << "Vocabulary has " << n_types() << " types from " << mNTokens << " tokens, with "
-     << mFreqMap.at(OOV) << " OOV.  Most frequent are:";
-  for (int i=0; i<5; ++i)
+     << mFreqMap.at(OOV) << " OOV.  Most frequent 10 types are:\n      ";
+  for (int i=0; i<10; ++i)
   { assert (i == mIndexMap.at(mTypeVector[i]));
     os << " " << mTypeVector[i] << "->" << mFreqMap.at(mTypeVector[i]);
   }
@@ -48,10 +51,40 @@ Vocabulary::init_from_file(std::string fileName)
 }
 
 void
-Vocabulary::init_from_stream(std::istream&  is)
+Vocabulary::parse_line(std::string const& line, std::map<Type,int> &vocab)
+{
+   std::stringstream ss(line);
+   std::string token;
+   for(int i=0; i<mSkipInitial; ++i)
+     ss >> token;
+   while (ss >> token)
+   { if (can_parse_as_numeric_string(token))   // converts digits, dollar amts, phone nos
+       token = parse_numeric_string(token);
+     ++mNTokens;
+     mTokens.push_back(Type(token));
+     ++vocab[Type(token)];
+   }
+   if (mMarkEOL)
+   { ++mNTokens;
+     mTokens.push_back(EOL);
+     ++vocab[Type(EOL)];
+   }
+}
+
+
+void
+Vocabulary::init_from_stream(std::istream& is)
 {
   std::map<Type,int> fullVocab;
-  fullVocab[OOV] = 0;                         // insert oov 
+  fullVocab[OOV] = 0;                         // insert oov
+
+  int nLines = 0;
+  std::string line;
+  while(getline(is, line))
+  { ++nLines;
+    parse_line(line, fullVocab);
+  }
+  /*
   std::string token;
   while (is >> token)
   { if (can_parse_as_numeric_string(token))   // converts digits, dollar amts, phone nos
@@ -60,7 +93,9 @@ Vocabulary::init_from_stream(std::istream&  is)
     mTokens.push_back(Type(token));
     ++fullVocab[Type(token)];
   }
-  std::clog << messageTag << "Obtain full vocabulary of " << fullVocab.size() << " types from input of " << mNTokens << " tokens." << std::endl;
+   */
+  std::clog << messageTag << "Full vocabulary has " << fullVocab.size() << " types from input of " << mNTokens << " tokens on "
+	    << nLines << " lines. (Skip " << mSkipInitial << " initial tokens with EOL mark " << mMarkEOL << ")." << std::endl;
   if(false) // write counts to file
   { std::clog << messageTag << "Writing word counts to file\n";
     std::ofstream os("/Users/bob/Desktop/word_counts.txt");

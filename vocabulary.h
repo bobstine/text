@@ -1,6 +1,13 @@
 #ifndef _VOCABULARY_H_
 #define _VOCABULARY_H_
 
+/*
+  Notes:
+          * parses numeric values as special tokens (parse_numeric_string)
+	  * line oriented input, so optionally can mark line breaks (marked with EOL)
+	  * optionally can skip initial tokens in a line (as in regression application)
+*/
+
 #include "base_classes.h"
 
 #include <iostream>
@@ -25,10 +32,13 @@ class Vocabulary
   typedef Eigen::SparseMatrix<float,Eigen::RowMajor> SparseMatrix;
 
   static Type OOV;
+  static Type EOL;
   
  private:
+  int  const      mSkipInitial;    // skip initial tokens in a line
+  bool const      mMarkEOL;        // add end of line token
   int             mNTokens;
-  int             mMinFrequency;
+  int  const      mMinFrequency;
   int             mOOVIndex;
   TypeList        mTokens;
   TypeVector      mTypeVector;
@@ -38,13 +48,16 @@ class Vocabulary
 
  public:
 
-  Vocabulary (): mNTokens(0), mMinFrequency(0), mOOVIndex(0), mTokens(), mTypeVector(), mFreqMap(), mOOVMap(), mIndexMap() { };
+  Vocabulary ()
+    : mSkipInitial(0), mMarkEOL(false), mNTokens(0), mMinFrequency(0), mOOVIndex(0), mTokens(), mTypeVector(), mFreqMap(), mOOVMap(), mIndexMap() { };
 
- Vocabulary(std::string fileName, int minFrequency)
-   : mNTokens(0), mMinFrequency(minFrequency), mOOVIndex(0), mTokens(), mTypeVector(), mFreqMap(), mOOVMap(), mIndexMap() { init_from_file(fileName); }
+ Vocabulary(std::string fileName, int skipInitial, bool markEOL, int minFrequency)
+   : mSkipInitial(skipInitial), mMarkEOL(markEOL), mNTokens(0), mMinFrequency(minFrequency), mOOVIndex(0),
+     mTokens(), mTypeVector(), mFreqMap(), mOOVMap(), mIndexMap() { init_from_file(fileName); }
 
- Vocabulary(std::istream &is, int minFrequency)
-   : mNTokens(0), mMinFrequency(minFrequency), mOOVIndex(0), mTokens(), mTypeVector(), mFreqMap(), mOOVMap(), mIndexMap() { init_from_stream(is); }
+ Vocabulary(std::istream &is, int skipInitial, bool markEOL, int minFrequency)
+   : mSkipInitial(skipInitial), mMarkEOL(markEOL), mNTokens(0), mMinFrequency(minFrequency), mOOVIndex(0),
+     mTokens(), mTypeVector(), mFreqMap(), mOOVMap(), mIndexMap() { init_from_stream(is); }
 
   int        n_types()                          const { return mFreqMap.size(); }
   int        type_index(Type const& type)       const;                                // OOV position if not found
@@ -62,6 +75,7 @@ class Vocabulary
  private:
   void init_from_file  (std::string fileName);
   void init_from_stream(std::istream &is);
+  void parse_line (std::string const& line, std::map<Type,int> &vocab);
   void fill_bigram_map (BigramMap &bm, int skip) const;
 };
 
