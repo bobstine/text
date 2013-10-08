@@ -230,7 +230,7 @@ int main(int argc, char** argv)
   
   // lsa variables
   X.rightCols(L.cols()) = L;
-  std::clog << "MAIN: First 5 rows of X are\n" << X.topRows(5) << endl;
+  std::clog << "MAIN: First 10 rows and columns of X are\n" << X.block(0,0,5,10) << endl;
   
   // write to output file if assigned
   if (outputFileName.size() > 0)
