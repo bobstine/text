@@ -6,6 +6,10 @@
 #include <fstream>
 #include <sstream>
 
+// turn on to enable parsing numbers
+// #define PARSE_NUMERICS
+
+
 //     globals     globals     globals     globals     globals     globals     globals     globals     globals
 
 static std::string messageTag ("VOCB: ");
@@ -58,8 +62,11 @@ Vocabulary::parse_line(std::string const& line, std::map<Type,int> &vocab)
    for(int i=0; i<mSkipInitial; ++i)
      ss >> token;
    while (ss >> token)
-   { if (can_parse_as_numeric_string(token))   // converts digits, dollar amts, phone nos
+   {
+#ifdef PARSE_NUMERICS
+     if (can_parse_as_numeric_string(token))   // converts digits, dollar amts, phone nos
        token = parse_numeric_string(token);
+#endif
      ++mNTokens;
      mTokens.push_back(Type(token));
      ++vocab[Type(token)];
@@ -84,16 +91,6 @@ Vocabulary::init_from_stream(std::istream& is)
   { ++nLines;
     parse_line(line, fullVocab);
   }
-  /*
-  std::string token;
-  while (is >> token)
-  { if (can_parse_as_numeric_string(token))   // converts digits, dollar amts, phone nos
-      token = parse_numeric_string(token);
-    ++mNTokens;
-    mTokens.push_back(Type(token));
-    ++fullVocab[Type(token)];
-  }
-   */
   std::clog << messageTag << "Full vocabulary has " << fullVocab.size() << " types from input of " << mNTokens << " tokens on "
 	    << nLines << " lines. (Skip " << mSkipInitial << " initial tokens with EOL mark " << mMarkEOL << ")." << std::endl;
   if(false) // write counts to file

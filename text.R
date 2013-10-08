@@ -1,53 +1,77 @@
 ##################################################################################
-# Preliminaries 
+# 
+# Function definitions
+#
 ##################################################################################
 
 reset <- function() {
 	# par(mfrow=c(1,1), mgp=c(3,1,0), mar=c(5,4,4,2)+0.1)      # default
 	par(mfrow=c(1,1), mgp=c(1.5,0.5,0), mar=c(3,2.5,2,1)+0.1)  # bottom left top right
 	}
+reset()  # sets up plot
 
-
-half.normal.plot <- function(y) {
+half.normal.plot <- function(y, height=2) {
 	k <- length(y)          
 	plot(x <- qnorm(.5+(0:(k-1))/(2*k)), y <- sort(y), 
 		xlab="Normal Quantile", ylab="Sorted |t|"); 
-	regr <- lm(y[1:250] ~ x[1:250])
+	regr <- lm(y[1:200] ~ x[1:200])
 	abline(0,1, col="gray")
 	abline(regr,col="red")
+	text(0.25,height,paste("b =",round(coefficients(regr)[2],1)), cex=0.7)
 	summary(regr)
 	}
 	
 jitter <- function(x) { x + 0.05 * sd(x) * rnorm(length(x)) }
 
-cross.validate <- function(regr, B) {  # 10-fold CV, need x,y in regr	set.seed(23479)     # same cases for each fixed n
-	x <- regr$x[,-1];   # remove intercept
-	y <- regr$y;
-	n <- length(y);
-	i <- c(rep(TRUE,floor(0.9*n)),rep(FALSE,n-floor(0.9*n)))
-	sse <- rep(0,B)
-	for(k in 1:B) {
-		cat(k," ");
-		is <- sample(i,n) # permutation
-		ys <- y[is]; xs <- x[is,]
-		r <- lm(ys ~ xs)
-		xs <- x[!is,]
-		err <- y[!is] - predict( r, as.data.frame(xs) );
-		sse[k] <- sum(err^2)
-		}
-	sse/length(err) 
+# need x,y in regr
+cross.validate.mse <- function(regr, n.folds=10,seed=23479,n.reps=1) { 	yx <- data.frame(y=regr$y, regr$x[,-1]) # remove intercept
+	n <- nrow(yx);
+	i <- rep(1:n.folds,ceiling(n/n.folds))
+	if (length(i) != n) cat("Note: n is not multiple of # folds.\n");
+	i <- i[1:n]
+	set.seed(seed)
+	mse <- rep(0,n.folds*n.reps)
+	for(kk in 1:n.reps) {
+		ii <- sample(i, n)   # permute fold indices
+		for(fold in 1:n.folds) {
+			cat(fold," ");
+			train <- which(fold != ii)
+			r <- lm(y ~ ., data=yx[train,])
+			test  <- which(fold == ii)
+			err <- yx$y[test] - predict(r, newdata=yx[test,]);
+			mse[fold+(kk-1)*n.folds] <- sum(err^2)/length(test)
+		}}
+	mse
 	}
 	
-# mse <- cross.validate(regr.bigram, 10)
+show.cv <- function(regr, reps=1, seed=2382) {
+	mse <- cross.validate.mse(regr, n.reps=reps, seed=seed)
+	hist(sqrt(mse), main=paste("Cross Validation", deparse(formula(regr))))
+	red  <- (sr<-summary(regr))$sigma       ; abline(v=red , col="red", lty=3)
+	red2 <- red * sqrt(1+sr$df[1]/sr$df[2]) ; abline(v=red2, col="red")
+	blue <- sqrt(mean(mse))                 ; abline(v=blue, col="blue")
+	n <- length(mse)
+	ci <- sqrt(mean(mse)+c(-2,2)*sd(mse)/sqrt(n))
+	rect(ci[1],0,ci[2],0.25,col="lightblue",border=NA)
+	list(fit=red, cv=blue, mse=mse)
+	}
+
+	
+# --- cv of models
+z <- show.cv(regr.parsed,reps=10)
+
+# mse <- cross.validate.mse(regr.lsa)
+# mse <- cross.validate.mse(regr.bigram)
 # Pct: 0.799 unweighted or 0.785 weighted by sqrt    Counts: 0.806 counts
-# mse <- cross.validate(regr.lsa   , 20); sqrt(mean(mse)) 
+# mse <- cross.validate.mse(regr.lsa   , 20); sqrt(mean(mse)) 
+
 
 ##################################################################################
-# Analysis of text regressors 
+#  type counts, zipf
 ##################################################################################
 
 # --- look at type frequencies, zipf plot   (zipf.pdf)
-type.cts <- sort(scan("/Users/bob/Desktop/type_freq.txt"), decreasing=TRUE)
+type.cts <- sort(scan("/Users/bob/C/text/text_src/temp/type_freq.txt"), decreasing=TRUE)
 
 x<-1:length(type.cts); y<-type.cts
 zipf.data <- data.frame(list(x=x,y=y,lx=log(x),ly=log(y)))
@@ -61,20 +85,34 @@ lx <- log(x<-c(1,5000)); y <- exp(predict(regr, data.frame(lx=lx)))
 lines(x,y,col="red")
 
 
-# --- analysis of regression models
-nProj <- 200
 
-city  <- "ChicagoNew"
+##################################################################################
+# Analysis of text regressors 
+##################################################################################
+
+# --- analysis of regression models
+nProj <- 800
+
+city  <- "ChicagoOld3"
 file  <- paste("/Users/bob/C/text/text_src/temp/",city,"_bigram_regr.txt",sep="")
 
 Data <- read.table(file, header=TRUE); dim(Data)
 
+price     <- Data[,"Y"]
+logPrice  <- as.numeric(log(Data[,"Y"]))
+nTokens   <- Data[,"m"]
+logTokens <- log(nTokens)
 
-# --- analysis of prices
-y <- Data[,"Y"]
+# --- lengths (m)
+mean(nTokens); fivenum(nTokens); quantile(nTokens,0.87)
+boxplot(nTokens, horizontal=TRUE, xlab="Lengths of Descriptions")   # boxplot.pdf
+hist(log10(nTokens))
+
+
+# --- analysis of prices (thousands of $)
 par(mfrow=c(1,2))                                             # prices.pdf
-	hist(log10(y), breaks=30, main=" ",xlab="log10(Price)")
-	qqnorm(log10(y), ylab="log10(Price)"); abline(a=mean(log10(y)),b=sd(log10(y)))
+	hist(log10(price), breaks=30, main=" ",xlab="log10(Price)")
+	qqnorm(log10(price), ylab="log10(Price)"); abline(a=mean(log10(y)),b=sd(log10(y)))
 reset()
 
 # --- percentages missing in parsed data
@@ -83,25 +121,9 @@ sum(0==Data[,"Bedrooms"])/nrow(Data)
 sum(0==Data[,"Bathrooms"])/nrow(Data)
 
 
-# --- check two code versions (use doboth in makefile; force same seeds prior to rand projection)
-# X <- as.matrix(Data[,209:308])  # as computed within regressor.cc
-# Y <- as.matrix(Data[,309:408])  #                    lsa.cc
-# plot(cancor(X,Y)$cor)           # == 1
-
-
-# --- length of documents; about 87% have 100 or fewer tokens (many of which are punctuation)
-nTokens  <- as.numeric(Data[,"n"])
-
-mean(nTokens); fivenum(nTokens); quantile(nTokens,0.87)
-boxplot(nTokens, horizontal=TRUE, xlab="Lengths of Descriptions")   # boxplot.pdf
-hist(log10(nTokens))
-
-
-# --- simple models for log of prices
-logPrice <- as.numeric(log(Data[,"Y"]))
-plot(logPrice ~ I(log(nTokens) )) 
-lines(lowess(log(nTokens), logPrice, f=.3), col="red")
-
+# --- simple models for log of prices has discontinuity 
+plot(logPrice ~ logTokens) 
+lines(lowess(logTokens, logPrice, f=.3), col="red")
 
 
 # --- regression with W count matrix
@@ -140,28 +162,30 @@ beds[!beds.obs] <- mean( beds[beds.obs] )
 
 # --- plots of the parsed explanatory variables and response           parsed.pdf
 par(mfrow=c(2,2), mar=c(4,4,1,1), mgp=c(2,1,0))
-	plot(logPrice ~ nTokens, ylab= "Log Price",  xlab="Number of Tokens")
-	  text(500,6, paste("r=",round(cor(logPrice,nTokens),2)))
+	plot(logPrice ~ logTokens, ylab= "Log Price",  xlab="Log Number of Tokens")
+	  text(6.2,6, paste("r =",round(cor(logPrice,logTokens),2)))
+	  lines(lowess(logTokens, logPrice,f=0.25), col="red")
 	plot(logPrice ~ baths, ylab= "Log Price",
 	  xlab="Number Bathrooms   (74% missing)", col="gray") 
-	  text(5,6, paste("r=",round(cor(logPrice,baths),2)))
+	  text(5,6, paste("r =",round(cor(logPrice,baths),2)))
 	points(baths[which(1==bath.obs)], logPrice[which(1==bath.obs)])  # overplot gray
 	plot(logPrice ~ beds , ylab= "Log Price", 
 	  xlab="Number Bedrooms  (58% missing)"  , col=c("gray","black")[1+beds.obs])   
-	  text(7,6, paste("r=",round(cor(logPrice,beds),2)))
+	  text(7,6, paste("r =",round(cor(logPrice,beds),2)))
 	plot(logPrice ~ I(log(sqft)),  ylab= "Log Price", 
 	  xlab="Log(Sq Ft)  (94% missing)", col="gray")
-	  text(10,6, paste("r=",round(cor(logPrice,log(sqft)),2)))
+	  text(10,6, paste("r =",round(cor(logPrice,log(sqft)),2)))
 	points(log(sqft)[which(1==sqft.obs)], logPrice[which(1==sqft.obs)])
 par(mfrow=c(1,1))
 
 
-x.parsed. <- cbind(Data[,"n"], log(sqft), sqft.obs, beds, beds.obs, baths, bath.obs)
-colnames(x.parsed.)<-c("n","Log SqFt","SqFt Obs",
+x.parsed. <- cbind(log(Data[,"m"]), log(sqft), sqft.obs, beds, beds.obs, baths, bath.obs)
+colnames(x.parsed.)<-c("Log m","Log SqFt","SqFt Obs",
                "Bedrooms","Bedroom Obs","Bathrooms","Bathroom Obs")
 
-summary(regr.parsed        <- lm(logPrice ~ x.parsed.))
+summary(regr.parsed        <- lm(logPrice ~ x.parsed., x=TRUE, y=TRUE))
 
+mse <- show.cv(regr.parsed,5)
 
 
 ##################################################################################
@@ -173,25 +197,25 @@ x.lsa.    <- as.matrix(Data[,paste("D",0:(nProj/2-1), sep="")])
 
 # write.csv(cbind(logPrice,x.lsa.), "~/Desktop/regr.csv")
 
-m <- sqrt(Data$n)
+m <- sqrt(Data$m)
 sr <- summary(regr.lsa <- lm(logPrice ~ x.lsa., x=TRUE, y=TRUE)); sr  # weights=m,
-
-frame <- data.frame(logPrice,x.lsa.[,1:20])
-br  <- lm(logPrice ~ .      , data = frame); summary(br)
-br2 <- lm(logPrice ~ . + .*., data = frame); summary(br2)
-
-
-anova(br,br2)
-
-cor(fitted.values(regr.lsa), f <- fitted.values(br2))
 
 par(mfrow=c(1,2))    # regrW.pdf
 	plot(	x <- 1:(nProj/2), y <- abs(coefficients(sr)[-1,3]), 
 		xlab="Singular Vector of W", ylab="|t|", main="")
 		abline(h=-qnorm(.025/(nProj/2)), col="gray", lty=3)
 		lines(lowess(x,y), col="red")
-	half.normal.plot(y)
+	half.normal.plot(y,height=5)
 reset()
+
+mse <- show.cv(regr.lsa, reps=3, seed=33213)
+
+#     interactions
+frame <- data.frame(logPrice,x.lsa.[,1:20])
+br  <- lm(logPrice ~ .      , data = frame); summary(br)
+br2 <- lm(logPrice ~ . + .*., data = frame); summary(br2)
+anova(br,br2)
+cor(fitted.values(regr.lsa), f <- fitted.values(br2))
 
 
 # --- SVD variables, B
@@ -209,6 +233,8 @@ par(mfrow=c(1,2))    # regrB.pdf
 	half.normal.plot(y)
 reset()
 
+
+
 summary(regr.bigram        <- lm(logPrice ~ x.bigram.[,1:(nProj/2)]))
 
 
@@ -217,15 +243,55 @@ summary(regr.bigram        <- lm(logPrice ~ x.bigram.[,1:(nProj/2)]))
 left  <-   1        : (nProj/2)
 right <- (nProj/2+1):  nProj
 ccw <- cancor(x.bigram.[,left], x.bigram.[,right])
-plot(ccw$cor, xlab="Combination", ylab="Canonical Correlation")          # cca.pdf
+plot(ccw$cor, xlab="Index of Vector", ylab="Canonical Correlation")          # cca.pdf
 
 cx <- x.bigram.[, left] %*% ccw$xcoef		# canonical vars
 cy <- x.bigram.[,right] %*% ccw$ycoef
 
 cor(cx[,1],cy[,1])
 
-summary(regr.bigram        <- lm(logPrice ~ cx + cy ))
+summary(regr <- lm(logPrice ~ cx )); d <- ncol(cx)
 
+par(mfrow=c(1,2))                                              # regrBcca.pdf
+	plot( x <- rep(1:d),                      
+		y <- abs(coefficients(summary(regr))[-1,3]), 
+		xlab="Canonical Variable of B", ylab="|t|", main="")
+		abline(h=-qnorm(.025/(nProj/2)), col="gray", lty=3)
+		lines(lowess(x,y), col="red")
+	half.normal.plot(y, height=5)
+reset()
+
+# --- regr using CCA of two sets
+summary(regr <- lm(logPrice ~ x.bigram.[,left] + x.lsa.)); 
+
+#     these are same fits 
+summary(regr  <- lm(logPrice ~ x.bigram.[,left]));
+summary(regr1 <- lm(logPrice ~ cx              )); 
+
+par(mfrow=c(1,2))                                              # regrBcca2.pdf
+	y <- abs(coefficients(summary(regr))[-1,3]) 
+	half.normal.plot(y, height=2)
+	y1 <- abs(coefficients(summary(regr1))[-1,3])      
+	half.normal.plot(y1, height=5)
+reset()
+plot(coefficients(regr1), coefficients(regr))
+
+#    sweep the bigram left cca from LSA to get more orthogonal (or vice versa)
+r   <- lm(x.lsa. ~ cx)
+res <- residuals(r)
+s   <- summary(lm(logPrice ~ cx))                      # adj.r2 = 0.63  ChicagoNew
+s   <- summary(lm(logPrice ~ cx + res)); s             #          0.70
+s   <- summary(lm(logPrice ~ cx + res + x.parsed.)); s #          0.705
+
+par(mfrow=c(1,2))                                             
+	d <- 2 * ncol(cx)
+	plot( x <- rep(1:d),                      
+		y <- abs(coefficients(s)[-1,3]), log="",
+		xlab="Left CCA B, then Res LSA", ylab="|t|", main="")
+		abline(h=-qnorm(.025/(nProj/2)), col="gray", lty=3)
+		lines(lowess(x,y), col="red")
+	half.normal.plot(y, height=5)
+reset()
 
 
 ##################################################################################
@@ -260,20 +326,22 @@ anova(regr.parsed, regr.parsed.bigram)
 anova(regr.bigram, regr.parsed.bigram)
 anova(regr.lsa   , regr.parsed.lsa)
 
+
+##################################################################################
+# Lighthouse variables
+##################################################################################
+
 # --- estimated parsed variables in place of originals
-x.parsed.hat. <- x.parsed.
-for(j in 1:ncol(x.parsed.)) {
-	regr <- lm(x.parsed.[,j] ~ x.lsa.+ x.bigram.)
-	cat("For variable", colnames(x.parsed.)[j], " R2 = ", summary(regr)$r.squared,"\n")
-	x.parsed.hat.[,j] <- fitted.values(regr)
-	}
+s <- summary(r <- lm(x.parsed. ~ x.lsa. + x.bigram.))
 
-#     just one at a time, skip n since redundant
-colnames(x.parsed.)
+for(j in 1:length(s)) {
+	cat(names(s)[j]," ", s[[j]]$r.squared,"\n")  }
 
-#     n is worse when estimated, but all of the others improve
-j <- 6;
-colnames(x.parsed.)[j]
+x.parsed.hat <- fitted.values(r)
+colnames(x.parsed.hat) <- paste("Res",colnames(x.parsed.))
+
+#     m is worse when estimated, but all of the others improve
+j <- 2;
 summary(lm(logPrice ~ x.parsed.[,j] + x.parsed.hat.[,j]))
 
 #     all of them

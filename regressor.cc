@@ -234,17 +234,19 @@ int main(int argc, char** argv)
   
   // write to output file if assigned
   if (outputFileName.size() > 0)
-  { if(std::ofstream os(outputFileName))
-    { std::clog << "MAIN: Writing data file to " << outputFileName << std::endl;
-      os << " Y n ";
-      for (auto f : parsers) os << f.name() << " ";
-      for(int i=0; i<P.cols()/2; ++i) os << " BL" << i;
-      for(int i=0; i<P.cols()/2; ++i) os << " BR" << i;
-      for(int i=0; i<L.cols(); ++i) os <<    " D" << i;
-      os << endl << X << endl;
+  { std::ofstream os(outputFileName);
+    if (!os)
+    { std::clog << "MAIN: Could not open output file " << outputFileName << std::endl;
+      return 0;
     }
+    std::clog << "MAIN: Writing data file to " << outputFileName << std::endl;
+    os << " Y m ";
+    for (auto f : parsers) os << f.name() << " ";
+    for(int i=0; i<P.cols()/2; ++i) os << " BL" << i;
+    for(int i=0; i<P.cols()/2; ++i) os << " BR" << i;
+    for(int i=0; i<L.cols(); ++i) os <<    " D" << i;
+    os << endl << X << endl;
   }
-  
   return 0;
 }
 

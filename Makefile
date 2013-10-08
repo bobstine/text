@@ -113,6 +113,10 @@ $(temppath)fedregr.txt: $(fedpath)federalist_regr.txt
 $(temppath)fedx.txt: $(temppath)fedregr.txt                        # removes leading author
 	cut --delimiter=' ' --fields=1 --complement $^ > $@
 
+federalist: regressor lsa $(temppath)fedregr.txt $(temppath)fedx.txt
+	./regressor --vocab_file=$(temppath)fedx.txt --regr_file=$(temppath)fedregr.txt  --n_projections 100 --power_iter 1  --bidirectional  
+	./lsa --vocab_file=$(temppath)fedx.txt --n_projections 100 --power_iter 1
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  real estate text descriptions
@@ -120,10 +124,25 @@ $(temppath)fedx.txt: $(temppath)fedregr.txt                        # removes lea
 
 repath = text_src/real_estate/Set10Tokenized/
 
-recity = ChicagoNew
+recity = ChicagoOld3
 
 $(temppath)$(recity).txt: $(repath)$(recity)Tokenized           # removes lines with no text (need $$ to escape $ in make)
 	grep -v '^[0-9\,\.[:blank:]]\+$$' $^ > $@
+
+seed  = 2763                            # defines random projection
+
+nProj =  800                            # total of n projections, nProj/2 for W and nProj/2 (each side) for bigram
+
+vFile = $(temppath)$(recity).txt
+rFile = $(temppath)$(recity).txt
+
+$(temppath)$(recity)_bigram_regr.txt: regressor $(temppath)google.txt $(vFile) $(rfile) 
+	./regressor --vocab_file=$(vFile) --regr_file=$(rFile) --output_file=$@  -s $(seed) --n_projections $(nProj) --power_iter 1  --bidirectional  
+
+$(temppath)$(recity)_lsa_regr.txt: lsa $(temppath)google.txt $(temppath)$(recity)_woprice.txt
+	./lsa --vocab_file=$(temppath)$(recity)_woprice.txt --output_file=$@ --n_projections $(nProj) --power_iter 1
+
+dore:  $(temppath)$(recity)_bigram_regr.txt
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -131,6 +150,17 @@ $(temppath)$(recity).txt: $(repath)$(recity)Tokenized           # removes lines 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 simpath = text_src/sim/
+
+nSimProj = 200
+
+vSimFile = $(temppath)sim_woy.txt
+rSimFile = $(simpath)sim.txt
+
+$(temppath)sim_regr.txt: regressor $(vSimFile) $(rSimFile)
+	./regressor --vocab_file=$(vSimFile) --regr_file=$(rSimFile) --output_file=$@  -s $(seed) --n_projections $(nSimProj) --power_iter 1  --bidirectional  
+
+dosim:  $(temppath)sim_regr.txt
+
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -154,47 +184,6 @@ $(vpath)vocab: $(vpath)vocab.gz
 
 $(vpath)vocab.gz:
 	scp sob:/data/google_data/1gms/vocab.gz $(vpath)
-
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-#  run commands
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-#  regression application; total of n projections (name recity above in real estate data)
-federalist: regressor lsa $(temppath)fedregr.txt $(temppath)fedx.txt
-	./regressor --vocab_file=$(temppath)fedx.txt --regr_file=$(temppath)fedregr.txt  --n_projections 100 --power_iter 1  --bidirectional  
-	./lsa --vocab_file=$(temppath)fedx.txt --n_projections 100 --power_iter 1
-
-
-#  regression application for real estate; total of n projections (name recity above in real estate data)
-#  get half of nProj for W and nProj (both sides) for bigram
-seed  = 2763
-nProj =  200
-vFile = $(temppath)$(recity).txt
-rFile = $(temppath)$(recity).txt
-
-$(temppath)$(recity)_bigram_regr.txt: regressor $(temppath)google.txt $(vFile) $(rfile) 
-	./regressor --vocab_file=$(vFile) --regr_file=$(rFile) --output_file=$@  -s $(seed) --n_projections $(nProj) --power_iter 1  --bidirectional  
-
-$(temppath)$(recity)_lsa_regr.txt: lsa $(temppath)google.txt $(temppath)$(recity)_woprice.txt
-	./lsa --vocab_file=$(temppath)$(recity)_woprice.txt --output_file=$@ --n_projections $(nProj) --power_iter 1
-
-doit:  $(temppath)$(recity)_bigram_regr.txt
-
-#doboth: $(temppath)$(recity)_bigram_regr.txt $(temppath)$(recity)_lsa_regr.txt
-#	paste -d ' ' $^ > $(temppath)$(recity)_data.txt 
-
-
-#  regressor application for simulated data
-
-nSimProj = 200
-vSimFile = $(temppath)sim_woy.txt
-rSimFile = $(simpath)sim.txt
-
-$(temppath)sim_regr.txt: regressor $(vSimFile) $(rSimFile)
-	./regressor --vocab_file=$(vSimFile) --regr_file=$(rSimFile) --output_file=$@  -s $(seed) --n_projections $(nSimProj) --power_iter 1  --bidirectional  
-
-dosim:  $(temppath)sim_regr.txt
 
 
 
