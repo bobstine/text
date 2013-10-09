@@ -4,6 +4,8 @@
 #
 ##################################################################################
 
+library(xtable)    # latex tables
+
 reset <- function() {
 	# par(mfrow=c(1,1), mgp=c(3,1,0), mar=c(5,4,4,2)+0.1)      # default
 	par(mfrow=c(1,1), mgp=c(1.5,0.5,0), mar=c(3,2.5,2,1)+0.1)  # bottom left top right
@@ -98,6 +100,7 @@ file  <- paste("/Users/bob/C/text/text_src/temp/",city,"_bigram_regr.txt",sep=""
 
 Data <- read.table(file, header=TRUE); dim(Data)
 
+n <- nrow(Data)
 price     <- Data[,"Y"]
 logPrice  <- as.numeric(log(Data[,"Y"]))
 nTokens   <- Data[,"m"]
@@ -116,12 +119,6 @@ par(mfrow=c(1,2))                                             # prices.pdf
 	qqnorm(log10(price), ylab="log10(Price)"); abline(a=mean(log10(y)),b=sd(log10(y)))
 reset()
 
-# --- percentages missing in parsed data
-sum(0==Data[,"SqFt"])/nrow(Data)
-sum(0==Data[,"Bedrooms"])/nrow(Data)
-sum(0==Data[,"Bathrooms"])/nrow(Data)
-
-
 # --- simple models for log of prices has discontinuity 
 plot(logPrice ~ logTokens) 
 lines(lowess(logTokens, logPrice, f=.3), col="red")
@@ -137,6 +134,11 @@ baths <- Data[,"Bathrooms"]; bath.obs <- 0<Data[,"Bathrooms"]
 baths[!bath.obs] <- mean( baths[bath.obs] )
 beds  <- Data[,"Bedrooms"];  beds.obs <- 0<Data[,"Bedrooms"]
 beds[!beds.obs] <- mean( beds[beds.obs] )
+
+# --- percentages missing in parsed data
+(n-sum(sqft.obs))/n
+(n-sum(bath.obs))/n
+(n-sum(beds.obs))/n
 
 # --- plots of the parsed explanatory variables and response           parsed.pdf
 par(mfrow=c(2,2), mar=c(4,4,1,1), mgp=c(2,1,0))
@@ -163,7 +165,7 @@ cor( log(sqft)[sqft.obs], logPrice[sqft.obs] )
 table(nTokens)
 ii <- which(nTokens==265); length(ii)  
 
-
+# --- parsed regression fit
 
 x.parsed. <- cbind(log(Data[,"m"]), log(sqft), sqft.obs, beds, beds.obs, baths, bath.obs)
 colnames(x.parsed.)<-c("Log m","Log SqFt","SqFt Obs",
@@ -171,7 +173,10 @@ colnames(x.parsed.)<-c("Log m","Log SqFt","SqFt Obs",
 
 summary(regr.parsed        <- lm(logPrice ~ x.parsed., x=TRUE, y=TRUE))
 
+xtable(regr.parsed)
+
 mse <- show.cv(regr.parsed,5)
+
 
 
 ##################################################################################
@@ -206,12 +211,18 @@ sum(y>-qnorm(.025/length(y)))
 ##################################################################################
 
 # --- LSA analysis from matrix W
-x.lsa.    <- as.matrix(Data[,paste("D",0:(nProj/2-1), sep="")])
+kw <- 200
+kw <- (nProj/2)
+x.lsa.    <- as.matrix(Data[,paste("D",0:(kw-1), sep="")])
 
 # write.csv(cbind(logPrice,x.lsa.), "~/Desktop/regr.csv")
 
 m <- sqrt(Data$m)
-sr <- summary(regr.lsa <- lm(logPrice ~ x.lsa., x=TRUE, y=TRUE)); sr  # weights=m,
+
+p <- 500
+sr <- summary(regr.lsa <- lm(logPrice ~ x.lsa. , x=TRUE, y=TRUE)); sr  # weights=m,
+
+xtable(regr.lsa)
 
 par(mfrow=c(1,2))    # regrW.pdf
 	plot(	x <- 1:(nProj/2), y <- abs(coefficients(sr)[-1,3]), 
@@ -232,10 +243,14 @@ cor(fitted.values(regr.lsa), f <- fitted.values(br2))
 
 
 # --- SVD variables, B
-x.bigram. <- as.matrix(cbind(	Data[,paste("BL",0:(nProj/2-1), sep="")],
-									Data[,paste("BR",0:(nProj/2-1), sep="")]  ))
+kb <- 200                                            # left and right
+x.bigram. <- as.matrix(cbind(	Data[,paste("BL",0:(kb-1), sep="")],
+									Data[,paste("BR",0:(kb-1), sep="")]  ))
+summary(regr.bigram       <- lm(logPrice ~ x.bigram.))  
 
-summary(regr.bigram        <- lm(logPrice ~ x.bigram., x=TRUE,y=TRUE))
+x <- as.matrix(Data[,paste("BL",0:(kb-1), sep="")])
+summary(regr.bigram.left       <- lm(logPrice ~ x))  # just left
+
 
 par(mfrow=c(1,2))    # regrB.pdf
 	plot( x <- rep(1:(nProj/2),2),                      
@@ -245,10 +260,6 @@ par(mfrow=c(1,2))    # regrB.pdf
 		lines(lowess(x,y), col="red")
 	half.normal.plot(y)
 reset()
-
-
-
-summary(regr.bigram        <- lm(logPrice ~ x.bigram.[,1:(nProj/2)]))
 
 
 # --- CCA of bigram left/right decomp
