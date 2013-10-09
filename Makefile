@@ -131,7 +131,7 @@ $(temppath)$(recity).txt: $(repath)$(recity)Tokenized           # removes lines 
 
 seed  = 2763                            # defines random projection
 
-nProj =  800                            # total of n projections, nProj/2 for W and nProj/2 (each side) for bigram
+nProj = 1000                            # number of projections, nProj/2 for W and nProj/2 (each side) for bigram
 
 vFile = $(temppath)$(recity).txt        # allowed to have different files for vocabulary and for regression
 rFile = $(temppath)$(recity).txt

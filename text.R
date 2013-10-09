@@ -91,7 +91,7 @@ lines(x,y,col="red")
 ##################################################################################
 
 # --- analysis of regression models
-nProj <- 800
+nProj <- 1000
 
 city  <- "ChicagoOld3"
 file  <- paste("/Users/bob/C/text/text_src/temp/",city,"_bigram_regr.txt",sep="")
@@ -111,6 +111,7 @@ hist(log10(nTokens))
 
 # --- analysis of prices (thousands of $)
 par(mfrow=c(1,2))                                             # prices.pdf
+	y <- price
 	hist(log10(price), breaks=30, main=" ",xlab="log10(Price)")
 	qqnorm(log10(price), ylab="log10(Price)"); abline(a=mean(log10(y)),b=sd(log10(y)))
 reset()
@@ -125,6 +126,57 @@ sum(0==Data[,"Bathrooms"])/nrow(Data)
 plot(logPrice ~ logTokens) 
 lines(lowess(logTokens, logPrice, f=.3), col="red")
 
+
+##################################################################################
+# Parsed variables
+##################################################################################
+
+sqft  <- Data[,"SqFt"];      sqft.obs <- 0<Data[,"SqFt"]         
+sqft[!sqft.obs] <- mean( sqft[sqft.obs] )
+baths <- Data[,"Bathrooms"]; bath.obs <- 0<Data[,"Bathrooms"]
+baths[!bath.obs] <- mean( baths[bath.obs] )
+beds  <- Data[,"Bedrooms"];  beds.obs <- 0<Data[,"Bedrooms"]
+beds[!beds.obs] <- mean( beds[beds.obs] )
+
+# --- plots of the parsed explanatory variables and response           parsed.pdf
+par(mfrow=c(2,2), mar=c(4,4,1,1), mgp=c(2,1,0))
+	plot(logPrice ~ logTokens, ylab= "Log Price",  xlab="Log Number of Tokens")
+	  text(1.5,6, paste("r =",round(cor(logPrice,logTokens),2)))
+	  # lines(lowess(logTokens, logPrice,f=0.25), col="red")
+	plot(logPrice ~ baths, ylab= "Log Price",
+	  xlab="Number Bathrooms   (74% missing)", col="gray") 
+	  text(5,6, paste("r =",round(cor(logPrice,baths),2)))
+	points(baths[which(1==bath.obs)], logPrice[which(1==bath.obs)])  # overplot gray
+	plot(logPrice ~ beds , ylab= "Log Price", 
+	  xlab="Number Bedrooms  (58% missing)"  , col=c("gray","black")[1+beds.obs])   
+	  text(7,6, paste("r =",round(cor(logPrice,beds),2)))
+	plot(logPrice ~ I(log(sqft)),  ylab= "Log Price", 
+	  xlab="Log(Sq Ft)  (94% missing)", col="gray")
+	  text(2,6, paste("r =",round(cor(logPrice,log(sqft)),2)))
+	points(log(sqft)[which(1==sqft.obs)], logPrice[which(1==sqft.obs)])
+par(mfrow=c(1,1))
+
+#     corr with sqft and logprice for not missing
+cor( log(sqft)[sqft.obs], logPrice[sqft.obs] )
+
+#     anomalies:  25 @ 265
+table(nTokens)
+ii <- which(nTokens==265); length(ii)  
+
+
+
+x.parsed. <- cbind(log(Data[,"m"]), log(sqft), sqft.obs, beds, beds.obs, baths, bath.obs)
+colnames(x.parsed.)<-c("Log m","Log SqFt","SqFt Obs",
+               "Bedrooms","Bedroom Obs","Bathrooms","Bathroom Obs")
+
+summary(regr.parsed        <- lm(logPrice ~ x.parsed., x=TRUE, y=TRUE))
+
+mse <- show.cv(regr.parsed,5)
+
+
+##################################################################################
+#  Raw word regression
+##################################################################################
 
 # --- regression with W count matrix
 W <- as.matrix(read.table("/Users/bob/C/text/text_src/temp/w.txt", header=TRUE)); dim(W)
@@ -147,45 +199,6 @@ par(mfrow=c(1,2))           # tstatRegrInd.pdf
 reset()
 #     number bigger than Bonferroni
 sum(y>-qnorm(.025/length(y)))
-
-
-##################################################################################
-# Parsed variables
-##################################################################################
-
-sqft  <- Data[,"SqFt"];      sqft.obs <- 0<Data[,"SqFt"]         
-sqft[!sqft.obs] <- mean( sqft[sqft.obs] )
-baths <- Data[,"Bathrooms"]; bath.obs <- 0<Data[,"Bathrooms"]
-baths[!bath.obs] <- mean( baths[bath.obs] )
-beds  <- Data[,"Bedrooms"];  beds.obs <- 0<Data[,"Bedrooms"]
-beds[!beds.obs] <- mean( beds[beds.obs] )
-
-# --- plots of the parsed explanatory variables and response           parsed.pdf
-par(mfrow=c(2,2), mar=c(4,4,1,1), mgp=c(2,1,0))
-	plot(logPrice ~ logTokens, ylab= "Log Price",  xlab="Log Number of Tokens")
-	  text(6.2,6, paste("r =",round(cor(logPrice,logTokens),2)))
-	  lines(lowess(logTokens, logPrice,f=0.25), col="red")
-	plot(logPrice ~ baths, ylab= "Log Price",
-	  xlab="Number Bathrooms   (74% missing)", col="gray") 
-	  text(5,6, paste("r =",round(cor(logPrice,baths),2)))
-	points(baths[which(1==bath.obs)], logPrice[which(1==bath.obs)])  # overplot gray
-	plot(logPrice ~ beds , ylab= "Log Price", 
-	  xlab="Number Bedrooms  (58% missing)"  , col=c("gray","black")[1+beds.obs])   
-	  text(7,6, paste("r =",round(cor(logPrice,beds),2)))
-	plot(logPrice ~ I(log(sqft)),  ylab= "Log Price", 
-	  xlab="Log(Sq Ft)  (94% missing)", col="gray")
-	  text(10,6, paste("r =",round(cor(logPrice,log(sqft)),2)))
-	points(log(sqft)[which(1==sqft.obs)], logPrice[which(1==sqft.obs)])
-par(mfrow=c(1,1))
-
-
-x.parsed. <- cbind(log(Data[,"m"]), log(sqft), sqft.obs, beds, beds.obs, baths, bath.obs)
-colnames(x.parsed.)<-c("Log m","Log SqFt","SqFt Obs",
-               "Bedrooms","Bedroom Obs","Bathrooms","Bathroom Obs")
-
-summary(regr.parsed        <- lm(logPrice ~ x.parsed., x=TRUE, y=TRUE))
-
-mse <- show.cv(regr.parsed,5)
 
 
 ##################################################################################
