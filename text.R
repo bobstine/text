@@ -5,6 +5,7 @@
 ##################################################################################
 
 library(xtable)    # latex tables
+library(MASS)
 
 reset <- function() {
 	# par(mfrow=c(1,1), mgp=c(3,1,0), mar=c(5,4,4,2)+0.1)      # default
@@ -106,6 +107,7 @@ logPrice  <- as.numeric(log(Data[,"Y"]))
 nTokens   <- Data[,"m"]
 logTokens <- log(nTokens)
 
+
 # --- lengths (m)
 mean(nTokens); fivenum(nTokens); quantile(nTokens,0.87)
 boxplot(nTokens, horizontal=TRUE, xlab="Lengths of Descriptions")   # boxplot.pdf
@@ -183,36 +185,46 @@ mse <- show.cv(regr.parsed,5)
 #  Raw word regression
 ##################################################################################
 
-# --- regression with W count matrix
-W <- as.matrix(read.table("/Users/bob/C/text/text_src/temp/w.txt", header=TRUE)); dim(W)
+# --- regression with W count matrix  (have to remove """ from names line)
+W <- as.matrix(read.table("/Users/bob/C/text/text_src/temp/w2000.txt", header=TRUE)); dim(W)
 
 sr <- summary(  wregr <- lm(logPrice ~ W)   )
-ts <- sr$coefficients[,3]
-sr$coefficients[(order(-abs(ts))[2:11]),]
-#	Residual standard error: 0.6712 on 5694 degrees of freedom
-#	Multiple R-squared: 0.7692,	Adjusted R-squared: 0.6892 
-#	F-statistic: 9.621 on 1972 and 5694 DF,  p-value: < 2.2e-16 
+ts <- abs(coefficients(sr)[,3])
+xtable(sr$coefficients[(order(-ts)[1:15]),], digits=c(0,4,4,2,4))
 
+#  Residual standard error: 0.6818 on 5405 degrees of freedom
+#  Multiple R-squared: 0.7662,	Adjusted R-squared: 0.6807 
+#  F-statistic: 8.957 on 1978 and 5405 DF,  p-value: < 2.2e-16 
 	
-y <- abs(coefficients(sr)[-1,3])
-x <- 1:length(y)  # some may be singular
-par(mfrow=c(1,2))           # tstatRegrInd.pdf
+y <- ts[-1]             # drop intercept
+x <- 1:length(y)        # some may be singular
+threshold <- -qnorm(.025/length(y))
+par(mfrow=c(1,2))                     # tstatRegrInd.pdf
 	plot(x,y,	xlab="Word Column in W", ylab="|t|", main="")
-		abline(h=-qnorm(.025/length(y)), col="gray", lty=4)
+		abline(h=threshold, col="gray", lty=4)
 		lines(lowess(x,y), col="red")
 	half.normal.plot(y)
 reset()
-#     number bigger than Bonferroni
-sum(y>-qnorm(.025/length(y)))
+#     number bigger than Bonferroni; indexing is a mess due to dropped columns
+vars <- sapply(names( ts[ts>threshold] )[-1], function(s) substring(s,2))
+colnames(x <- W[,vars])
+
+#     regr on just those exceeding bonferroni
+summary(  bregr <- lm(logPrice ~ x )  )
+
+# --- residuals show only a vague hint of heteroscedasticity
+r <- residuals(wregr); f <- fitted.values(wregr)
+plot(r,f)
+
+plot(wregr)
 
 
 ##################################################################################
-# SVD variables
+# SVD variables, W
 ##################################################################################
 
 # --- LSA analysis from matrix W
-kw <- 200
-kw <- (nProj/2)
+kw <- 500
 x.lsa.    <- as.matrix(Data[,paste("D",0:(kw-1), sep="")])
 
 # write.csv(cbind(logPrice,x.lsa.), "~/Desktop/regr.csv")
@@ -232,9 +244,15 @@ par(mfrow=c(1,2))    # regrW.pdf
 	half.normal.plot(y,height=5)
 reset()
 
+# --- residuals only hint at heteroscedasticity
+plot(regr.lsa)
+sres <- stdres(regr.lsa)
+plot(nTokens, abs(sres))
+lines(lowess(nTokens, abs(sres)), col="red")
+
 mse <- show.cv(regr.lsa, reps=3, seed=33213)
 
-#     interactions
+#     preliminary interactions
 frame <- data.frame(logPrice,x.lsa.[,1:20])
 br  <- lm(logPrice ~ .      , data = frame); summary(br)
 br2 <- lm(logPrice ~ . + .*., data = frame); summary(br2)
@@ -242,28 +260,39 @@ anova(br,br2)
 cor(fitted.values(regr.lsa), f <- fitted.values(br2))
 
 
-# --- SVD variables, B
-kb <- 200                                            # left and right
+##################################################################################
+# SVD variables, B
+##################################################################################
+
+kb <- 500                                            # left and right
 x.bigram. <- as.matrix(cbind(	Data[,paste("BL",0:(kb-1), sep="")],
 									Data[,paste("BR",0:(kb-1), sep="")]  ))
-summary(regr.bigram       <- lm(logPrice ~ x.bigram.))  
-
-x <- as.matrix(Data[,paste("BL",0:(kb-1), sep="")])
-summary(regr.bigram.left       <- lm(logPrice ~ x))  # just left
-
+summary(regr.bigram       <- lm(logPrice ~ x.bigram., x=TRUE,y=TRUE))  
 
 par(mfrow=c(1,2))    # regrB.pdf
-	plot( x <- rep(1:(nProj/2),2),                      
-		y <- abs(coefficients(summary(regr.bigram))[-1,3]), 
-		xlab="Correlation Variable from Bigram", ylab="|t|", main="")
+		y <- abs(coefficients(summary(regr.bigram))[-1,3])
+		x <- rep(1:(nProj/2),2)          
+	plot(x,y,xlab="Correlation Variable from Bigram", ylab="|t|", main="")
 		abline(h=-qnorm(.025/(nProj/2)), col="gray", lty=3)
+		lines(lowess(x,y), col="red")
+	half.normal.plot(y)
+reset()
+
+#     using just half
+X <- as.matrix(Data[,paste("BL",0:(kb-1), sep="")])
+summary(regr.bigram.left       <- lm(logPrice ~ X, x=TRUE,y=TRUE))  # just left
+
+par(mfrow=c(1,2))    # regrB.pdf
+		y <- abs(coefficients(summary(regr.bigram.left))[-1,3])
+		x <- 1:length(y)
+	plot(x, y, xlab="Correlation Variable from Bigram", ylab="|t|", main="")
+		abline(h=-qnorm(.025/length(y)), col="gray", lty=3)
 		lines(lowess(x,y), col="red")
 	half.normal.plot(y)
 reset()
 
 
 # --- CCA of bigram left/right decomp
-
 left  <-   1        : (nProj/2)
 right <- (nProj/2+1):  nProj
 ccw <- cancor(x.bigram.[,left], x.bigram.[,right])
@@ -274,16 +303,77 @@ cy <- x.bigram.[,right] %*% ccw$ycoef
 
 cor(cx[,1],cy[,1])
 
-summary(regr <- lm(logPrice ~ cx )); d <- ncol(cx)
+summary(cxregr <- lm(logPrice ~ cx )); d <- ncol(cx)
 
 par(mfrow=c(1,2))                                              # regrBcca.pdf
 	plot( x <- rep(1:d),                      
-		y <- abs(coefficients(summary(regr))[-1,3]), 
-		xlab="Canonical Variable of B", ylab="|t|", main="")
+		y <- abs(coefficients(summary(cxregr))[-1,3]), 
+		xlab="Canonical Variable from Bigram", ylab="|t|", main="")
 		abline(h=-qnorm(.025/(nProj/2)), col="gray", lty=3)
 		lines(lowess(x,y), col="red")
 	half.normal.plot(y, height=5)
 reset()
+
+
+
+##################################################################################
+# Combined SVD variables
+##################################################################################
+
+#     sweep lsa from bigram variables
+r   <- lm(x.bigram. ~ x.lsa.)
+res.bigram <- residuals(r)
+
+res.bigram.left  <- res.bigram[,1:kb]
+res.bigram.right <- res.bigram[,(kb+1):(2*kb)]
+
+ccw <- cancor(res.bigram.left, res.bigram.right)
+plot(ccw$cor, xlab="Index of Vector", ylab="Canonical Correlation of Residuals") # cca.pdf
+
+cl <- res.bigram.left  %*% ccw$xcoef		# canonical vars
+cr <- res.bigram.right %*% ccw$ycoef
+
+# sweep left from right
+r      <- lm(cr ~ cl)
+res.cr <- residuals(r)[,500:1]  # reverse order
+
+summary(r1 <- lm(logPrice ~ x.lsa.))                          # adj.r2 = 0.612  ChicagoOld3
+summary(r2 <- lm(logPrice ~ x.lsa. + cl ))                    #          0.68
+summary(r3 <- lm(logPrice ~ x.lsa. + cl + res.cr))            #          0.70
+summary(r4 <- lm(logPrice ~ x.lsa. + cl + res.cr + x.parsed.))#          0.70
+
+
+y <- abs(coefficients(summary(r3))[-1,3])
+d <- length(y)
+par(mfrow=c(1,2))               
+	plot( 
+		x <- rep(1:d), y,                     
+		xlab="Variable Index", ylab="|t|", main="")
+		abline(h=-qnorm(.025/d), col="gray", lty=3)
+		lines(lowess(x,y,f=0.3), col="red")
+	half.normal.plot(y, height=5)
+reset()
+
+anova(r3,r4)
+
+r <- residuals(r4)   #   s = 0.654
+f <- fitted.values(r4)
+
+par(mfrow=c(1,2))
+	plot(f,logPrice, xlab="Fitted Values", ylab="Log Price", main="Calibration Plot"); 
+	abline(a=0,b=1,col="red")
+	lines(lowess(f,logPrice,f=0.2),col="cyan")
+
+	s <- 0.654
+	plot(f, abs(r), xlab="Fitted Values", ylab="Absolute Residual", main="Residual Plot"); 
+	abline(h=s * sqrt(2/pi), col="red")
+	lines(lowess(f,abs(r),f=0.2),col="cyan")
+reset()
+
+
+
+
+##################################################################################
 
 # --- regr using CCA of two sets
 summary(regr <- lm(logPrice ~ x.bigram.[,left] + x.lsa.)); 
