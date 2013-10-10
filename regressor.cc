@@ -175,7 +175,7 @@ int main(int argc, char** argv)
   std::clog << "MAIN: Sum of row 0 of W is " << m(0) << "  sum of row 1 of W is " << m(1) << endl;
 
   // optionally write W to file
-  if (true)
+  if (false)
   { write_word_counts_to_file ("text_src/temp/w2000.txt", W, MIN(W.cols(), 2000), vocabulary);
     std::clog << "MAIN: Wrote W matrix to file w.txt." << std::endl;
   }
