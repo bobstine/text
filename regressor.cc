@@ -176,7 +176,7 @@ int main(int argc, char** argv)
 
   // optionally write W to file
   if (true)
-  { write_word_counts_to_file ("text_src/temp/w.txt", W, MIN(W.cols(), 2000), vocabulary);
+  { write_word_counts_to_file ("text_src/temp/w2000.txt", W, MIN(W.cols(), 2000), vocabulary);
     std::clog << "MAIN: Wrote W matrix to file w.txt." << std::endl;
   }
   else std::clog << "MAIN: Skipping output of W matrix to file.\n";
