@@ -202,6 +202,7 @@ threshold <- -qnorm(.025/length(y))
 par(mfrow=c(1,2))                     # tstatRegrInd.pdf
 	plot(x,y,	xlab="Word Column in W", ylab="|t|", main="")
 		abline(h=threshold, col="gray", lty=4)
+		abline(h=sqrt(2/pi), col="cyan")
 		lines(lowess(x,y), col="red")
 	half.normal.plot(y)
 reset()
@@ -240,6 +241,7 @@ par(mfrow=c(1,2))    # regrW.pdf
 	plot(	x <- 1:(nProj/2), y <- abs(coefficients(sr)[-1,3]), 
 		xlab="Singular Vector of W", ylab="|t|", main="")
 		abline(h=-qnorm(.025/(nProj/2)), col="gray", lty=3)
+		abline(h=sqrt(2/pi), col="cyan")
 		lines(lowess(x,y), col="red")
 	half.normal.plot(y,height=5)
 reset()
@@ -270,11 +272,12 @@ x.bigram. <- as.matrix(cbind(	Data[,paste("BL",0:(kb-1), sep="")],
 summary(regr.bigram       <- lm(logPrice ~ x.bigram., x=TRUE,y=TRUE))  
 
 par(mfrow=c(1,2))    # regrB.pdf
-		y <- abs(coefficients(summary(regr.bigram))[-1,3])
-		x <- rep(1:(nProj/2),2)          
+	y <- abs(coefficients(summary(regr.bigram))[-1,3])
+	x <- rep(1:(nProj/2),2)          
 	plot(x,y,xlab="Correlation Variable from Bigram", ylab="|t|", main="")
 		abline(h=-qnorm(.025/(nProj/2)), col="gray", lty=3)
 		lines(lowess(x,y), col="red")
+			abline(h=sqrt(2/pi), col="cyan")
 	half.normal.plot(y)
 reset()
 
@@ -288,6 +291,7 @@ par(mfrow=c(1,2))    # regrB.pdf
 	plot(x, y, xlab="Correlation Variable from Bigram", ylab="|t|", main="")
 		abline(h=-qnorm(.025/length(y)), col="gray", lty=3)
 		lines(lowess(x,y), col="red")
+		abline(h=sqrt(2/pi), col="cyan")
 	half.normal.plot(y)
 reset()
 
@@ -311,6 +315,7 @@ par(mfrow=c(1,2))                                              # regrBcca.pdf
 		xlab="Canonical Variable from Bigram", ylab="|t|", main="")
 		abline(h=-qnorm(.025/(nProj/2)), col="gray", lty=3)
 		lines(lowess(x,y), col="red")
+		abline(h=sqrt(2/pi), col="cyan")
 	half.normal.plot(y, height=5)
 reset()
 
@@ -321,21 +326,18 @@ reset()
 ##################################################################################
 
 #     sweep lsa from bigram variables
-r   <- lm(x.bigram. ~ x.lsa.)
-res.bigram <- residuals(r)
+bigram.left  <- x.bigram.[,1:kb]
+bigram.right <- x.bigram.[,(kb+1):(2*kb)]
 
-res.bigram.left  <- res.bigram[,1:kb]
-res.bigram.right <- res.bigram[,(kb+1):(2*kb)]
+ccw <- cancor(bigram.left, bigram.right)
+plot(ccw$cor, xlab="Index of Vector", ylab="Canonical Correlation from Bigram")
 
-ccw <- cancor(res.bigram.left, res.bigram.right)
-plot(ccw$cor, xlab="Index of Vector", ylab="Canonical Correlation of Residuals") # cca.pdf
+cl <- bigram.left  %*% ccw$xcoef		# canonical vars
+colnames(cl) <- paste("Left",1:ncol(cl), sep="_")
 
-cl <- res.bigram.left  %*% ccw$xcoef		# canonical vars
-cr <- res.bigram.right %*% ccw$ycoef
-
-# sweep left from right
-r      <- lm(cr ~ cl)
-res.cr <- residuals(r)[,500:1]  # reverse order
+cr <- bigram.right %*% ccw$ycoef
+cr <- cr[,500:1]   # reverse order
+colnames(cr) <- paste("Right",1:ncol(cr), sep="_")
 
 summary(r1 <- lm(logPrice ~ x.lsa.))                          # adj.r2 = 0.612  ChicagoOld3
 summary(r2 <- lm(logPrice ~ x.lsa. + cl ))                    #          0.68
@@ -351,6 +353,7 @@ par(mfrow=c(1,2))
 		xlab="Variable Index", ylab="|t|", main="")
 		abline(h=-qnorm(.025/d), col="gray", lty=3)
 		lines(lowess(x,y,f=0.3), col="red")
+		abline(h=sqrt(2/pi), col="cyan")
 	half.normal.plot(y, height=5)
 reset()
 
@@ -371,7 +374,31 @@ par(mfrow=c(1,2))
 reset()
 
 
+##################################################################################
+# Write SVD variables to C++
+##################################################################################
 
+write.data("/Users/bob/C/auctions/data/text/text_data.txt", 500)
+
+write.data <- function(filename, n.cols) {
+	write(n, filename)
+	write.vec(logPrice, "Log Price", "role y", filename)
+	write.mat(x.lsa.[,1:n.cols], "LSA"  , filename)
+	write.mat( cl   [,1:n.cols], "Left" , filename)
+	write.mat( cr   [,1:n.cols], "Right", filename)
+	}
+
+write.vec <- function(vector, name, desc, filename)  {
+	write(name,   filename, append=TRUE)
+	write(desc,   filename, append=TRUE)
+	write(vector, filename, append=TRUE,ncolumns=length(vector))
+	}
+
+write.mat <- function(mat, name, filename) {
+	names <- colnames(mat)
+	desc  <- paste("role x stream", name)
+	for (j in 1:ncol(mat)) write.vec(mat[,j], paste(name,names[j],sep="_") ,desc, filename)
+	}
 
 ##################################################################################
 
