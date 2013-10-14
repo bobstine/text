@@ -90,7 +90,7 @@ lines(x,y,col="red")
 
 
 ##################################################################################
-# Analysis of text regressors 
+# Analysis of text regressors for real estate
 ##################################################################################
 
 # --- analysis of regression models
@@ -694,5 +694,28 @@ km <- kmeans(proj,200,iter.max=30)
 
 
 
+##################################################################################
+# Analysis of text regressors for wine
+##################################################################################
+
+nProj <- 200
+
+file  <- paste("/Users/bob/C/text/text_src/temp/wine_regr.txt",sep="")
+
+Data <- read.table(file, header=TRUE); dim(Data)
+
+n <- nrow(Data)
+rating     <- Data[,"Y"]
+
+nTokens   <- Data[,"m"]
+
+hist(rating[rating>0]); sum(rating==0)
+hist(nTokens)
+
+Data <- Data[,c(1:2,6:100)]
+
+
+regr <- lm(Y ~ ., data=Data)
+summary(regr)
 
 

@@ -161,7 +161,21 @@ $(temppath)sim_regr.txt: regressor $(vSimFile) $(rSimFile)
 
 dosim:  $(temppath)sim_regr.txt
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#  wine descriptions
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+
+winepath = text_src/wine/
+
+nWineProj = 200
+
+vWineFile = $(winepath)RatingsAndNotes.txt
+
+$(temppath)wine_regr.txt: regressor $(vWineFile)
+	./regressor --vocab_file=$(vWineFile) --regr_file=$(vWineFile) --output_file=$@  -s $(seed) --n_projections $(nWineProj) --power_iter 1  --bidirectional  
+
+dowine:  $(temppath)wine_regr.txt
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  google eigenwords
