@@ -72,6 +72,7 @@ z <- show.cv(regr.parsed,reps=10)
 ##################################################################################
 #  type counts, zipf
 ##################################################################################
+                                                      zipf.plot <- function() { }
 
 # --- look at type frequencies, zipf plot   (zipf.pdf)
 type.cts <- sort(scan("/Users/bob/C/text/text_src/temp/type_freq.txt"), decreasing=TRUE)
@@ -92,6 +93,7 @@ lines(x,y,col="red")
 ##################################################################################
 # Analysis of text regressors for real estate
 ##################################################################################
+                                                      import.data <- function() { }
 
 # --- analysis of regression models
 nProj <- 1000
@@ -509,6 +511,7 @@ plot(ccw$cor)
 # Simulate data from topic model
 #
 ##################################################################################
+                                                      topic.model <- function() { }
 
 # --- functions
 
@@ -535,13 +538,13 @@ n <- 6000					# num of documents
 
 # --- topic distributions over words in K x M matrix P
 P <- matrix(0, nrow=K, ncol=M)
-                                           # generate words shared by topics
-n.common <- 0                              # number shared words 
+                                              # generate words shared by topics
+n.common <-     0                             # number shared words 
 common <- c(rdirichlet( rep(2,n.common) ), rep(0,M-n.common) ) 
-alpha <- rep(.05, M)			               # dirichlet parms, small alpha are spiky
+alpha <- rep(.05, M)			                  # dirichlet parms, small alpha are spiky
 for(k in 1:K) P[k,] <- (common + rdirichlet(alpha))/2
 if(n.common==0) P <- 2 * P
-round(P[1:10,1:12],3); apply(P,1,sum)      # prob dist so sum to 1
+round(P[1:10,1:12],3); apply(P,1,sum)         # prob dist so sum to 1
 
 #     check dependence/correlation among distributions
 udv <- svd(P); plot(udv$d); 
@@ -583,14 +586,14 @@ write(docs,"/Users/bob/C/text/text_src/sim/sim.txt")
 
 # --- Analysis of C++ results
 #
-#      RUN C++ here (make dosim)
+#      RUN C++ here ( make dosim )
 #
 
 # --- look at type frequencies, zipf plot
 type.cts <- sort(scan("/Users/bob/C/text/text_src/temp/type_freq.txt"), decreasing=TRUE)
 
 x <- log(1:length(type.cts)); y<-log(type.cts)
-plot(x,y, xlab="log rank", ylab="log frequency")        # simzipf.pdf
+plot(x,y, xlab="log rank", ylab="log frequency")        # simzipfa.pdf simzipfb.pdf
 abline(regr<-lm(y[1:500]~x[1:500]),col="red"); coefficients(regr)
 
 

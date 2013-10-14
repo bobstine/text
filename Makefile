@@ -153,11 +153,10 @@ simpath = text_src/sim/
 
 nSimProj = 200
 
-vSimFile = $(temppath)sim_woy.txt
-rSimFile = $(simpath)sim.txt
+simFile = $(simpath)sim.txt
 
-$(temppath)sim_regr.txt: regressor $(vSimFile) $(rSimFile)
-	./regressor --vocab_file=$(vSimFile) --regr_file=$(rSimFile) --output_file=$@  -s $(seed) --n_projections $(nSimProj) --power_iter 1  --bidirectional  
+$(temppath)sim_regr.txt: regressor $(simFile)
+	./regressor --vocab_file=$(simFile) --regr_file=$(simFile) --output_file=$@  -s $(seed) --n_projections $(nSimProj) --power_iter 1  --bidirectional  
 
 dosim:  $(temppath)sim_regr.txt
 
