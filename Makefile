@@ -160,16 +160,16 @@ $(temppath)sim_regr.txt: regressor $(simFile)
 
 dosim:  $(temppath)sim_regr.txt
 
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  wine descriptions
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 
 winepath = text_src/wine/
 
 nWineProj = 200
 
-vWineFile = $(winepath)RatingsAndNotes.txt
+vWineFile = $(winepath)RatingsAndNotes.tokens
 
 $(temppath)wine_regr.txt: regressor $(vWineFile)
 	./regressor --vocab_file=$(vWineFile) --regr_file=$(vWineFile) --output_file=$@  -s $(seed) --n_projections $(nWineProj) --power_iter 1  --bidirectional  

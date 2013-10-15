@@ -17,7 +17,9 @@ half.normal.plot <- function(y, height=2) {
 	k <- length(y)          
 	plot(x <- qnorm(.5+(0:(k-1))/(2*k)), y <- sort(y), 
 		xlab="Normal Quantile", ylab="Sorted |t|"); 
-	regr <- lm(y[1:200] ~ x[1:200])
+	k <- floor(0.2*k)
+	cat("Using lower 20% of cases (",k,")\n"); 
+	regr <- lm(y[1:k] ~ x[1:k])
 	abline(0,1, col="gray")
 	abline(regr,col="red")
 	text(0.25,height,paste("b =",round(coefficients(regr)[2],1)), cex=0.7)
@@ -198,16 +200,17 @@ xtable(sr$coefficients[(order(-ts)[1:15]),], digits=c(0,4,4,2,4))
 #  Multiple R-squared: 0.7662,	Adjusted R-squared: 0.6807 
 #  F-statistic: 8.957 on 1978 and 5405 DF,  p-value: < 2.2e-16 
 	
-y <- ts[-1]             # drop intercept
-x <- 1:length(y)        # some may be singular
-threshold <- -qnorm(.025/length(y))
 par(mfrow=c(1,2))                     # tstatRegrInd.pdf
+	y <- ts[-1]             # drop intercept
+	x <- 1:length(y)        # some may be singular
+	threshold <- -qnorm(.025/length(y))
 	plot(x,y,	xlab="Word Column in W", ylab="|t|", main="")
-		abline(h=threshold, col="gray", lty=4)
-		abline(h=sqrt(2/pi), col="cyan")
-		lines(lowess(x,y), col="red")
+	abline(h=threshold, col="gray", lty=4)
+	abline(h=sqrt(2/pi), col="cyan")
+	lines(lowess(x,y,f=0.3), col="red")
 	half.normal.plot(y)
 reset()
+
 #     number bigger than Bonferroni; indexing is a mess due to dropped columns
 vars <- sapply(names( ts[ts>threshold] )[-1], function(s) substring(s,2))
 colnames(x <- W[,vars])
@@ -244,7 +247,7 @@ par(mfrow=c(1,2))    # regrW.pdf
 		xlab="Singular Vector of W", ylab="|t|", main="")
 		abline(h=-qnorm(.025/(nProj/2)), col="gray", lty=3)
 		abline(h=sqrt(2/pi), col="cyan")
-		lines(lowess(x,y), col="red")
+		lines(lowess(x,y,f=0.3), col="red")
 	half.normal.plot(y,height=5)
 reset()
 
@@ -278,8 +281,8 @@ par(mfrow=c(1,2))    # regrB.pdf
 	x <- rep(1:(nProj/2),2)          
 	plot(x,y,xlab="Correlation Variable from Bigram", ylab="|t|", main="")
 		abline(h=-qnorm(.025/(nProj/2)), col="gray", lty=3)
-		lines(lowess(x,y), col="red")
-			abline(h=sqrt(2/pi), col="cyan")
+		abline(h=sqrt(2/pi), col="cyan")
+		lines(lowess(x,y, f=0.3), col="red")
 	half.normal.plot(y)
 reset()
 
@@ -287,7 +290,7 @@ reset()
 X <- as.matrix(Data[,paste("BL",0:(kb-1), sep="")])
 summary(regr.bigram.left       <- lm(logPrice ~ X, x=TRUE,y=TRUE))  # just left
 
-par(mfrow=c(1,2))    # regrB.pdf
+par(mfrow=c(1,2))    # regrBleft.pdf
 		y <- abs(coefficients(summary(regr.bigram.left))[-1,3])
 		x <- 1:length(y)
 	plot(x, y, xlab="Correlation Variable from Bigram", ylab="|t|", main="")
@@ -698,9 +701,29 @@ km <- kmeans(proj,200,iter.max=30)
 
 
 ##################################################################################
+# Summary t stat plots for pure noise
+##################################################################################
+											noise.model <- function() {}
+z <- rnorm(500)
+
+par(mfrow=c(1,2))    # noise plots
+	y <- abs(z)  
+	h <- -qnorm(.025/length(y) )                           
+	plot( 
+		x <- rep(1:length(y)), y, 
+		xlab="Random Noise", ylab="|t|", main="", ylim=c(0,1.1*h))
+		abline(h=h, col="gray", lty=4)
+		abline(h=sqrt(2/pi), col="cyan")
+		lines(lowess(x,y), col="red")
+	half.normal.plot(y, height=5)
+reset()
+
+
+
+##################################################################################
 # Analysis of text regressors for wine
 ##################################################################################
-
+											wine.model <- function() {}
 nProj <- 200
 
 file  <- paste("/Users/bob/C/text/text_src/temp/wine_regr.txt",sep="")
@@ -708,17 +731,64 @@ file  <- paste("/Users/bob/C/text/text_src/temp/wine_regr.txt",sep="")
 Data <- read.table(file, header=TRUE); dim(Data)
 
 n <- nrow(Data)
-rating     <- Data[,"Y"]
-
+rating    <- Data[,"Y"]
 nTokens   <- Data[,"m"]
 
-hist(rating[rating>0]); sum(rating==0)
-hist(nTokens)
+hist(rating)  ; mean(rating)   # ≈87, more bell-shaped
+hist(nTokens) ; mean(nTokens)  # ≈42
 
-Data <- Data[,c(1:2,6:100)]
+# --- regression data
+kw <- 100
+x.lsa.    <- as.matrix(Data[,paste("D",0:(kw-1), sep="")]); 
+dim(x.lsa.)
+
+kb <- 100
+x.bigram. <- as.matrix(cbind(	Data[,paste("BL",0:(kb-1), sep="")],
+									Data[,paste("BR",0:(kb-1), sep="")]  ))
+dim(x.bigram.)
+
+#    LSA regression
+regr <- lm(rating ~ x.lsa.)
+s <- summary(regr); s
+
+par(mfrow=c(1,2))    # LSA
+	y <- abs(coefficients(s)[-1,3])[1:(nProj/2)]                                
+	plot( 
+		x <- rep(1:length(y)), y, 
+		xlab="Wine Regr, LSA variables", ylab="|t|", main="")
+		abline(h=-qnorm(.025/length(y)), col="gray", lty=3)
+		lines(lowess(x,y), col="red")
+	half.normal.plot(y, height=5)
+reset()
+
+#    CCA of bigram variables
+left  <-   1        : (nProj/2)
+right <- (nProj/2+1):  nProj
+ccw <- cancor(x.bigram.[,left], x.bigram.[,right]); 
+plot(ccw$cor, xlab="Canonical Variable", ylab="Canonical Correlation")           # simccab.pdf
+
+cl <- x.bigram.[, left] %*% ccw$xcoef		# canonical vars
+cr <- x.bigram.[,right] %*% ccw$ycoef
+
+regr <- lm(rating ~ cl)
+s <- summary(regr)
+
+par(mfrow=c(1,2))    # Left bigram, after CCA
+	y <- abs(coefficients(s)[-1,3])[1:(nProj/2)]                                
+	plot( 
+		x <- rep(1:length(y)), y, 
+		xlab="Wine Regr, Bigram variables (left, after CCA)", ylab="|t|", main="")
+		abline(h=-qnorm(.025/length(y)), col="gray", lty=3)
+		lines(lowess(x,y), col="red")
+	half.normal.plot(y, height=5)
+reset()
 
 
-regr <- lm(Y ~ ., data=Data)
-summary(regr)
+
+
+
+
+
+
 
 
