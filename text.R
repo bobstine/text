@@ -169,6 +169,7 @@ par(mfrow=c(1,1))
 
 #     corr with sqft and logprice for not missing
 cor( log(sqft)[sqft.obs], logPrice[sqft.obs] )
+cor( baths[bath.obs], logPrice[bath.obs])
 
 #     anomalies:  25 @ 265
 table(nTokens)
