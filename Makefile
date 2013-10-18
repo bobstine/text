@@ -167,7 +167,7 @@ dosim:  $(temppath)sim_regr.txt
 
 winepath = text_src/wine/
 
-nWineProj = 200
+nWineProj = 500
 
 vWineFile = $(winepath)RatingsAndNotes.tokens
 

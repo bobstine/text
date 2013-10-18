@@ -11,7 +11,6 @@ reset <- function() {
 	# par(mfrow=c(1,1), mgp=c(3,1,0), mar=c(5,4,4,2)+0.1)      # default
 	par(mfrow=c(1,1), mgp=c(1.5,0.5,0), mar=c(3,2.5,2,1)+0.1)  # bottom left top right
 	}
-reset()  # sets up plot
 
 half.normal.plot <- function(y, height=2) {
 	k <- length(y)          
@@ -28,8 +27,8 @@ half.normal.plot <- function(y, height=2) {
 	
 jitter <- function(x) { x + 0.05 * sd(x) * rnorm(length(x)) }
 
-# need x,y in regr
-cross.validate.mse <- function(regr, n.folds=10,seed=23479,n.reps=1) { 	yx <- data.frame(y=regr$y, regr$x[,-1]) # remove intercept
+cross.validate.mse <- function(regr, n.folds=10,seed=23479,n.reps=1) { 	
+	yx <- data.frame(y=regr$y, regr$x[,-1]) # remove intercept
 	n <- nrow(yx);
 	i <- rep(1:n.folds,ceiling(n/n.folds))
 	if (length(i) != n) cat("Note: n is not multiple of # folds.\n");
@@ -49,8 +48,8 @@ cross.validate.mse <- function(regr, n.folds=10,seed=23479,n.reps=1) { 	yx <- da
 	mse
 	}
 	
-show.cv <- function(regr, reps=1, seed=2382) {
-	mse <- cross.validate.mse(regr, n.reps=reps, seed=seed)
+show.cv <- function(regr, mse=NULL, reps=1, seed=2382) {
+	if(is.null(mse)) { mse <- cross.validate.mse(regr, n.reps=reps, seed=seed)}
 	hist(sqrt(mse), main=paste("Cross Validation", deparse(formula(regr))))
 	red  <- (sr<-summary(regr))$sigma       ; abline(v=red , col="red", lty=3)
 	red2 <- red * sqrt(1+sr$df[1]/sr$df[2]) ; abline(v=red2, col="red")
@@ -60,6 +59,9 @@ show.cv <- function(regr, reps=1, seed=2382) {
 	rect(ci[1],0,ci[2],0.25,col="lightblue",border=NA)
 	list(fit=red, cv=blue, mse=mse)
 	}
+	
+# --- run the following to initialize
+reset()  # sets up plot
 
 	
 # --- cv of models
@@ -74,7 +76,7 @@ z <- show.cv(regr.parsed,reps=10)
 ##################################################################################
 #  type counts, zipf
 ##################################################################################
-                                                      zipf.plot <- function() { }
+zipf.plot <- function() { 
 
 # --- look at type frequencies, zipf plot   (zipf.pdf)
 type.cts <- sort(scan("/Users/bob/C/text/text_src/temp/type_freq.txt"), decreasing=TRUE)
@@ -90,12 +92,12 @@ regr<-lm(ly~lx, data=zipf.data[1:500,]); coefficients(regr)
 lx <- log(x<-c(1,5000)); y <- exp(predict(regr, data.frame(lx=lx)))
 lines(x,y,col="red")
 
-
+}
 
 ##################################################################################
 # Analysis of text regressors for real estate
 ##################################################################################
-                                                      import.data <- function() { }
+import.data <- function() { 
 
 # --- analysis of regression models
 nProj <- 1000
@@ -128,12 +130,13 @@ reset()
 # --- simple models for log of prices has discontinuity 
 plot(logPrice ~ logTokens) 
 lines(lowess(logTokens, logPrice, f=.3), col="red")
-
+}
 
 ##################################################################################
 # Parsed variables
 ##################################################################################
-
+parsed.analysis <- function() {
+	
 sqft  <- Data[,"SqFt"];      sqft.obs <- 0<Data[,"SqFt"]         
 sqft[!sqft.obs] <- mean( sqft[sqft.obs] )
 baths <- Data[,"Bathrooms"]; bath.obs <- 0<Data[,"Bathrooms"]
@@ -174,8 +177,8 @@ ii <- which(nTokens==265); length(ii)
 # --- parsed regression fit
 
 x.parsed. <- cbind(log(Data[,"m"]), log(sqft), sqft.obs, beds, beds.obs, baths, bath.obs)
-colnames(x.parsed.)<-c("Log m","Log SqFt","SqFt Obs",
-               "Bedrooms","Bedroom Obs","Bathrooms","Bathroom Obs")
+colnames(x.parsed.)<-c("Log.m","Log.SqFt","SqFt.obs",
+               "Bedrooms","Bedroom.obs","Bathrooms","Bathroom.obs")
 
 summary(regr.parsed        <- lm(logPrice ~ x.parsed., x=TRUE, y=TRUE))
 
@@ -183,11 +186,13 @@ xtable(regr.parsed)
 
 mse <- show.cv(regr.parsed,5)
 
-
+}
 
 ##################################################################################
 #  Raw word regression
 ##################################################################################
+word.regression <- function () {
+	
 
 # --- regression with W count matrix  (have to remove """ from names line)
 W <- as.matrix(read.table("/Users/bob/C/text/text_src/temp/w2000.txt", header=TRUE)); dim(W)
@@ -223,12 +228,13 @@ r <- residuals(wregr); f <- fitted.values(wregr)
 plot(r,f)
 
 plot(wregr)
-
+}
 
 ##################################################################################
 # SVD variables, W
 ##################################################################################
-
+lsa.analysis <- function() {
+	
 # --- LSA analysis from matrix W
 kw <- 500
 x.lsa.    <- as.matrix(Data[,paste("D",0:(kw-1), sep="")])
@@ -257,7 +263,10 @@ sres <- stdres(regr.lsa)
 plot(nTokens, abs(sres))
 lines(lowess(nTokens, abs(sres)), col="red")
 
-mse <- show.cv(regr.lsa, reps=3, seed=33213)
+# --- cross-validation
+mse <- show.cv(regr.lsa, reps=20, seed=33213)  # use to compute first time
+
+show.cv(regr.lsa, mse=save.mse$mse, reps=20, seed=33213)  # use if already computed
 
 #     preliminary interactions
 frame <- data.frame(logPrice,x.lsa.[,1:20])
@@ -266,6 +275,7 @@ br2 <- lm(logPrice ~ . + .*., data = frame); summary(br2)
 anova(br,br2)
 cor(fitted.values(regr.lsa), f <- fitted.values(br2))
 
+}
 
 ##################################################################################
 # SVD variables, B
@@ -324,6 +334,11 @@ par(mfrow=c(1,2))                                              # regrBcca.pdf
 	half.normal.plot(y, height=5)
 reset()
 
+# --- CCA of bigram left with LSA
+left  <-   1        : (nProj/2)
+ccw <- cancor(x.bigram.[,left], x.lsa.)
+plot(ccw$cor, xlab="Index of Vector", ylab="Canonical Correlation")
+
 
 
 ##################################################################################
@@ -335,19 +350,13 @@ bigram.left  <- x.bigram.[,1:kb]
 bigram.right <- x.bigram.[,(kb+1):(2*kb)]
 
 ccw <- cancor(bigram.left, bigram.right)
-plot(ccw$cor, xlab="Index of Vector", ylab="Canonical Correlation from Bigram")
-
 cl <- bigram.left  %*% ccw$xcoef		# canonical vars
 colnames(cl) <- paste("Left",1:ncol(cl), sep="_")
 
-cr <- bigram.right %*% ccw$ycoef
-cr <- cr[,500:1]   # reverse order
-colnames(cr) <- paste("Right",1:ncol(cr), sep="_")
-
 summary(r1 <- lm(logPrice ~ x.lsa.))                          # adj.r2 = 0.612  ChicagoOld3
 summary(r2 <- lm(logPrice ~ x.lsa. + cl ))                    #          0.68
-summary(r3 <- lm(logPrice ~ x.lsa. + cl + res.cr))            #          0.70
-summary(r4 <- lm(logPrice ~ x.lsa. + cl + res.cr + x.parsed.))#          0.70
+summary(r3 <- lm(logPrice ~ x.lsa. + cl + bigram.right))      #          0.70
+summary(r4 <- lm(logPrice ~ x.lsa. + cl + x.bigram.right + x.parsed.)) # 0.70
 
 
 y <- abs(coefficients(summary(r3))[-1,3])
@@ -478,13 +487,26 @@ anova(regr.lsa   , regr.parsed.lsa)
 ##################################################################################
 
 # --- estimated parsed variables in place of originals
-s <- summary(r <- lm(x.parsed. ~ x.lsa. + x.bigram.))
-
+s <- summary(r <- lm(x.parsed. ~ x.lsa. ))
 for(j in 1:length(s)) {
 	cat(names(s)[j]," ", s[[j]]$r.squared,"\n")  }
 
-x.parsed.hat <- fitted.values(r)
-colnames(x.parsed.hat) <- paste("Res",colnames(x.parsed.))
+x.parsed.hat. <- fitted.values(r)
+colnames(x.parsed.hat.) <- paste("Est",colnames(x.parsed.), sep=".")
+
+#  pick a variable
+yx <- as.data.frame(cbind(logPrice, x.parsed.))         # missing 
+summary( lm(logPrice ~ Bathrooms, data=yx ) )
+
+use <- 1 == x.parsed.[,"Bathroom.obs"]                      # few observed
+yx <- as.data.frame(cbind(logPrice, x.parsed.)[use,])   # just obs
+summary( lm(logPrice ~ Bathrooms, data=yx ) )
+
+yx <- as.data.frame(cbind(logPrice, x.parsed.hat.))
+plot(logPrice ~ Est.Bathrooms, data=yx )
+summary( regr <- lm(logPrice ~ Est.Bathrooms, data=yx ) )
+abline(regr, col="red")
+text(3.5,6, paste("r=",round(sqrt(summary(regr)$r.squared),2)))
 
 #     m is worse when estimated, but all of the others improve
 j <- 2;
@@ -724,7 +746,7 @@ reset()
 # Analysis of text regressors for wine
 ##################################################################################
 											wine.model <- function() {}
-nProj <- 200
+nProj <- 500
 
 file  <- paste("/Users/bob/C/text/text_src/temp/wine_regr.txt",sep="")
 
@@ -738,11 +760,11 @@ hist(rating)  ; mean(rating)   # ≈87, more bell-shaped
 hist(nTokens) ; mean(nTokens)  # ≈42
 
 # --- regression data
-kw <- 100
+kw <- 250
 x.lsa.    <- as.matrix(Data[,paste("D",0:(kw-1), sep="")]); 
 dim(x.lsa.)
 
-kb <- 100
+kb <- 250
 x.bigram. <- as.matrix(cbind(	Data[,paste("BL",0:(kb-1), sep="")],
 									Data[,paste("BR",0:(kb-1), sep="")]  ))
 dim(x.bigram.)
@@ -770,11 +792,11 @@ plot(ccw$cor, xlab="Canonical Variable", ylab="Canonical Correlation")          
 cl <- x.bigram.[, left] %*% ccw$xcoef		# canonical vars
 cr <- x.bigram.[,right] %*% ccw$ycoef
 
-regr <- lm(rating ~ cl)
-s <- summary(regr)
+regr.cl <- lm(rating ~ cl)
+s.cl <- summary(regr.cl); s.cl
 
 par(mfrow=c(1,2))    # Left bigram, after CCA
-	y <- abs(coefficients(s)[-1,3])[1:(nProj/2)]                                
+	y <- abs(coefficients(s.cl)[-1,3])[1:(nProj/2)]                                
 	plot( 
 		x <- rep(1:length(y)), y, 
 		xlab="Wine Regr, Bigram variables (left, after CCA)", ylab="|t|", main="")
@@ -783,6 +805,8 @@ par(mfrow=c(1,2))    # Left bigram, after CCA
 	half.normal.plot(y, height=5)
 reset()
 
+regr <- lm(rating ~ cl + cr)
+s <- summary(regr); s
 
 
 
