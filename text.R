@@ -195,6 +195,11 @@ mse <- show.cv(regr.parsed,5)
 word.regression <- function () {
 	
 
+# --- plot of cum R2 statistic
+
+r2.words <- scan("/Users/bob/C/text/text_src/temp/w_regr_r2.txt", what=0.0)
+plot(r2.words, type="l")
+
 # --- regression with W count matrix  (have to remove """ from names line)
 W <- as.matrix(read.table("/Users/bob/C/text/text_src/temp/w2000.txt", header=TRUE)); dim(W)
 

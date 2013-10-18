@@ -25,9 +25,9 @@ PROJECT_NAME = text
 
 OPT = -O3  -std=c++0x
 
-USES = utils
+USES = utils eigen
 
-EXTERNAL_USES = boost_regex
+EXTERNAL_USES = boost_regex gomp
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
