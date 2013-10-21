@@ -63,15 +63,6 @@ show.cv <- function(regr, mse=NULL, reps=1, seed=2382) {
 # --- run the following to initialize
 reset()  # sets up plot
 
-	
-# --- cv of models
-z <- show.cv(regr.parsed,reps=10)
-
-# mse <- cross.validate.mse(regr.lsa)
-# mse <- cross.validate.mse(regr.bigram)
-# Pct: 0.799 unweighted or 0.785 weighted by sqrt    Counts: 0.806 counts
-# mse <- cross.validate.mse(regr.lsa   , 20); sqrt(mean(mse)) 
-
 
 ##################################################################################
 #  type counts, zipf
@@ -196,12 +187,22 @@ word.regression <- function () {
 	
 
 # --- plot of cum R2 statistic
+r2.words <- read.table("/Users/bob/C/text/text_src/temp/w_regr_r2.txt", header=TRUE, as.is=TRUE)
+r2.words[c(1,10,100,nrow(r2.words)),]
 
-r2.words <- scan("/Users/bob/C/text/text_src/temp/w_regr_r2.txt", what=0.0)
-plot(r2.words, type="l")
+plot(r2.words[,"r2"], type="l", xlab="Word Index", ylab="Cumulative R2")
+
+d <- diff(c(0,r2.words[,"r2"]))
+plot(d, xlab="Word Index", ylab="R2")
+
+indx<-order(-d)
+cbind(indx[1:10], round(d[indx][1:10],4), r2.words[indx[1:10],1])
+
 
 # --- regression with W count matrix  (have to remove """ from names line)
 W <- as.matrix(read.table("/Users/bob/C/text/text_src/temp/w2000.txt", header=TRUE)); dim(W)
+
+summary( lm(logPrice ~ W[,1:100]) ); colnames(W)[1:10]
 
 sr <- summary(  wregr <- lm(logPrice ~ W)   )
 ts <- abs(coefficients(sr)[,3])

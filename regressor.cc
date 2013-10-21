@@ -176,13 +176,14 @@ int main(int argc, char** argv)
   Vector m = W * Vector::Ones(W.cols());                   // total count
   std::clog << "MAIN: Sum of row 0 of W is " << m(0) << "  sum of row 1 of W is " << m(1) << endl;
 
-  // optionaly fit sequence of regression models
+  // optionaly track R2 sequence of regression models for words
   if (true)
   { const int nColsRegr = 2000;
+    Vocabulary::TypeVector tv = vocabulary.types();
     std::clog << "MAIN: Top of regression loop; fitting " << nColsRegr << " word regressors.\n";
     Eigen::VectorXf r2(nColsRegr);
-    Eigen::VectorXd YY (nLines);  // need to put into double for regression code
-    for(int i=0; i<YY.size(); ++i) YY(i) = Y(i);
+    Eigen::VectorXd YY (nLines);                          // put into double and take log for regression code
+    for(int i=0; i<YY.size(); ++i) YY(i) = log (Y(i));
     LinearRegression regr("log price", YY, 0);
     Eigen::VectorXf ind = Eigen::VectorXf::Zero(W.cols()+1);
     ind(0) = 1;
@@ -196,12 +197,13 @@ int main(int argc, char** argv)
       if(f.f_stat() > 0.0001) regr.add_predictors();
       else std::clog << "MAIN: Regressor " << j << " singular (or near singular) and skipped.\n";
       r2(j) = regr.r_squared();
-      std::clog << "     j=" << j << "   F=" << f.f_stat() << "   r2(j)=" << r2(j) << std::endl;
+      //      std::clog << "     j=" << j << "   F=" << f.f_stat() << "   r2(j)=" << r2(j) << std::endl;
       ind(j) = 0;
       ind(j+1) = 1;
     }
     std::ofstream os("text_src/temp/w_regr_r2.txt");
-    os << r2 << std::endl;
+    os << "Type  r2\n";
+    for (int i=0; i<nColsRegr; ++i) os << tv[i] << " " << r2[i] << std::endl;
     std::clog << "MAIN: Regression on W completed with results written to file.\n";
   }
   
