@@ -188,9 +188,18 @@ word.regression <- function () {
 
 # --- plot of cum R2 statistic
 r2.words <- read.table("/Users/bob/C/text/text_src/temp/w_regr_r2.txt", header=TRUE, as.is=TRUE)
-r2.words[c(1,10,100,nrow(r2.words)),]
+r2.words[c(1,2,3,4,5,10,100,nrow(r2.words)),]
+
+nr <- nrow(r2.words);
+m <- r2.words[nr,"r2"]
 
 plot(r2.words[,"r2"], type="l", xlab="Word Index", ylab="Cumulative R2")
+
+plot(r2.words[,"r2"], type="l", log="x", xlab="Word Index", ylab="Cumulative R2")
+abline(h=m, col="gray")
+text(nr/4, m, round(m,2), col="gray")
+lines( seq(1,nr,length.out=1000), seq(1/nr,nr/n,length.out=1000)  , col="red")  # null rate
+
 
 d <- diff(c(0,r2.words[,"r2"]))
 plot(d, xlab="Word Index", ylab="R2")
