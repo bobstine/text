@@ -66,6 +66,37 @@ write_word_counts_to_file(std::string fileName, Vocabulary::SparseMatrix const& 
   os << W.leftCols(nCols);
 }
 
+void
+calculate_sequence_r2 (Eigen::VectorXd const& Y, Vocabulary::SparseMatrix const& W, Vocabulary const& vocab, int nToFit, std::string file)
+{
+  std::clog << "MAIN: Top of calculate_sequence_r2 loop; fitting " << nToFit << " word regressors.\n";
+  std::ofstream os(file);
+  if ((file.size()>0) && (!os)) std::clog << "MAIN: Could not open file " << file << " for writing r2 sequence.\n";
+  if (os)  os << "Type  r2\n";
+  const bool reverse (true);          // reverse=true implies fit rare types first
+  const int k = W.cols();
+  Vocabulary::TypeVector tv = vocab.types();
+  LinearRegression regr("log price", Y, 0);
+  Eigen::VectorXf ind = Eigen::VectorXf::Zero(k);
+  for (int j=0; j<nToFit; ++j)
+  { int index;
+    if(reverse) index = (nToFit-1) - j;
+    else        index = j;
+    Eigen::VectorXf x(W.rows());
+    ind(index) = 1;
+    x = W * ind;                      // elaborate way to get column out of sparse matrix
+    ind(index) = 0;
+    Eigen::VectorXd X(x.size(),1);    // transfer to double
+    for(int i=0; i<x.size(); ++i) X(i) = x(i);
+    FStatistic f=regr.f_test_predictor("xx", X);
+    if(f.f_stat() > 0.0001) regr.add_predictors();
+    else std::clog << "MAIN: F = " << f.f_stat() << " for word j=" << index << ", type=" << tv[index] << " is (near) singular in sequence r2 and skipped.\n";
+    double r2 = regr.r_squared();
+    if (os)
+      os << tv[index] << " " << r2 << std::endl;
+  }
+  std::clog << "MAIN: Regression on W completed with results written to " << file << ".\n";
+}
 
 void
 fill_random_projection(Matrix &P, Vocabulary::SparseMatrix const& M, Vector const& wts, int power)
@@ -160,8 +191,8 @@ int main(int argc, char** argv)
   std::clog << "MAIN: Completed random projection P[" << P.rows() << "x" << P.cols() << "]";
   if (powerIterations) std::clog << " with power iterations.";
   std::clog << endl;
-  if (false)
-    write_eigenwords_to_file ("/Users/bob/Desktop/eigenwords.txt", P, vocabulary);
+  if (true)
+    write_eigenwords_to_file ("text_src/temp/eigenwords.txt", P, vocabulary);
   else std::clog << "MAIN: Skipping output of eigenword matrix to file.\n";
 
   // convert data text lines into vectors for regression
@@ -176,35 +207,12 @@ int main(int argc, char** argv)
   Vector m = W * Vector::Ones(W.cols());                   // total count
   std::clog << "MAIN: Sum of row 0 of W is " << m(0) << "  sum of row 1 of W is " << m(1) << endl;
 
-  // optionaly track R2 sequence of regression models for words
+  // optionally track R2 sequence of regression models for words
   if (true)
   { const int nColsRegr = 2000;
-    Vocabulary::TypeVector tv = vocabulary.types();
-    std::clog << "MAIN: Top of regression loop; fitting " << nColsRegr << " word regressors.\n";
-    Eigen::VectorXf r2(nColsRegr);
     Eigen::VectorXd YY (nLines);                          // put into double and take log for regression code
     for(int i=0; i<YY.size(); ++i) YY(i) = log (Y(i));
-    LinearRegression regr("log price", YY, 0);
-    Eigen::VectorXf ind = Eigen::VectorXf::Zero(W.cols()+1);
-    ind(0) = 1;
-    for (int j=0; j<nColsRegr; ++j)
-    { Eigen::VectorXf x(nLines);
-      x = W * ind.head(W.cols());  // elaborate way to get column
-      Eigen::VectorXd X(x.size(),1);
-      for(int i=0; i<x.size(); ++i)
-	X(i) = x(i);
-      FStatistic f=regr.f_test_predictor("xx", X);
-      if(f.f_stat() > 0.0001) regr.add_predictors();
-      else std::clog << "MAIN: Regressor " << j << " singular (or near singular) and skipped.\n";
-      r2(j) = regr.r_squared();
-      //      std::clog << "     j=" << j << "   F=" << f.f_stat() << "   r2(j)=" << r2(j) << std::endl;
-      ind(j) = 0;
-      ind(j+1) = 1;
-    }
-    std::ofstream os("text_src/temp/w_regr_r2.txt");
-    os << "Type  r2\n";
-    for (int i=0; i<nColsRegr; ++i) os << tv[i] << " " << r2[i] << std::endl;
-    std::clog << "MAIN: Regression on W completed with results written to file.\n";
+    calculate_sequence_r2 (YY, W, vocabulary, nColsRegr, "text_src/temp/w_regr_r2.txt");
   }
   
   // optionally write W to file

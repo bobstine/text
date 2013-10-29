@@ -4,6 +4,7 @@
 #
 ##################################################################################
 
+library(car)
 library(xtable)    # latex tables
 library(MASS)
 
@@ -187,18 +188,25 @@ word.regression <- function () {
 	
 
 # --- plot of cum R2 statistic
-r2.words <- read.table("/Users/bob/C/text/text_src/temp/w_regr_r2.txt", header=TRUE, as.is=TRUE)
-r2.words[c(1,2,3,4,5,10,100,nrow(r2.words)),]
+r2.words.for <- read.table("/Users/bob/C/text/text_src/temp/w_regr_r2_forward.txt", header=TRUE, as.is=TRUE)
+r2.words.for[c(1,2,3,4,5,10,100,nrow(r2.words.for)),]
+nr <- nrow(r2.words.for);
 
-nr <- nrow(r2.words);
-m <- r2.words[nr,"r2"]
+r2.words.rev <- read.table("/Users/bob/C/text/text_src/temp/w_regr_r2_reverse.txt", header=TRUE, as.is=TRUE)
+r2.words.rev[c(1,2,3,4,5,10,100,nr),]
 
-plot(r2.words[,"r2"], type="l", xlab="Word Index", ylab="Cumulative R2")
+i <- c(1,2,3,4,5,10,100,nr)
+cbind(r2.words.for[i,],r2.words.rev[nr-i+1,]
 
-plot(r2.words[,"r2"], type="l", log="x", xlab="Word Index", ylab="Cumulative R2")
-abline(h=m, col="gray")
-text(nr/4, m, round(m,2), col="gray")
-lines( seq(1,nr,length.out=1000), seq(1/nr,nr/n,length.out=1000)  , col="red")  # null rate
+
+
+mx <- r2.words.for[nr,"r2"]
+
+plot (c(0,r2.words.for[,"r2"]), type="l", xlab="Word Index", ylab="Cumulative R2")
+lines(cumsum(rev(diff(c(0,r2.words.rev[,"r2"])))), col="gray")
+
+
+
 
 
 d <- diff(c(0,r2.words[,"r2"]))
@@ -211,9 +219,7 @@ cbind(indx[1:10], round(d[indx][1:10],4), r2.words[indx[1:10],1])
 # --- regression with W count matrix  (have to remove """ from names line)
 W <- as.matrix(read.table("/Users/bob/C/text/text_src/temp/w2000.txt", header=TRUE)); dim(W)
 
-summary( lm(logPrice ~ W[,1:100]) ); colnames(W)[1:10]
-
-sr <- summary(  wregr <- lm(logPrice ~ W)   )
+sr <- summary(  mwregr <- lm(logPrice ~ nTokens + W)   )
 ts <- abs(coefficients(sr)[,3])
 xtable(sr$coefficients[(order(-ts)[1:15]),], digits=c(0,4,4,2,4))
 
@@ -291,7 +297,13 @@ br2 <- lm(logPrice ~ . + .*., data = frame); summary(br2)
 anova(br,br2)
 cor(fitted.values(regr.lsa), f <- fitted.values(br2))
 
-}
+# --- exact SVD
+
+k <- 800; udv <- svd(W[,1:k])
+
+# about 10 if k=200
+plot(udv$d[1:(k-10)], log="xy", main=paste("Exact Singular Values of W, k=",k),
+	xlab="Index of Singular Value", ylab="Exact Singular Value") 
 
 ##################################################################################
 # SVD variables, B
@@ -325,7 +337,6 @@ par(mfrow=c(1,2))    # regrBleft.pdf
 		abline(h=sqrt(2/pi), col="cyan")
 	half.normal.plot(y)
 reset()
-
 
 # --- CCA of bigram left/right decomp
 left  <-   1        : (nProj/2)
@@ -545,6 +556,18 @@ left  <-   1        : (nProj/2)
 right <- (nProj/2+1):  nProj
 ccw <- cancor(x.bigram.[,left], x.bigram.[,right])
 plot(ccw$cor)
+
+##################################################################################
+# eigenwords
+#
+#   optionally generate from C++
+#
+##################################################################################
+
+ewords <- read.table("/Users/bob/C/text/text_src/temp/eigenwords.txt", header=TRUE)
+
+word.types <- ewords[,1]
+eigens <- ewords[,2:30]
 
 
 ##################################################################################
