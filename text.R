@@ -121,7 +121,9 @@ reset()
 
 # --- simple models for log of prices has discontinuity 
 plot(logPrice ~ logTokens) 
+regr <- lm(logPrice ~ nTokens + logTokens); summary(regr)
 lines(lowess(logTokens, logPrice, f=.3), col="red")
+points(logTokens, fitted.values(regr), col="cyan")
 }
 
 ##################################################################################
@@ -187,39 +189,51 @@ mse <- show.cv(regr.parsed,5)
 word.regression <- function () {
 	
 
-# --- plot of cum R2 statistic
-r2.words.for <- read.table("/Users/bob/C/text/text_src/temp/w_regr_r2_forward.txt", header=TRUE, as.is=TRUE)
-r2.words.for[c(1,2,3,4,5,10,100,nrow(r2.words.for)),]
-nr <- nrow(r2.words.for);
+# --- plot cum R2 statistic, AICc  (must patch """ in source file)
+r2.words.for <- read.table("/Users/bob/C/text/text_src/temp/word_regr_fit_with_m_for.txt", 
+							header=TRUE, as.is=TRUE)
+nrf <- nrow(r2.words.for);
+r2.words.for[c(1,2,3,4,5,10,100,nrf),]
+r2.words.rev <- read.table("/Users/bob/C/text/text_src/temp/word_regr_fit_with_m_rev.txt", 
+							header=TRUE, as.is=TRUE)
+nrr <- nrow(r2.words.rev);
+r2.words.rev[c(1,2,3,4,5,10,100,nrr),]
 
-r2.words.rev <- read.table("/Users/bob/C/text/text_src/temp/w_regr_r2_reverse.txt", header=TRUE, as.is=TRUE)
-r2.words.rev[c(1,2,3,4,5,10,100,nr),]
+i <- c(1,2,3,4,5,10,100,500)
+cbind(r2.words.for[1+i,],r2.words.rev[nrr-i+1,])
+sum(0 == diff(r2.words.for[,"RSS"]))  # how many add nothing
+sum(0 == diff(r2.words.rev[,"RSS"]))  # how many add nothing
 
-i <- c(1,2,3,4,5,10,100,nr)
-cbind(r2.words.for[i,],r2.words.rev[nr-i+1,]
-
-
-
-mx <- r2.words.for[nr,"r2"]
-
+mx <- r2.words.for[nrf,"r2"]                                           # cum_r2.pdf
 plot (c(0,r2.words.for[,"r2"]), type="l", xlab="Word Index", ylab="Cumulative R2")
-lines(cumsum(rev(diff(c(0,r2.words.rev[,"r2"])))), col="gray")
+lines(cumsum(c(r2.words.rev[1,"r2"],rev(diff(c(0,r2.words.rev[,"r2"]))[-1]))), col="gray")
+lines(c(0,r2.words.rev[,"r2"]), col="black", lty=4)
+
+plot(r2.words.for[,"AICc"], type="l", xlab="Word Index", ylab="AICc")  # aic_words.pdf
+lines( r2.words.rev[,"AICc"] , col="black", lty=4)
+opt.k <- which.min(r2.words.for[,"AICc"])    # 1094
+lines(c(opt.k,opt.k), c(0,4500), col="gray")
 
 
-
-
-
-d <- diff(c(0,r2.words[,"r2"]))
-plot(d, xlab="Word Index", ylab="R2")
-
-indx<-order(-d)
-cbind(indx[1:10], round(d[indx][1:10],4), r2.words[indx[1:10],1])
-
-
-# --- regression with W count matrix  (have to remove """ from names line)
+# --- regression with W count matrix  (have to remove """ from type names in source)
 W <- as.matrix(read.table("/Users/bob/C/text/text_src/temp/w2000.txt", header=TRUE)); dim(W)
 
-sr <- summary(  mwregr <- lm(logPrice ~ nTokens + W)   )
+# --- compare fits at AIC min to 2000
+#  sr$r.squared  =  0.7667; 0.7708 w log   sr.1200$r.squared = 0.7020
+sr     <- summary(  mwregr  <-lm(logPrice ~ nTokens + W          , x=TRUE,y=TRUE));
+sr.opt <- summary(mwregr.opt<-lm(logPrice ~ nTokens + W[,1:opt.k], x=TRUE,y=TRUE));
+
+anova(mwregr.opt,mwregr)  # F=1.93 with p<0.001 and 888,5404 df
+
+
+# --- cross-validation
+mse     <- show.cv(mwregr,    reps=2,seed=33213); mean(mse$mse)    #  0.7142
+mse.opt <- show.cv(mwregr.opt,reps=2,seed=33213); mean(mse.opt$mse) # 0.6457
+
+show.cv(regr.lsa, mse=save.mse$mse, reps=20, seed=33213)  # use if already computed
+
+
+# --- coefs for tables 
 ts <- abs(coefficients(sr)[,3])
 xtable(sr$coefficients[(order(-ts)[1:15]),], digits=c(0,4,4,2,4))
 

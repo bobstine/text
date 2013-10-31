@@ -67,16 +67,24 @@ write_word_counts_to_file(std::string fileName, Vocabulary::SparseMatrix const& 
 }
 
 void
-calculate_sequence_r2 (Eigen::VectorXd const& Y, Vocabulary::SparseMatrix const& W, Vocabulary const& vocab, int nToFit, std::string file)
+calculate_sequence_r2 (Eigen::VectorXd const& Y, Eigen::VectorXd tokenCount, bool reverse, Vocabulary::SparseMatrix const& W,
+		       Vocabulary const& vocab, int nToFit, std::string file)
 {
   std::clog << "MAIN: Top of calculate_sequence_r2 loop; fitting " << nToFit << " word regressors.\n";
   std::ofstream os(file);
   if ((file.size()>0) && (!os)) std::clog << "MAIN: Could not open file " << file << " for writing r2 sequence.\n";
-  if (os)  os << "Type  r2\n";
-  const bool reverse (true);          // reverse=true implies fit rare types first
+  if (os)  os << "Type  r2  RSS AICc\n";
+  LinearRegression regr("log price", Y, 0);
+  if (tokenCount.size() > 0)
+  { std::clog << "MAIN: Calculate_sequence_r2 adjusted for total word count.\n";
+    FStatistic f = regr.f_test_predictor("m",tokenCount);
+    std::clog << "MAIN: F stat for adding token lengths is " << f.f_stat() << std::endl;
+    if(f.f_stat() > 0.0001) regr.add_predictors();
+    if (os)
+      os << "nTokens " << regr.r_squared() << " " << regr.residual_ss() << " " << regr.aic_c() << std::endl;
+  }    
   const int k = W.cols();
   Vocabulary::TypeVector tv = vocab.types();
-  LinearRegression regr("log price", Y, 0);
   Eigen::VectorXf ind = Eigen::VectorXf::Zero(k);
   for (int j=0; j<nToFit; ++j)
   { int index;
@@ -91,9 +99,8 @@ calculate_sequence_r2 (Eigen::VectorXd const& Y, Vocabulary::SparseMatrix const&
     FStatistic f=regr.f_test_predictor("xx", X);
     if(f.f_stat() > 0.0001) regr.add_predictors();
     else std::clog << "MAIN: F = " << f.f_stat() << " for word j=" << index << ", type=" << tv[index] << " is (near) singular in sequence r2 and skipped.\n";
-    double r2 = regr.r_squared();
     if (os)
-      os << tv[index] << " " << r2 << std::endl;
+      os << tv[index] << " " << regr.r_squared() << " " << regr.residual_ss() << " " << regr.aic_c() << std::endl;
   }
   std::clog << "MAIN: Regression on W completed with results written to " << file << ".\n";
 }
@@ -204,15 +211,24 @@ int main(int argc, char** argv)
     std::ifstream is(regrFileName);
     vocabulary.fill_sparse_regr_design(Y, W, is);
   }
-  Vector m = W * Vector::Ones(W.cols());                   // total count
+  Vector m = W * Vector::Ones(W.cols());                   // token count for each document
   std::clog << "MAIN: Sum of row 0 of W is " << m(0) << "  sum of row 1 of W is " << m(1) << endl;
 
   // optionally track R2 sequence of regression models for words
   if (true)
-  { const int nColsRegr = 2000;
-    Eigen::VectorXd YY (nLines);                          // put into double and take log for regression code
-    for(int i=0; i<YY.size(); ++i) YY(i) = log (Y(i));
-    calculate_sequence_r2 (YY, W, vocabulary, nColsRegr, "text_src/temp/w_regr_r2.txt");
+  { const int nColsRegr = 3000;
+    Eigen::VectorXd YY(nLines), mm(nLines);                // put into double and take log for regression code
+    for(int i=0; i<nLines; ++i)
+    { YY(i) = log (Y(i));
+      mm(i) = m(i);
+    }
+    bool reverse ( true);                                  // reverse tests low frequency words first
+    std::string fileName ("text_src/temp/word_regr_fit_");
+    if (m.size() > 0) fileName += "with_m";
+    else              fileName += "no_m";
+    if (reverse) fileName += "_rev.txt";
+    else         fileName += "_for.txt";
+    calculate_sequence_r2 (YY, mm, reverse, W, vocabulary, nColsRegr, fileName);
   }
   
   // optionally write W to file
