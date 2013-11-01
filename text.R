@@ -92,7 +92,7 @@ lines(x,y,col="red")
 import.data <- function() { 
 
 # --- analysis of regression models
-nProj <- 1000
+nProj <- 1500
 
 city  <- "ChicagoOld3"
 file  <- paste("/Users/bob/C/text/text_src/temp/",city,"_bigram_regr.txt",sep="")
@@ -100,7 +100,7 @@ file  <- paste("/Users/bob/C/text/text_src/temp/",city,"_bigram_regr.txt",sep=""
 Data <- read.table(file, header=TRUE); dim(Data)
 
 n <- nrow(Data)
-price     <- Data[,"Y"]
+price     <- exp(Data[,"Y"])
 logPrice  <- as.numeric(log(Data[,"Y"]))
 nTokens   <- Data[,"m"]
 logTokens <- log(nTokens)
@@ -184,7 +184,9 @@ mse <- show.cv(regr.parsed,5)
 }
 
 ##################################################################################
-#  Raw word regression
+#  
+#   Raw word regression
+#
 ##################################################################################
 word.regression <- function () {
 	
@@ -267,20 +269,39 @@ plot(wregr)
 }
 
 ##################################################################################
+#
 # SVD variables, W
+#
 ##################################################################################
 lsa.analysis <- function() {
-	
+		
+# --- sequential R2 and AIC for LSA
+lsa.fits <- read.table("/Users/bob/C/text/text_src/temp/lsa_regr_fit_with_m.txt", 
+							header=TRUE, as.is=TRUE)
+nr <- nrow(lsa.fits);
+lsa.fits[c(1,2,3,4,5,10,100,nr),]
+
+sum(0 == diff(lsa.fits[,"RSS"]))  # 68 add nothing; C++ dropped 7
+
+plot (c(0,lsa.fits[,"r2"]), type="l", xlab="LSA PCA Index", ylab="Cumulative R2")
+
+plot(lsa.fits[,"AICc"], type="l", xlab="LSA PCA Index", ylab="AICc")  # aic_words.pdf
+opt.k <- which.min(lsa.fits[,"AICc"]); 
+opt.k; lsa.fits[opt.k,]    # 790, 887 if not weighted after projection
+lines(c(opt.k,opt.k), c(0,4500), col="gray")
+lines(r2.words.for[,"AICc"], col="red")
+
+
 # --- LSA analysis from matrix W
 kw <- 500
 x.lsa.    <- as.matrix(Data[,paste("D",0:(kw-1), sep="")])
 
 # write.csv(cbind(logPrice,x.lsa.), "~/Desktop/regr.csv")
+# may want to weight with sqrt(Data[,"m"])
 
-m <- sqrt(Data$m)
 
 p <- 500
-sr <- summary(regr.lsa <- lm(logPrice ~ x.lsa. , x=TRUE, y=TRUE)); sr  # weights=m,
+sr <- summary(regr.lsa <- lm(logPrice ~ x.lsa. , x=TRUE, y=TRUE)); sr  
 
 xtable(regr.lsa)
 
@@ -319,10 +340,30 @@ k <- 800; udv <- svd(W[,1:k])
 plot(udv$d[1:(k-10)], log="xy", main=paste("Exact Singular Values of W, k=",k),
 	xlab="Index of Singular Value", ylab="Exact Singular Value") 
 
+
 ##################################################################################
 # SVD variables, B
 ##################################################################################
 
+# --- sequential R2 and AIC for bigram
+bigram.fits <- read.table("/Users/bob/C/text/text_src/temp/bigram_regr_fit_with_m.txt", 
+							header=TRUE, as.is=TRUE)
+nr <- nrow(bigram.fits);
+bigram.fits[c(1,2,3,4,5,10,100,nr),]
+
+sum(0 == diff(bigram.fits[,"RSS"]))  # 58 add nothing; C++ dropped 5
+
+plot(bigram.fits[,"AICc"], type="l", xlab="Model Size", ylab="AICc")  # aic.pdf
+
+opt.k <- which.min(bigram.fits[,"AICc"]); 
+opt.k; bigram.fits[opt.k,]    # 967
+lines(c(opt.k,opt.k), c(0,bigram.fits[opt.k,"AICc"]), col="black")
+
+lines(    lsa.fits[,"AICc"], col="blue")
+lines(r2.words.for[,"AICc"], col="red")
+
+
+# --- whole model summaries
 kb <- 500                                            # left and right
 x.bigram. <- as.matrix(cbind(	Data[,paste("BL",0:(kb-1), sep="")],
 									Data[,paste("BR",0:(kb-1), sep="")]  ))

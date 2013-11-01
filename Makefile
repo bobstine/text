@@ -32,9 +32,10 @@ EXTERNAL_USES = boost_regex gomp
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 level_1 = k_means.o token_manager.o confusion_matrix.o porter.o vocabulary.o eigenword_dictionary.o regex.o
+level_2 = helpers.o
 level_3 = classifier.o regressor.o
-level_3 = bigram.o
-level_4 = 
+level_4 = bigram.o
+level_5 = 
 
 regex_test: regex_test.o
 	$(GCC) $^ $(LDLIBS) -o $@
@@ -43,7 +44,7 @@ regex_test: regex_test.o
 porter: porter.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
-regressor: regressor.o vocabulary.o regex.o eigenword_dictionary.o
+regressor: regressor.o vocabulary.o regex.o eigenword_dictionary.o helpers.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
 lsa: lsa.o vocabulary.o regex.o eigenword_dictionary.o
@@ -131,7 +132,7 @@ $(temppath)$(recity).txt: $(repath)$(recity)Tokenized           # removes lines 
 
 seed  = 2763                            # defines random projection
 
-nProj = 1000                            # number of projections, nProj/2 for W and nProj/2 (each side) for bigram
+nProj = 1500                            # number of projections for W, and nProj (each side) for bigram
 
 vFile = $(temppath)$(recity).txt        # allowed to have different files for vocabulary and for regression
 rFile = $(temppath)$(recity).txt
@@ -143,6 +144,24 @@ $(temppath)$(recity)_lsa_regr.txt: lsa $(temppath)google.txt $(temppath)$(recity
 	./lsa --vocab_file=$(temppath)$(recity)_woprice.txt --output_file=$@ --n_projections $(nProj) --power_iter 1
 
 dore:  $(temppath)$(recity)_bigram_regr.txt
+
+
+# aic sequential regressions
+
+$(temppath)bigram_aic_regr_src.txt:  $(temppath)$(recity)_bigram_regr.txt
+	cut 1-2, 6-1505 $^ > $@
+
+$(temppath)bigram_aic.txt: $(temppath)bigram_aic_regr_src.txt
+	./seq_regression -i $^ -o $@
+
+
+$(temppath)lsa_aic_regr_src.txt:  $(temppath)$(recity)_bigram_regr.txt
+	cut 1-2, 3006-4505 $^ > $@
+
+$(temppath)lsa_aic.txt: $(temppath)bigram_aic_regr_src.txt
+	./seq_regression -i $^ -o $@
+
+doaic: $(temppath)lsa_aic.txt $(temppath)bigram_aic.txt
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -175,6 +194,7 @@ $(temppath)wine_regr.txt: regressor $(vWineFile)
 	./regressor --vocab_file=$(vWineFile) --regr_file=$(vWineFile) --output_file=$@  -s $(seed) --n_projections $(nWineProj) --power_iter 1  --bidirectional  
 
 dowine:  $(temppath)wine_regr.txt
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  google eigenwords
