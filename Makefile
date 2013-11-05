@@ -11,13 +11,6 @@ include ../c_flags
 # 
 ###########################################################################
 
-#
-#   Need to fix
-#
-#         #'s and USD parse terms come up as zero
-#         Rare words: should reweight words?  (rare ones don't have much influence), cannot cluster words
-#         Short description: special handling for short descriptions
-#
 
 PROJECT_NAME = text
 
@@ -45,6 +38,9 @@ porter: porter.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
 regressor: regressor.o vocabulary.o regex.o eigenword_dictionary.o helpers.o
+	$(GCC) $^ $(LDLIBS) -o  $@
+
+seq_regression: seq_regression.o helpers.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
 lsa: lsa.o vocabulary.o regex.o eigenword_dictionary.o
@@ -148,20 +144,23 @@ dore:  $(temppath)$(recity)_bigram_regr.txt
 
 # aic sequential regressions
 
-$(temppath)bigram_aic_regr_src.txt:  $(temppath)$(recity)_bigram_regr.txt
-	cut 1-2, 6-1505 $^ > $@
+$(temppath)aic_bigram_src.txt:  $(temppath)$(recity)_bigram_regr.txt
+	cut -d " " -f 1-2,7-1506 $^ > $@
 
-$(temppath)bigram_aic.txt: $(temppath)bigram_aic_regr_src.txt
-	./seq_regression -i $^ -o $@
+$(temppath)aic_bigram.txt: $(temppath)aic_bigram_src.txt seq_regression
+	./seq_regression -i $(temppath)aic_bigram_src.txt  -o $@
 
 
-$(temppath)lsa_aic_regr_src.txt:  $(temppath)$(recity)_bigram_regr.txt
-	cut 1-2, 3006-4505 $^ > $@
+$(temppath)aic_lsa_src.txt:  $(temppath)$(recity)_bigram_regr.txt
+	cut -d " " -f 1-2,3008-4507 $^ > $@
 
-$(temppath)lsa_aic.txt: $(temppath)bigram_aic_regr_src.txt
-	./seq_regression -i $^ -o $@
+$(temppath)aic_lsa.txt: $(temppath)aic_lsa_src.txt seq_regression
+	./seq_regression -i $(temppath)aic_lsa_src.txt  -o $@
 
-doaic: $(temppath)lsa_aic.txt $(temppath)bigram_aic.txt
+doaic: $(temppath)aic_lsa.txt $(temppath)aic_bigram.txt
+
+testaic: seq_regression 
+	./seq_regression -i $(temppath)test.txt -o /Users/bob/Desktop/output.txt
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

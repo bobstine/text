@@ -4,13 +4,13 @@
   of the following variables.
 */
 
-#include "helpers.h"
-#include "vocabulary.h"
 #include "file_utils.h"
+#include "regression.h"
 
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <getopt.h>
 
 #include <Eigen/Core>
 
@@ -34,49 +34,50 @@ int main(int argc, char** argv)
   string outputFileName  (  ""   ); 
   
   parse_arguments(argc, argv, inputFileName, outputFileName);
-  std::clog << "MAIN: regressor --input_file=" << inputFileName << " --output_file_name=" << endl;
+  std::clog << "MAIN: seq_regressor --input_file=" << inputFileName << " --output_file_name=" << outputFileName << endl;
 
-  const int nCols  = count_fields(inputFileName);
-  const int nLines = count_lines(inputFileName);
+  const int nCols  = FileUtils::count_fields(inputFileName);
+  const int nLines = FileUtils::count_lines(inputFileName);
 
   string              yName;
   std::vector<string> xNames;
   std::ifstream input(inputFileName);
-  std::ofstream output(file);
-  if ((file.size()>0) && (!output)) std::clog << "MAIN: Could not open file " << file << " for writing r2 sequence.\n";
-  os << "Name  r2  RSS AICc\n";
+  std::ofstream output(outputFileName);
+  if ((input) && (!output))
+  { std::clog << "MAIN: Could not open file " << outputFileName << " for writing r2 sequence.\n";
+    return 0;
+  }
+  output << "Name  r2  RSS AICc\n";
 
   const int n = nLines-1;
   const int k = nCols -1;
-  {
-    get_line(input);                       // first line has column names
-    std::stringstream ss (input);
-    ss >> yName;
-    for(int j=0; j<k; ++j)
-    { string name;
-      ss >> name;
-      xNames.push_back(name);
-    }
+  // read variable names
+  input >> yName;
+  for(int j=0; j<k; ++j)
+  { string name;
+    input >> name;
+    xNames.push_back(name);
   }
+  // read numerical values
   Vector Y(n);
   Matrix X(n, k);
   for(int i = 0; i < n; ++i)
-  { string line;
-    get_line(input, line);
-    std::stringstream ss(line);
-    ss >> Y(i);
+  { input >> Y(i);
     for (int j=0; j<k; ++j)
-      ss >> X.coeff(i,j);
+    { double x;
+      input >> x;
+      X(i,j) = x;
+    }
   }
-
+  // fit models
   std::clog << "MAIN: Calculate fits loop; fitting " << k << " regressors labeled with Y = " << yName << endl;
   LinearRegression regr(yName, Y, 0);
   for (int j=0; j<k; ++j)
   { FStatistic f=regr.f_test_predictor(xNames[j], X.col(j));
     if(f.f_stat() > 0.0001) regr.add_predictors();
     else std::clog << "MAIN: F = " << f.f_stat() << " for " << xNames[j] << " is (near) singular in sequence r2 and skipped.\n";
-    if (os)
-      os << xName[j] << " " << regr.r_squared() << " " << regr.residual_ss() << " " << regr.aic_c() << endl;
+    if (output)
+      output << xNames[j] << " " << regr.r_squared() << " " << regr.residual_ss() << " " << regr.aic_c() << endl;
   }
   std::clog << "MAIN: Regression completed with results written to " << outputFileName << endl;
 }
