@@ -100,8 +100,8 @@ file  <- paste("/Users/bob/C/text/text_src/temp/",city,"_bigram_regr.txt",sep=""
 Data <- read.table(file, header=TRUE); dim(Data)
 
 n <- nrow(Data)
+logPrice  <- Data[,"Y"]
 price     <- exp(Data[,"Y"])
-logPrice  <- as.numeric(log(Data[,"Y"]))
 nTokens   <- Data[,"m"]
 logTokens <- log(nTokens)
 

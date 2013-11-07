@@ -128,7 +128,7 @@ $(temppath)$(recity).txt: $(repath)$(recity)Tokenized           # removes lines 
 
 seed  = 2763                            # defines random projection
 
-nProj = 1500                            # number of projections for W, and nProj (each side) for bigram
+nProj =  1500                           # number of projections for W, and nProj (each side) for bigram
 
 vFile = $(temppath)$(recity).txt        # allowed to have different files for vocabulary and for regression
 rFile = $(temppath)$(recity).txt
@@ -144,23 +144,29 @@ dore:  $(temppath)$(recity)_bigram_regr.txt
 
 # aic sequential regressions
 
-$(temppath)aic_bigram_src.txt:  $(temppath)$(recity)_bigram_regr.txt
-	cut -d " " -f 1-2,7-1506 $^ > $@
+# $(temppath)aic_bigram_src.txt:  $(temppath)$(recity)_bigram_regr.txt
+#	cut -f 1-2,6-1505 $^ > $@                # 6 - (6+nProj-1)
+# $(temppath)aic_bigram.txt: $(temppath)aic_bigram_src.txt seq_regression
+#	./seq_regression -i $(temppath)aic_bigram_src.txt  -o $@          
 
-$(temppath)aic_bigram.txt: $(temppath)aic_bigram_src.txt seq_regression
-	./seq_regression -i $(temppath)aic_bigram_src.txt  -o $@
+
+$(temppath)aic_ix_%:   $(temppath)$(recity)_bigram_regr.txt
+	cut -f 1-$* $^ > $@
+
+
+$(temppath)aic_bigram_$(col)_$(size).txt:  seq_regression  $(temppath)$(recity)_bigram_regr.txt
+	cut -f1-2,6-$(col),3006-4505 | seq_regression -n 7383 -c $(size) -i  -o $@          
 
 
 $(temppath)aic_lsa_src.txt:  $(temppath)$(recity)_bigram_regr.txt
-	cut -d " " -f 1-2,3008-4507 $^ > $@
+	cut -f 1-2,3006-4505 $^ > $@             # (6 + 2*nProj) - (6 + 3*nProj -1)
 
 $(temppath)aic_lsa.txt: $(temppath)aic_lsa_src.txt seq_regression
 	./seq_regression -i $(temppath)aic_lsa_src.txt  -o $@
 
+
 doaic: $(temppath)aic_lsa.txt $(temppath)aic_bigram.txt
 
-testaic: seq_regression 
-	./seq_regression -i $(temppath)test.txt -o /Users/bob/Desktop/output.txt
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

@@ -116,7 +116,7 @@ int main(int argc, char** argv)
   std::clog << "MAIN: Sum of row 0 of W is " << m(0) << "  sum of row 1 of W is " << m(1) << endl;
 
   // optionally track R2 sequence of regression models for words
-  if (true)
+  if (false)
   { const int nColsRegr = 3000;
     Eigen::VectorXd YY(nLines), mm(nLines);                // put into double and take log for regression code
     for(int i=0; i<nLines; ++i)
@@ -134,7 +134,7 @@ int main(int argc, char** argv)
   
   // optionally write W to file
   if (false)
-  { Helper::write_word_counts_to_file ("text_src/temp/w2000.txt", W, MIN(W.cols(), 2000), vocabulary);
+  { Helper::write_word_counts_to_file ("text_src/temp/w3000.txt", W, MIN(W.cols(), 3000), vocabulary);
     std::clog << "MAIN: Wrote W matrix to file w.txt." << std::endl;
   }
   else std::clog << "MAIN: Skipping output of W matrix to file.\n";
@@ -205,12 +205,13 @@ int main(int argc, char** argv)
   }
 
   // compute dense projection coefficients for common words
-  int offset = 2 + parsers.size();                // y , m_i, (parsed)
-  Matrix X (W.rows(), offset+P.cols()+L.cols());
+  int offset = 2 + parsers.size();               // y , m_i, (parsed)
+  Matrix X (W.rows(), offset+A.cols()+L.cols());
   X.col(0) = Y.array().log();                    // stuff log Y into first column for output
   X.col(1) = m;                                  // put total count n of type into second col (rowwise not avail for sparse)
   X.block(0,2, nLines, parsers.size()) = parsed; // custom variables
 
+  X.block(0,offset,W.rows(),A.cols()) = A;
   // build variables from bigram correlations
   /*  Vector irNorm (P.cols());
       irNorm = P.colwise().norm().array().inverse();
@@ -226,7 +227,7 @@ int main(int argc, char** argv)
   X.rightCols(L.cols()) = L;
   std::clog << "MAIN: First 10 rows and columns of yX are\n" << X.block(0,0,5,10) << endl;
   
-  // write to output file if assigned
+  // write to tab delimited output file if assigned
   if (outputFileName.size() > 0)
   { std::ofstream os(outputFileName);
     if (!os)
@@ -234,12 +235,14 @@ int main(int argc, char** argv)
       return 0;
     }
     std::clog << "MAIN: Writing data file to " << outputFileName << std::endl;
-    os << " Y m ";
-    for (auto f : parsers) os << f.name() << " ";
-    for(int i=0; i<P.cols()/2; ++i) os << " BL" << i;
-    for(int i=0; i<P.cols()/2; ++i) os << " BR" << i;
-    for(int i=0; i<L.cols(); ++i) os <<    " D" << i;
-    os << endl << X << endl;
+    os << "Y\tm";
+    for (auto f : parsers) os << "\t" << f.name() ;
+    for(int i=0; i<A.cols()/2; ++i) os << "\tBL" << i;
+    for(int i=0; i<A.cols()/2; ++i) os << "\tBR" << i;
+    for(int i=0; i<L.cols(); ++i) os <<    "\tD" << i;
+    // prec, align, col sep, row sep, row pre, row suf, file pre, file suff
+    Eigen::IOFormat fmt(Eigen::StreamPrecision,Eigen::DontAlignCols,"\t","\n","","","","");
+    os << endl << X.format(fmt) << endl;
   }
   return 0;
 }
