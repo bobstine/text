@@ -14,6 +14,7 @@
   
 */
 
+#include "read_utils.h"
 #include "file_utils.h"
 #include "regression.h"
 
@@ -35,13 +36,11 @@ typedef Eigen::MatrixXd Matrix;
 
 
 void
-parse_arguments(int argc, char** argv,	int &n,
-		int &ny, string &yFileName,
-		int &ni, string &iFileName,
-		int &nx, string &xFileName, string &outputFileName);
+parse_arguments(int argc, char** argv,	int &n, string &yFileName,
+		int &ni, string &iFileName, int &nx, string &xFileName, string &outputFileName);
 
 void
-fit_models(int n, int ny, std::istream& yStream,
+fit_models(int  n, std::istream &yStream,
 	   int ni, std::istream &iStream,
 	   int nx, std::istream &xStream, std::ostream& output);
 
@@ -50,7 +49,6 @@ int main(int argc, char** argv)
 {
   // read input options
   int    n         ( 0  );
-  int    ny        ( 2  );    // Y, m
   int    ni        ( 0  );
   int    nx        ( 0  );
   string yFileName ( "" ); 
@@ -58,9 +56,8 @@ int main(int argc, char** argv)
   string xFileName ( "" );
   string outputFileName("");
 
-  parse_arguments(argc, argv, n, ny, yFileName, ni, iFileName, nx, xFileName, outputFileName);
-  std::clog << "MAIN: seq_regressor --n=" << n
-	    << " --ny=" << ny << " --y_file=" << yFileName 
+  parse_arguments(argc, argv, n, yFileName, ni, iFileName, nx, xFileName, outputFileName);
+  std::clog << "MAIN: seq_regressor --n=" << n  << " --y_file=" << yFileName 
 	    << " --ni=" << ni << " --i_file=" << iFileName
             << " --nx=" << nx << " --x_file=" << xFileName
 	    << " --output_file_name=" << outputFileName << endl;
@@ -68,8 +65,8 @@ int main(int argc, char** argv)
   std::ifstream yStream (yFileName);
   std::ifstream xStream (xFileName);
   std::ofstream output(outputFileName);
-  if (0 == (n * ny * ni * nx))
-  { std::cerr << "MAIN: Illegal length, n=" << n << "  ny=" << ny << "  ni=" << ni << "  nx=" << nx << endl;
+  if (0 == (n  * ni * nx))
+  { std::cerr << "MAIN: Illegal length, n=" << n << "  ni=" << ni << "  nx=" << nx << endl;
     return 0;
   }
   if ((!yStream) || (!xStream) || (!output))
@@ -79,31 +76,26 @@ int main(int argc, char** argv)
   if (iFileName.size() > 0)
   { std::ifstream iStream(iFileName);
     if (!iStream)
-    { std::clot << "MAIN: Could not open file " << iFileName << " for reading initialization data.\n";
+    { std::cerr << "MAIN: Could not open file " << iFileName << " for reading initialization data.\n";
       return 0;
     }
-    fit_models(n, ny, yStream, ni, iStream , nx, xStream, output);
+    fit_models(n, yStream, ni, iStream , nx, xStream, output);
   }
-  else fit_models(n, ny, yStream, ni, std::cin, nx, xStream, output);
+  else fit_models(n, yStream, ni, std::cin, nx, xStream, output);
 }
 
 void
-fit_models(int n, int ny, std::istream& yStream,
+fit_models(int  n, std::istream &yStream,
 	   int ni, std::istream &iStream,
-	   int nx, std::istream &xStream, std::ostream& output);
+	   int nx, std::istream &xStream, std::ostream& output)
 {
   output << "Name  r2  RSS AICc\n";
   // read Y data
-  std::vector<string> yNames;
-  Matrix Y(n,ny);
-  for(int j=0; j<ny; ++j)
-  { string name;
-    yStream >> name;
-    yNames.push_back(name);
-  }
+  string yName;
+  Vector Y(n);
+  yStream >> yName;
   for(int i = 0; i<n; ++i)
-    for(int j=0; j<ny; ++j)
-      yStream >> Y(i,j);
+    yStream >> Y(i);
   // read initialization data
   std::vector<string> iNames;
   Matrix Xi(n,ni);
@@ -128,8 +120,8 @@ fit_models(int n, int ny, std::istream& yStream,
       xStream >> X(i,j);
   // fit initial model
   const int blockSize = 0;
-  LinearRegression regr(yName, Y.col(0), blockSize);
-  if (initModelSize > 0)
+  LinearRegression regr(yName, Y, blockSize);
+  if (ni > 0)
   { std::clog << "MAIN: Calculate initial model, fitting " << 1+ni << " regressors to response " << yName << endl;
     FStatistic f = regr.f_test_predictor("nTokens",Y.col(1));
     if(f.f_stat() > 0.0001) regr.add_predictors();
@@ -145,19 +137,16 @@ fit_models(int n, int ny, std::istream& yStream,
     if (output)
       output << xNames[j] << " " << regr.r_squared() << " " << regr.residual_ss() << " " << regr.aic_c() << endl;
   }
-  std::clog << "MAIN: Regression completed with results written to " << outputFileName << endl;
+  std::clog << "MAIN: Regression completed with results written to output stream."<< endl;
 }
 
 
 void
-parse_arguments(int argc, char** argv, int &n,
-		int &ny, string &yFileName,
-		int &ni, string &iFileName,
-		int &nx, string &xFileName, string &outputFileName)
+parse_arguments(int argc, char** argv, int &n, string &yFileName,
+		int &ni, string &iFileName, int &nx, string &xFileName, string &outputFileName)
 {
   static struct option long_options[] = {
     {"n",             required_argument, 0, 'n'},
-    {"n_y",           required_argument, 0, 'y'},
     {"y_file",        required_argument, 0, 'Y'},
     {"n_i",           required_argument, 0, 'i'},
     {"i_file",        required_argument, 0, 'I'},
@@ -168,18 +157,17 @@ parse_arguments(int argc, char** argv, int &n,
   };
   int key;
   int option_index = 0;
-  while (-1 !=(key = getopt_long (argc, argv, "n:y:Y:i:I:x:X:o:", long_options, &option_index))) // colon means has argument
+  while (-1 !=(key = getopt_long (argc, argv, "n:Y:i:I:x:X:o:", long_options, &option_index))) // colon means has argument
   {
     switch (key)
     {
-    case 'n' : { n           = read_utils::lexical_cast<int>(optarg);      break; }
-    case 'y' : { ny          = read_utils::lexical_cast<int>(optarg);      break; }
-    case 'Y' : { yFileName   = optarg;                                     break; }
-    case 'i' : { ni          = read_utils::lexical_cast<int>(optarg);      break; }
-    case 'I' : { iFileName   = optarg;                                     break; }
-    case 'x' : { nx          = read_utils::lexical_cast<int>(optarg);      break; }
-    case 'X' : { xFileName   = optarg;                                     break; }
-    case 'o' : { outputFile     = optarg;                                     break; }
+    case 'n' : { n              = read_utils::lexical_cast<int>(optarg);      break; }
+    case 'Y' : { yFileName      = optarg;                                     break; }
+    case 'i' : { ni             = read_utils::lexical_cast<int>(optarg);      break; }
+    case 'I' : { iFileName      = optarg;                                     break; }
+    case 'x' : { nx             = read_utils::lexical_cast<int>(optarg);      break; }
+    case 'X' : { xFileName      = optarg;                                     break; }
+    case 'o' : { outputFileName = optarg;                                     break; }
     default  : { std::cout << "PARSE: Option not recognized; returning.\n";       }
     } // switch
   } 

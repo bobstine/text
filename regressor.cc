@@ -141,7 +141,6 @@ int main(int argc, char** argv)
   
   // build regressors from eigenwords as average word position (see below for correlation)
   Matrix A (nLines, P.cols());
-  std::clog << "MAIN: ********  outer size is " << W.outerSize() << " with nLines= " << nLines << endl;
   for (int i=0; i<W.outerSize(); ++i)            // W is in row major order
   { Vector dest (Vector::Zero(P.cols()));
     int mi (0);
@@ -165,7 +164,7 @@ int main(int argc, char** argv)
     Helper::fill_random_projection(L, W, emptyVec /* m.array().inverse() */, powerIterations);
   }
   std::clog << "MAIN: Completed LSA projection.  L[" << L.rows() << "x" << L.cols() << "]\n";
-  if (true)                                                // compute sequence of regressions for LSA variables
+  if (false)                                                // compute sequence of regressions for LSA variables
   { std::clog << "MAIN: Fitting regressions on singular vectors.\n";
     Eigen::VectorXd YY(nLines), mm(nLines);                // copy into double and take log for regression code
     for(int i=0; i<nLines; ++i)
