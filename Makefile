@@ -119,54 +119,43 @@ federalist: regressor lsa $(temppath)fedregr.txt $(temppath)fedx.txt
 #  real estate text descriptions
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-repath = text_src/real_estate/Set10Tokenized/
+city = ChicagoOld3
 
-recity = ChicagoOld3
-
-$(temppath)$(recity).txt: $(repath)$(recity)Tokenized           # removes lines with no text (need $$ to escape $ in make)
+#                  removes lines with no text (need $$ to escape $ in make)
+$(temppath)$(city).txt: text_src/real_estate/Set10Tokenized/$(city)Tokenized
 	grep -v '^[0-9\,\.[:blank:]]\+$$' $^ > $@
 
-seed  = 2763                            # defines random projection
+#                  defines random projection
+seed  = 2763
+#                  number of projections for W, and nProj (each side) for bigram	
+nProj = 1500
 
-nProj =  1500                           # number of projections for W, and nProj (each side) for bigram
+#                  allowed to have different files for vocabulary and for regression
+vFile   = $(temppath)$(city).txt 
+rFile   = $(vFile)
+outPath = $(temppath)$(city)/
 
-vFile = $(temppath)$(recity).txt        # allowed to have different files for vocabulary and for regression
-rFile = $(temppath)$(recity).txt
+$(outPath)$(nProj).txt: regressor $(vFile) $(rfile) 
+	./regressor --vocab_file=$(vFile) --regr_file=$(rFile) --output_path=$(outPath)  -s $(seed) --n_projections $(nProj) --power_iter 1  --bidirectional  
+	date >> $@
 
-$(temppath)$(recity)_bigram_regr.txt: regressor $(temppath)google.txt $(vFile) $(rfile) 
-	./regressor --vocab_file=$(vFile) --regr_file=$(rFile) --output_file=$@  -s $(seed) --n_projections $(nProj) --power_iter 1  --bidirectional  
-
-$(temppath)$(recity)_lsa_regr.txt: lsa $(temppath)google.txt $(temppath)$(recity)_woprice.txt
-	./lsa --vocab_file=$(temppath)$(recity)_woprice.txt --output_file=$@ --n_projections $(nProj) --power_iter 1
-
-dore:  $(temppath)$(recity)_bigram_regr.txt
+dore:  $(outPath)$(nProj).txt
+	echo 'Running regressor'
 
 
 # aic sequential regressions
 
-# $(temppath)aic_bigram_src.txt:  $(temppath)$(recity)_bigram_regr.txt
-#	cut -f 1-2,6-1505 $^ > $@                # 6 - (6+nProj-1)
-# $(temppath)aic_bigram.txt: $(temppath)aic_bigram_src.txt seq_regression
-#	./seq_regression -i $(temppath)aic_bigram_src.txt  -o $@          
-# doaic: $(temppath)aic_lsa.txt $(temppath)aic_bigram.txt
-
 nDocs = 7383
 
+#                          y includes m counts
+$(outPath)y.txt: $(outPath)$(nProj).txt
+	cut -f 1-2 $(outPath)parsed.txt > $@
 
-$(temppath)aic_y:       # $(temppath)$(recity)_bigram_regr.txt
-	cut -f 1 text_data.txt > $@
+$(outPath)aic_%.txt: seq_regression $(outPath)y.txt 
+	cut -f 1-$* $(outPath)bigram_$(nProj).txt | ./seq_regression -n $(nDocs) -Y $(outPath)y.txt -X $(outPath)LSA_$(nProj).txt -x $(nProj) -i $* -o $@
 
-$(temppath)aic_x:       # $(temppath)$(recity)_bigram_regr.txt
-	cut -f 3006-4505 text_data.txt > $@     # lsa vars  (6 + 2*nProj) - (6 + 3*nProj -1)
-
-$(temppath)aic_%.txt: seq_regression $(temppath)aic_y $(temppath)aic_x
-	cut -f 1-$* $^ | ./seq_regression -n $(nDocs) -Y $(temppath)aic_y -X $(temppath)aic_x -x $(nProj) -i $* -o $@
-
-doaic: $(temppath)aic_10.txt
-	echo "doing it"
-
-
-
+doaic: $(outPath)aic_10.txt $(outPath)aic_20.txt $(outPath)aic_30.txt $(outPath)aic_40.txt $(outPath)aic_50.txt $(outPath)aic_75.txt $(outPath)aic_100.txt $(outPath)aic_200.txt
+	echo $(outPath)
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

@@ -57,10 +57,11 @@ int main(int argc, char** argv)
   string outputFileName("");
 
   parse_arguments(argc, argv, n, yFileName, ni, iFileName, nx, xFileName, outputFileName);
-  std::clog << "MAIN: seq_regressor --n=" << n  << " --y_file=" << yFileName 
-	    << " --ni=" << ni << " --i_file=" << iFileName
-            << " --nx=" << nx << " --x_file=" << xFileName
-	    << " --output_file_name=" << outputFileName << endl;
+  std::clog << "MAIN: seq_regressor --n=" << n << endl
+	    << "  Files are        --y_file=" << yFileName << endl
+	    << "                   --i_file=" << iFileName << " --ni=" << ni << endl
+            << "                   --x_file=" << xFileName << " --nx=" << nx << endl
+	    << "                   --output=" << outputFileName << endl;
   // assume all but the iFile must be named
   std::ifstream yStream (yFileName);
   std::ifstream xStream (xFileName);
@@ -70,7 +71,7 @@ int main(int argc, char** argv)
     return 0;
   }
   if ((!yStream) || (!xStream) || (!output))
-  { std::clog << "MAIN: Could not open required file for writing r2 sequence.\n";
+  { std::clog << "MAIN: Could not open required files for r2 sequence (" << yStream << "," << xStream << "," << output << ")." << endl;
     return 0;
   }
   if (iFileName.size() > 0)
@@ -90,12 +91,12 @@ fit_models(int  n, std::istream &yStream,
 	   int nx, std::istream &xStream, std::ostream& output)
 {
   output << "Name  r2  RSS AICc\n";
-  // read Y data
-  string yName;
-  Vector Y(n);
-  yStream >> yName;
+  // read Y data with total count
+  string yName, mName;
+  Matrix Y(n,2);
+  yStream >> yName >> mName;
   for(int i = 0; i<n; ++i)
-    yStream >> Y(i);
+    yStream >> Y(i,0) >> Y(i,1);
   // read initialization data
   std::vector<string> iNames;
   Matrix Xi(n,ni);
@@ -109,7 +110,7 @@ fit_models(int  n, std::istream &yStream,
       iStream >> Xi(i,j);
   // read sequence of predictors
   std::vector<string> xNames;
-  Matrix X(n,ni);
+  Matrix X(n,nx);
   for(int j=0; j<nx; ++j)
   { string name;
     xStream >> name;
@@ -120,10 +121,10 @@ fit_models(int  n, std::istream &yStream,
       xStream >> X(i,j);
   // fit initial model
   const int blockSize = 0;
-  LinearRegression regr(yName, Y, blockSize);
+  LinearRegression regr(yName, Y.col(0), blockSize);
   if (ni > 0)
   { std::clog << "MAIN: Calculate initial model, fitting " << 1+ni << " regressors to response " << yName << endl;
-    FStatistic f = regr.f_test_predictor("nTokens",Y.col(1));
+    FStatistic f = regr.f_test_predictor(mName, Y.col(1));  // number tokens in document
     if(f.f_stat() > 0.0001) regr.add_predictors();
     f = regr.f_test_predictors(iNames, Xi);
     if(f.f_stat() > 0.0001) regr.add_predictors();

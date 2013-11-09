@@ -28,7 +28,7 @@ void
 parse_arguments(int argc, char** argv,
 		string &vocabFileName, string &regrFileName,
 		int &minFrequency, bool &bidirectional, int &nProjections, int &powerIterations, int &seed,
-		string &outputFileName);
+		string &outputPath);
   
 int main(int argc, char** argv)
 {
@@ -37,7 +37,7 @@ int main(int argc, char** argv)
   int    nSkipInitTokens (   1   );  // regression response at start of line
   bool   markEndOfLine   ( true  );  // adds end-of-line token
   string regrFileName    (  ""   );  // used to build regression variables (may be same as vocab file)
-  string outputFileName  (  ""   );  // text file suitable for jmp or R
+  string outputPath      (  ""   );  // text files for parsed_#, lsa_#, bigram_#
   int    powerIterations (   0   );  // in Tropp algo for SVD
   int    minFrequency    (   3   );  // lower freq are treated as OOV
   bool   bidirectional   ( false );  // left and right eigenvectors of B
@@ -45,8 +45,8 @@ int main(int argc, char** argv)
   int    bigramSkip      (   0   );  // 0 is standard bigram
   int    randomSeed      ( 77777 );  // used to replicate random projection
   
-  parse_arguments(argc, argv, vocabFileName, regrFileName, minFrequency, bidirectional, nProjections, powerIterations, randomSeed, outputFileName);
-  std::clog << "MAIN: regressor --vocab_file=" << vocabFileName << " --regr_file=" << regrFileName << " --output_file=" << outputFileName
+  parse_arguments(argc, argv, vocabFileName, regrFileName, minFrequency, bidirectional, nProjections, powerIterations, randomSeed, outputPath);
+  std::clog << "MAIN: regressor --vocab_file=" << vocabFileName << " --regr_file=" << regrFileName << " --output_file=" << outputPath
 	    << " --min_frequency=" << minFrequency << " --n_projections=" << nProjections << " --power_iter " << powerIterations
 	    << " --random_seed=" << randomSeed;
   srand(randomSeed);
@@ -204,13 +204,14 @@ int main(int argc, char** argv)
   }
 
   // compute dense projection coefficients for common words
-  int offset = 2 + parsers.size();               // y , m_i, (parsed)
-  Matrix X (W.rows(), offset+A.cols()+L.cols());
-  X.col(0) = Y.array().log();                    // stuff log Y into first column for output
-  X.col(1) = m;                                  // put total count n of type into second col (rowwise not avail for sparse)
-  X.block(0,2, nLines, parsers.size()) = parsed; // custom variables
+  Matrix YX (W.rows(), 2+parsers.size());         // y , m_i, (parsed)
+  YX.col(0) = Y.array().log();                    // stuff log Y into first column for output
+  YX.col(1) = m;                                  // put total count n of type into second col (rowwise not avail for sparse)
+  YX.block(0,2, nLines, parsers.size()) = parsed; // custom variables
+  std::clog << "MAIN: First 5 rows and columns of YX are\n"      << YX.block(0,0,5,5) << endl;
+  std::clog << "MAIN: First 5 rows and columns of LSA are\n"     <<  L.block(0,0,5,5) << endl;
+  std::clog << "MAIN: First 5 rows and columns of bigram are\n"  <<  A.block(0,0,5,5) << endl;
 
-  X.block(0,offset,W.rows(),A.cols()) = A;
   // build variables from bigram correlations
   /*  Vector irNorm (P.cols());
       irNorm = P.colwise().norm().array().inverse();
@@ -221,27 +222,37 @@ int main(int argc, char** argv)
       W = isNorm.asDiagonal() * W;
       X.block(0,offset,W.rows(),P.cols()) = W * P;
   */
-
-  // lsa variables
-  X.rightCols(L.cols()) = L;
-  std::clog << "MAIN: First 10 rows and columns of yX are\n" << X.block(0,0,5,10) << endl;
   
-  // write to tab delimited output file if assigned
-  if (outputFileName.size() > 0)
-  { std::ofstream os(outputFileName);
-    if (!os)
-    { std::clog << "MAIN: Could not open output file " << outputFileName << std::endl;
-      return 0;
-    }
-    std::clog << "MAIN: Writing data file to " << outputFileName << std::endl;
-    os << "Y\tm";
-    for (auto f : parsers) os << "\t" << f.name() ;
-    for(int i=0; i<A.cols()/2; ++i) os << "\tBL" << i;
-    for(int i=0; i<A.cols()/2; ++i) os << "\tBR" << i;
-    for(int i=0; i<L.cols(); ++i) os <<    "\tD" << i;
-    // prec, align, col sep, row sep, row pre, row suf, file pre, file suff
+  // write to tab delimited output files if path assigned
+  if (outputPath.size() > 0)
+  { // prec, align, col sep, row sep, row pre, row suf, file pre, file suff
     Eigen::IOFormat fmt(Eigen::StreamPrecision,Eigen::DontAlignCols,"\t","\n","","","","");
-    os << endl << X.format(fmt) << endl;
+    string dim (std::to_string(nProjections));
+    {
+      string fileName (outputPath + "parsed.txt");
+      std::ofstream os(fileName);
+      if (!os)
+      { std::clog << "MAIN: Could not open output file " << fileName << std::endl;
+	return 0;
+      }
+      std::clog << "MAIN: Writing data file to " << fileName << std::endl;
+      os << "Y\tm";
+      for (auto f : parsers) os << "\t" << f.name() ;
+      os << endl << YX.format(fmt) << endl;
+    }
+    {
+      std::ofstream os (outputPath + "LSA_" + dim + ".txt");
+      os << "D0";
+      for(int i=1; i<L.cols(); ++i) os <<    "\tD" << i;
+      os << endl << L.format(fmt) << endl;
+    }
+    {
+      std::ofstream os (outputPath + "bigram_" + dim + ".txt");
+      os << "BL0";
+      for(int i=1; i<A.cols()/2; ++i) os << "\tBL" << i;
+      for(int i=0; i<A.cols()/2; ++i) os << "\tBR" << i;
+      os << endl << A.format(fmt) << endl;
+    }
   }
   return 0;
 }
@@ -251,7 +262,7 @@ int main(int argc, char** argv)
 void
 parse_arguments(int argc, char** argv,
 		string &fileName, string &regrFileName,
-		int &oovThreshold, bool &bidirectional, int &nProjections, int &powerIterations, int &seed, string &outputFileName)
+		int &oovThreshold, bool &bidirectional, int &nProjections, int &powerIterations, int &seed, string &outputPath)
 {
   static struct option long_options[] = {
     {"vocab_file",    required_argument, 0, 'v'},
@@ -261,7 +272,7 @@ parse_arguments(int argc, char** argv,
     {"power_iter",    required_argument, 0, 'p'},
     {"n_projections", required_argument, 0, 'r'},
     {"random_seed",   required_argument, 0, 's'},
-    {"output_file",   required_argument, 0, 'o'},
+    {"output_path",   required_argument, 0, 'o'},
     {0, 0, 0, 0}                             // terminator 
   };
   int key;
@@ -278,7 +289,7 @@ parse_arguments(int argc, char** argv,
     case 'p' : { powerIterations= read_utils::lexical_cast<int>(optarg);   break; }
     case 'r' : { nProjections   = read_utils::lexical_cast<int>(optarg);   break; }
     case 's' : { seed           = read_utils::lexical_cast<int>(optarg);   break; }
-    case 'o' : { outputFileName = optarg;                                  break; }
+    case 'o' : { outputPath     = optarg;                                  break; }
     default  : { std::cout << "PARSE: Option not recognized; returning.\n";       }
     } // switch
   } 

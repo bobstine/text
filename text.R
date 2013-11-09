@@ -469,6 +469,29 @@ par(mfrow=c(1,2))
 	lines(lowess(f,abs(r),f=0.2),col="cyan")
 reset()
 
+##################################################################################
+# 2-D AIC plots
+##################################################################################
+
+path <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/"
+ D10 <- read.table(paste(path,"aic_10.txt",sep=""), header=TRUE)
+ D20 <- read.table(paste(path,"aic_20.txt",sep=""), header=TRUE)
+ D30 <- read.table(paste(path,"aic_30.txt",sep=""), header=TRUE)
+ D40 <- read.table(paste(path,"aic_40.txt",sep=""), header=TRUE)
+ D50 <- read.table(paste(path,"aic_50.txt",sep=""), header=TRUE)
+ D75 <- read.table(paste(path,"aic_75.txt",sep=""), header=TRUE)
+D100 <- read.table(paste(path,"aic_100.txt",sep=""), header=TRUE)
+D200 <- read.table(paste(path,"aic_200.txt",sep=""), header=TRUE)
+
+plot(  D10[,"AICc"], type="l", log="y", ylim=c(min(D200[,"AICc"]),max(D200[,"AICc"])))
+lines( D20[,"AICc"], type="l", col="red")
+lines( D30[,"AICc"], type="l", col="green")
+lines( D40[,"AICc"], type="l", col="cyan")
+lines( D50[,"AICc"], type="l", col="blue")
+lines( D75[,"AICc"], type="l", col="black")
+lines(D100[,"AICc"], type="l", col="red")
+lines(D200[,"AICc"], type="l", col="green")
+
 
 ##################################################################################
 # Write SVD variables to C++
