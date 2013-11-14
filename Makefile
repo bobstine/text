@@ -154,7 +154,10 @@ $(outPath)y.txt: $(outPath)$(nProj).txt
 $(outPath)aic_%.txt: seq_regression $(outPath)y.txt 
 	cut -f 1-$* $(outPath)bigram_$(nProj).txt | ./seq_regression -n $(nDocs) -Y $(outPath)y.txt -X $(outPath)LSA_$(nProj).txt -x $(nProj) -i $* -o $@
 
-doaic: $(outPath)aic_10.txt $(outPath)aic_20.txt $(outPath)aic_30.txt $(outPath)aic_40.txt $(outPath)aic_50.txt $(outPath)aic_75.txt $(outPath)aic_100.txt $(outPath)aic_200.txt
+doaic: $(outPath)aic_10.txt $(outPath)aic_20.txt $(outPath)aic_30.txt $(outPath)aic_40.txt $(outPath)aic_50.txt $(outPath)aic_75.txt $(outPath)aic_100.txt \
+       $(outPath)aic_200.txt $(outPath)aic_400.txt $(outPath)aic_600.txt $(outPath)aic_800.txt $(outPath)aic_900.txt $(outPath)aic_950.txt \
+       $(outPath)aic_1000.txt $(outPath)aic_1050.txt $(outPath)aic_1100.txt $(outPath)aic_1200.txt \
+       $(outPath)aic_1300.txt $(outPath)aic_1400.txt $(outPath)aic_1500.txt
 	echo $(outPath)
 
 

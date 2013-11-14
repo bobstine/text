@@ -474,25 +474,98 @@ reset()
 ##################################################################################
 
 path <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/"
- D10 <- read.table(paste(path,"aic_10.txt",sep=""), header=TRUE)
- D20 <- read.table(paste(path,"aic_20.txt",sep=""), header=TRUE)
- D30 <- read.table(paste(path,"aic_30.txt",sep=""), header=TRUE)
- D40 <- read.table(paste(path,"aic_40.txt",sep=""), header=TRUE)
- D50 <- read.table(paste(path,"aic_50.txt",sep=""), header=TRUE)
- D75 <- read.table(paste(path,"aic_75.txt",sep=""), header=TRUE)
-D100 <- read.table(paste(path,"aic_100.txt",sep=""), header=TRUE)
-D200 <- read.table(paste(path,"aic_200.txt",sep=""), header=TRUE)
+  D10 <- read.table(paste(path,"aic_10.txt",sep=""), header=TRUE)
+  D20 <- read.table(paste(path,"aic_20.txt",sep=""), header=TRUE)
+  D30 <- read.table(paste(path,"aic_30.txt",sep=""), header=TRUE)
+  D40 <- read.table(paste(path,"aic_40.txt",sep=""), header=TRUE)
+  D50 <- read.table(paste(path,"aic_50.txt",sep=""), header=TRUE)
+  D75 <- read.table(paste(path,"aic_75.txt",sep=""), header=TRUE)
+ D100 <- read.table(paste(path,"aic_100.txt",sep=""), header=TRUE)
+ D200 <- read.table(paste(path,"aic_200.txt",sep=""), header=TRUE)
+ D400 <- read.table(paste(path,"aic_400.txt",sep=""), header=TRUE)
+ D600 <- read.table(paste(path,"aic_600.txt",sep=""), header=TRUE)
+ D800 <- read.table(paste(path,"aic_800.txt",sep=""), header=TRUE)
+ D900 <- read.table(paste(path,"aic_900.txt",sep=""), header=TRUE)
+ D950 <- read.table(paste(path,"aic_950.txt",sep=""), header=TRUE)
+D1000 <- read.table(paste(path,"aic_1000.txt",sep=""), header=TRUE)
+D1050 <- read.table(paste(path,"aic_1050.txt",sep=""), header=TRUE)
+D1100 <- read.table(paste(path,"aic_1100.txt",sep=""), header=TRUE)
+D1200 <- read.table(paste(path,"aic_1200.txt",sep=""), header=TRUE)
+D1300 <- read.table(paste(path,"aic_1300.txt",sep=""), header=TRUE)
+D1400 <- read.table(paste(path,"aic_1400.txt",sep=""), header=TRUE)
+D1500 <- read.table(paste(path,"aic_1500.txt",sep=""), header=TRUE)
 
-plot(  D10[,"AICc"], type="l", log="y", ylim=c(min(D200[,"AICc"]),max(D200[,"AICc"])))
-lines( D20[,"AICc"], type="l", col="red")
-lines( D30[,"AICc"], type="l", col="green")
-lines( D40[,"AICc"], type="l", col="cyan")
-lines( D50[,"AICc"], type="l", col="blue")
-lines( D75[,"AICc"], type="l", col="black")
-lines(D100[,"AICc"], type="l", col="red")
-lines(D200[,"AICc"], type="l", col="green")
+xax <- 1:1500
+plot(D10[,"AICc"], type="l", log="y", xlab="Number of LSA Variables", ylab="AICc",
+			main="Initialized with varying bigram variables",
+			ylim=c(min(D1000[,"AICc"]), max(D200[,"AICc"])))
+smth <- lowess(xax,log(D10[,"AICc"]),f=0.05)
+lines(smth$x,exp(smth$y), col="red")
+
+lines(  D20[,"AICc"], type="l", col="red")
+lines(  D30[,"AICc"], type="l", col="green")
+lines(  D40[,"AICc"], type="l", col="cyan")
+lines(  D50[,"AICc"], type="l", col="blue")
+lines(  D75[,"AICc"], type="l", col="black")
+lines( D100[,"AICc"], type="l", col="red")
+lines( D200[,"AICc"], type="l", col="green")
+lines( D400[,"AICc"], type="l", col="cyan")
+lines( D600[,"AICc"], type="l", col="blue")
+ smth <- lowess(xax,log(D600[,"AICc"]),f=0.05)
+ lines(smth$x,exp(smth$y), col="blue")
+lines( D800[,"AICc"], type="l", col="black")
+lines( D900[,"AICc"], type="l", col="red")   ; paste("900 ", min(D900[,"AICc"]))
+lines( D950[,"AICc"], type="l", col="red")   ; paste("950 ", min(D950[,"AICc"]))    # 2790.9
+lines(D1000[,"AICc"], type="l", col="green") ; paste("1000 ", min(D1000[,"AICc"]))  # 2803.6
+lines(D1050[,"AICc"], type="l", col="green") ; paste("1050 ", min(D1050[,"AICc"]))  # 2857
+lines(D1100[,"AICc"], type="l", col="cyan")  ; paste("1100 ", min(D1100[,"AICc"]))
+lines(D1200[,"AICc"], type="l", col="blue")  ; paste("1200 ", min(D1200[,"AICc"]))
+lines(D1300[,"AICc"], type="l", col="black") ; paste("1300 ", min(D1300[,"AICc"]))
+lines(D1400[,"AICc"], type="l", col="red")   ; paste("1400 ", min(D1400[,"AICc"]))
+
+# combine into data for rendering
+xx  <- c(10,20,30,40,50,75,100, 200,400,600,800,900,950, 1000, 1050, 1100,1200,1300,1400)
+yy  <- 1:nrow(D10)
+mat <- rbind(D10[,4],D20[,4],D30[,4],D40[,4],D50[,4],D75[,4],
+		D100[,4],D200[,4],D400[,4],D600[,4],D800[,4],D900[,4],D950[,4],
+		D1000[,4],D1050[,4],D1100[,4],D1200[,4],D1300[,4],D1400[,4])
+write.table(mat,"~/Desktop/AIC.txt")
+
+# do some smoothing
+s.f <- function(x) exp(lowess(1:1500,log(x),f=0.05)$y) # smooth on log scale
+s.mat <- matrix(0,nrow=nrow(mat), ncol=ncol(mat))
+for(r in 1:nrow(mat)) s.mat[r,] <- s.f(mat[r,])
+
+plot(mat[1,], type="l", log="y", xlab="Number of LSA Variables", ylab="AICc",
+			main="Soothed, Initialized with varying bigram variables",
+			ylim=c(min(D1000[,"AICc"]), max(D200[,"AICc"])))
+lines(s.mat[1,], col="red")
+lines(s.mat[8,], col="green")
+lines(s.mat[10,], col="cyan")
+lines(s.mat[14,], col="blue")
+lines(s.mat[15,], col="black")
+write.table(s.mat,"~/Desktop/AIC_smooth.txt")
 
 
+persp(xx,yy,log(mat))
+
+contour(xx,yy,log(mat), nlevels=20, xlab="Number Bigram", ylab="Number LSA")
+
+##################################################################################
+# Exact SVD for LSA compared to random projection
+##################################################################################
+
+exact <- c(805.262,304.603,223.003,194.768,177.421,166.183, 129.452, 123.934, 111.053,
+			 103.35,98.3166,95.8432,95.1192,89.9562,88.4726,87.1829,84.2737, 82.8868, 78.5008, 73.7923)
+			 
+# get data from sobolev, store locally
+lsa.rp <- read.table("~/C/text/text_src/temp/ChicagoOld3/LSA_1500.txt",       header=TRUE); dim(lsa.rp) # 7384 1500
+lsa.ex <- read.table("~/C/text/text_src/temp/ChicagoOld3/LSA_1500_exact.txt", header=TRUE); dim(lsa.ex) # 7384 1500
+
+# plots
+pairs(cbind(lsa.rp[,1:3], lsa.ex[,1:3]))
+
+			 
 ##################################################################################
 # Write SVD variables to C++
 ##################################################################################
