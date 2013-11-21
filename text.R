@@ -64,10 +64,14 @@ show.cv <- function(regr, mse=NULL, reps=1, seed=2382) {
 correctly.ordered <- function(y, y.hat, n) { # percentage of random pairs correctly ordered.
 	ii <- sample(1:length(y),n,replace=FALSE)
 	jj <- sample(1:length(y),n,replace=FALSE)
-	sum((y[ii]-y[jj])*(y.hat[ii]-y.hat[jj])>0)
+	dy <- y[ii]-y[jj]
+	df <- y.hat[ii]-y.hat[jj]
+	plot(df,dy,xlab="Difference in Predicted Values", ylab="Difference in Actual Y");
+	abline(a=0,b=1,col="red")
+	abline(h=0, col="gray"); abline(v=0, col="gray")
+	sum((dy*df)>0)
 	}
 	
-correctly.ordered(logPrice, fitted.values(regr.lsa), 1000)	
 	
 	
 # --- run the following to initialize
@@ -296,6 +300,8 @@ lsa.analysis <- function() {
 p    <- 500
 lsa  <- as.matrix(LSA[,1:500])
 sr   <- summary(regr.lsa <- lm(logPrice ~ lsa , x=TRUE, y=TRUE)); sr  
+	
+correctly.ordered(logPrice, fitted.values(regr.lsa), 1000)
 
 xtable(regr.lsa)
 
@@ -338,30 +344,16 @@ plot(udv$d[1:(k-10)], log="xy", main=paste("Exact Singular Values of W, k=",k),
 ##################################################################################
 # SVD variables, B
 ##################################################################################
-
-# --- sequential R2 and AIC for bigram
-bigram.fits <- read.table("/Users/bob/C/text/text_src/temp/bigram_regr_fit_with_m.txt", 
-							header=TRUE, as.is=TRUE)
-nr <- nrow(bigram.fits);
-bigram.fits[c(1,2,3,4,5,10,100,nr),]
-
-sum(0 == diff(bigram.fits[,"RSS"]))  # 58 add nothing; C++ dropped 5
-
-plot(bigram.fits[,"AICc"], type="l", xlab="Model Size", ylab="AICc")  # aic.pdf
-
-opt.k <- which.min(bigram.fits[,"AICc"]); 
-opt.k; bigram.fits[opt.k,]    # 967
-lines(c(opt.k,opt.k), c(0,bigram.fits[opt.k,"AICc"]), col="black")
-
-lines(    lsa.fits[,"AICc"], col="blue")
-lines(r2.words.for[,"AICc"], col="red")
-
-
+	
 # --- whole model summaries
 kb <- 500                                            # left and right
-x.bigram. <- as.matrix(cbind(	Data[,paste("BL",0:(kb-1), sep="")],
-									Data[,paste("BR",0:(kb-1), sep="")]  ))
-summary(regr.bigram       <- lm(logPrice ~ x.bigram., x=TRUE,y=TRUE))  
+
+p    <- 500
+bigr <- as.matrix(Bigram[,1:500])
+sr   <- summary(regr.bigram <- lm(logPrice ~ bigr , x=TRUE, y=TRUE)); sr  
+
+correctly.ordered(logPrice, fitted.values(regr.bigram), 1000)
+
 
 par(mfrow=c(1,2))    # regrB.pdf
 	y <- abs(coefficients(summary(regr.bigram))[-1,3])
