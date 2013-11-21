@@ -37,27 +37,28 @@ typedef Eigen::MatrixXd Matrix;
 
 void
 parse_arguments(int argc, char** argv,	int &n, string &yFileName,
-		int &ni, string &iFileName, int &nx, string &xFileName, string &outputFileName);
+		int &ni, string &iFileName, int &nx, string &xFileName, int &nFoldsCV, string &outputFileName);
 
 void
 fit_models(int  n, std::istream &yStream,
 	   int ni, std::istream &iStream,
-	   int nx, std::istream &xStream, std::ostream& output);
+	   int nx, std::istream &xStream, int nFoldsCV, std::ostream& output);
 
 
 int main(int argc, char** argv)
 {
   // read input options
   int    n         ( 0  );
-  int    ni        ( 0  );
-  int    nx        ( 0  );
+  int    ni        ( 0  );       // number X's used to initialize the model 
+  int    nx        ( 0  );       // number X's used to extend the model (get AIC, CVSS for these)
+  int    cvFolds   ( 0  );       // number folds for cross-validation (0 means no cross validation)
   string yFileName ( "" ); 
   string iFileName ( "" );
   string xFileName ( "" );
   string outputFileName("");
 
-  parse_arguments(argc, argv, n, yFileName, ni, iFileName, nx, xFileName, outputFileName);
-  std::clog << "MAIN: seq_regressor --n=" << n << endl
+  parse_arguments(argc, argv, n, yFileName, ni, iFileName, nx, xFileName, cvFolds, outputFileName);
+  std::clog << "MAIN: seq_regressor --n=" << n << " --folds=" << cvFolds << endl
 	    << "  Files are        --y_file=" << yFileName << endl
 	    << "                   --i_file=" << iFileName << " --ni=" << ni << endl
             << "                   --x_file=" << xFileName << " --nx=" << nx << endl
@@ -80,17 +81,19 @@ int main(int argc, char** argv)
     { std::cerr << "MAIN: Could not open file " << iFileName << " for reading initialization data.\n";
       return 0;
     }
-    fit_models(n, yStream, ni, iStream , nx, xStream, output);
+    fit_models(n, yStream, ni, iStream , nx, xStream, cvFolds, output);
   }
-  else fit_models(n, yStream, ni, std::cin, nx, xStream, output);
+  else fit_models(n, yStream, ni, std::cin, nx, xStream, cvFolds, output);
 }
 
 void
 fit_models(int  n, std::istream &yStream,
 	   int ni, std::istream &iStream,
-	   int nx, std::istream &xStream, std::ostream& output)
+	   int nx, std::istream &xStream, int nFolds, std::ostream& output)
 {
-  output << "Name  r2  RSS AICc\n";
+  output << "Name  r2  RSS AICc";
+  if (nFolds) output << " CVSS" ;
+  output << endl;
   // read Y data with total count
   string yName, mName;
   Matrix Y(n,2);
@@ -122,11 +125,11 @@ fit_models(int  n, std::istream &yStream,
   // fit initial model
   const int blockSize = 0;
   LinearRegression regr(yName, Y.col(0), blockSize);
+  std::clog << "MAIN: Calculate initial model, fitting " << 1+ni << " regressors to response " << yName << endl;
+  FStatistic f = regr.f_test_predictor(mName, Y.col(1));  // number tokens in document
+  if(f.f_stat() > 0.0001) regr.add_predictors();
   if (ni > 0)
-  { std::clog << "MAIN: Calculate initial model, fitting " << 1+ni << " regressors to response " << yName << endl;
-    FStatistic f = regr.f_test_predictor(mName, Y.col(1));  // number tokens in document
-    if(f.f_stat() > 0.0001) regr.add_predictors();
-    f = regr.f_test_predictors(iNames, Xi);
+  { f = regr.f_test_predictors(iNames, Xi);
     if(f.f_stat() > 0.0001) regr.add_predictors();
     else std::clog << "MAIN: F = " << f.f_stat() << " initial regressors (near) singular and skipped.\n";
   }
@@ -136,7 +139,9 @@ fit_models(int  n, std::istream &yStream,
     if(f.f_stat() > 0.0001) regr.add_predictors();
     else std::clog << "MAIN: F = " << f.f_stat() << " for " << xNames[j] << " is (near) singular in sequence r2 and skipped.\n";
     if (output)
-      output << xNames[j] << " " << regr.r_squared() << " " << regr.residual_ss() << " " << regr.aic_c() << endl;
+      output << xNames[j] << " " << regr.r_squared() << " " << regr.residual_ss() << " " << regr.aic_c();
+    if(nFolds) output << cross_validation_ss(regr, nFolds);
+    output << endl;
   }
   std::clog << "MAIN: Regression completed with results written to output stream."<< endl;
 }
@@ -144,7 +149,7 @@ fit_models(int  n, std::istream &yStream,
 
 void
 parse_arguments(int argc, char** argv, int &n, string &yFileName,
-		int &ni, string &iFileName, int &nx, string &xFileName, string &outputFileName)
+		int &ni, string &iFileName, int &nx, string &xFileName, int &nFolds, string &outputFileName)
 {
   static struct option long_options[] = {
     {"n",             required_argument, 0, 'n'},
@@ -153,6 +158,7 @@ parse_arguments(int argc, char** argv, int &n, string &yFileName,
     {"i_file",        required_argument, 0, 'I'},
     {"n_x",           required_argument, 0, 'x'},
     {"x_file",        required_argument, 0, 'X'},
+    {"folds",         required_arbument, 0, 'v'},
     {"output_file",   required_argument, 0, 'o'},
     {0, 0, 0, 0}                             // terminator 
   };
@@ -168,6 +174,7 @@ parse_arguments(int argc, char** argv, int &n, string &yFileName,
     case 'I' : { iFileName      = optarg;                                     break; }
     case 'x' : { nx             = read_utils::lexical_cast<int>(optarg);      break; }
     case 'X' : { xFileName      = optarg;                                     break; }
+    case 'v' : { nFolds         = read_utils::lexical_cast<int>(optarg);      break; }
     case 'o' : { outputFileName = optarg;                                     break; }
     default  : { std::cout << "PARSE: Option not recognized; returning.\n";       }
     } // switch

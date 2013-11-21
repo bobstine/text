@@ -61,6 +61,15 @@ show.cv <- function(regr, mse=NULL, reps=1, seed=2382) {
 	list(fit=red, cv=blue, mse=mse)
 	}
 	
+correctly.ordered <- function(y, y.hat, n) { # percentage of random pairs correctly ordered.
+	ii <- sample(1:length(y),n,replace=FALSE)
+	jj <- sample(1:length(y),n,replace=FALSE)
+	sum((y[ii]-y[jj])*(y.hat[ii]-y.hat[jj])>0)
+	}
+	
+correctly.ordered(logPrice, fitted.values(regr.lsa), 1000)	
+	
+	
 # --- run the following to initialize
 reset()  # sets up plot
 
@@ -94,13 +103,19 @@ import.data <- function() {
 # --- analysis of regression models
 nProj <- 1500
 
-city  <- "ChicagoOld3"
-file  <- paste("/Users/bob/C/text/text_src/temp/",city,"_bigram_regr.txt",sep="")
+city  <- "ChicagoOld3/"
 
-Data <- read.table(file, header=TRUE); dim(Data)
+file   <- paste("/Users/bob/C/text/text_src/temp/",city,"parsed.txt", sep="")
+Data   <- read.table(file, header=TRUE); dim(Data)
+
+file   <- paste("/Users/bob/C/text/text_src/temp/",city,"LSA_",nProj,".txt", sep="")
+LSA    <- read.table(file, header=TRUE); dim(LSA)
+
+file   <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,".txt", sep="")
+Bigram <- read.table(file, header=TRUE); dim(Bigram)
 
 n <- nrow(Data)
-logPrice  <- Data[,"Y"]
+logPrice  <- Data[,"Y"]    # file holds log prices
 price     <- exp(Data[,"Y"])
 nTokens   <- Data[,"m"]
 logTokens <- log(nTokens)
@@ -274,34 +289,13 @@ plot(wregr)
 #
 ##################################################################################
 lsa.analysis <- function() {
-		
-# --- sequential R2 and AIC for LSA
-lsa.fits <- read.table("/Users/bob/C/text/text_src/temp/lsa_regr_fit_with_m.txt", 
-							header=TRUE, as.is=TRUE)
-nr <- nrow(lsa.fits);
-lsa.fits[c(1,2,3,4,5,10,100,nr),]
-
-sum(0 == diff(lsa.fits[,"RSS"]))  # 68 add nothing; C++ dropped 7
-
-plot (c(0,lsa.fits[,"r2"]), type="l", xlab="LSA PCA Index", ylab="Cumulative R2")
-
-plot(lsa.fits[,"AICc"], type="l", xlab="LSA PCA Index", ylab="AICc")  # aic_words.pdf
-opt.k <- which.min(lsa.fits[,"AICc"]); 
-opt.k; lsa.fits[opt.k,]    # 790, 887 if not weighted after projection
-lines(c(opt.k,opt.k), c(0,4500), col="gray")
-lines(r2.words.for[,"AICc"], col="red")
-
 
 # --- LSA analysis from matrix W
-kw <- 500
-x.lsa.    <- as.matrix(Data[,paste("D",0:(kw-1), sep="")])
+#               may want to weight with sqrt(Data[,"m"])
 
-# write.csv(cbind(logPrice,x.lsa.), "~/Desktop/regr.csv")
-# may want to weight with sqrt(Data[,"m"])
-
-
-p <- 500
-sr <- summary(regr.lsa <- lm(logPrice ~ x.lsa. , x=TRUE, y=TRUE)); sr  
+p    <- 500
+lsa  <- as.matrix(LSA[,1:500])
+sr   <- summary(regr.lsa <- lm(logPrice ~ lsa , x=TRUE, y=TRUE)); sr  
 
 xtable(regr.lsa)
 
