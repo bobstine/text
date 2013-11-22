@@ -91,25 +91,23 @@ fit_models(int  n, std::istream &yStream,
 	   int ni, std::istream &iStream,
 	   int nx, std::istream &xStream, int nFolds, std::ostream& output)
 {
-  output << "Name  r2  RSS AICc";
-  if (nFolds) output << " CVSS" ;
-  output << endl;
-  // read Y data with total count
-  string yName, mName;
-  Matrix Y(n,2);
-  yStream >> yName >> mName;
-  for(int i = 0; i<n; ++i)
-    yStream >> Y(i,0) >> Y(i,1);
-  // read initialization data
+  // read Y data and total word count (put counts into first col of Xi)
+  string yName, countName;
   std::vector<string> iNames;
-  Matrix Xi(n,ni);
-  for(int j=0; j<ni; ++j)
+  Vector Y(n);
+  Matrix Xi(n,1+ni);  
+  yStream >> yName >> countName;
+  iNames.push_back(countName);
+  for(int i = 0; i<n; ++i)
+    yStream >> Y(i,0) >> Xi(i,0);
+  // read rest of initial X data
+  for(int j=1; j<=ni; ++j)
   { string name;
     iStream >> name;
     iNames.push_back(name);
   }
   for(int i=0; i<n; ++i)
-    for(int j=0; j<ni; ++j)
+    for(int j=1; j<=ni; ++j)
       iStream >> Xi(i,j);
   // read sequence of predictors
   std::vector<string> xNames;
@@ -122,27 +120,11 @@ fit_models(int  n, std::istream &yStream,
   for(int i=0; i<n; ++i)
     for(int j=0; j<nx; ++j)
       xStream >> X(i,j);
-  // fit initial model
-  const int blockSize = 0;
-  LinearRegression regr(yName, Y.col(0), blockSize);
-  std::clog << "MAIN: Calculate initial model, fitting " << 1+ni << " regressors to response " << yName << endl;
-  FStatistic f = regr.f_test_predictor(mName, Y.col(1));  // number tokens in document
-  if(f.f_stat() > 0.0001) regr.add_predictors();
-  if (ni > 0)
-  { f = regr.f_test_predictors(iNames, Xi);
-    if(f.f_stat() > 0.0001) regr.add_predictors();
-    else std::clog << "MAIN: F = " << f.f_stat() << " initial regressors (near) singular and skipped.\n";
-  }
-  std::clog << "MAIN: Calculation loop; fitting " << nx << " regressors to response " << yName << endl;
-  for (int j=0; j<nx; ++j)
-  { FStatistic f=regr.f_test_predictor(xNames[j], X.col(j));
-    if(f.f_stat() > 0.0001) regr.add_predictors();
-    else std::clog << "MAIN: F = " << f.f_stat() << " for " << xNames[j] << " is (near) singular in sequence r2 and skipped.\n";
-    if (output)
-      output << xNames[j] << " " << regr.r_squared() << " " << regr.residual_ss() << " " << regr.aic_c();
-    if(nFolds) output << cross_validation_ss(regr, nFolds);
-    output << endl;
-  }
+  // call code to validate using threads
+  Eigen::MatrixXd results(X.cols(),4);            // R2, RSS, AICc, CVSS
+  validate_regression(Y, Xi, X, nFolds, results);
+  Eigen::IOFormat fmt(Eigen::StreamPrecision,Eigen::DontAlignCols,"\t","\n","","","","");
+  output << "R2\tRSS\tAICc\tCVSS\n" << results.format(fmt);
   std::clog << "MAIN: Regression completed with results written to output stream."<< endl;
 }
 
@@ -158,13 +140,13 @@ parse_arguments(int argc, char** argv, int &n, string &yFileName,
     {"i_file",        required_argument, 0, 'I'},
     {"n_x",           required_argument, 0, 'x'},
     {"x_file",        required_argument, 0, 'X'},
-    {"folds",         required_arbument, 0, 'v'},
+    {"folds",         required_argument, 0, 'v'},
     {"output_file",   required_argument, 0, 'o'},
     {0, 0, 0, 0}                             // terminator 
   };
   int key;
   int option_index = 0;
-  while (-1 !=(key = getopt_long (argc, argv, "n:Y:i:I:x:X:o:", long_options, &option_index))) // colon means has argument
+  while (-1 !=(key = getopt_long (argc, argv, "n:Y:i:I:x:X:v:o:", long_options, &option_index))) // colon means has argument
   {
     switch (key)
     {

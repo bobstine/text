@@ -16,11 +16,11 @@ PROJECT_NAME = text
 
 # OPT = -O3 -std=c++0x -DNDEBUG
 
-OPT = -O3  -std=c++0x
+OPT = -O3 -fopenmp -std=c++0x
 
 USES = utils eigen
 
-EXTERNAL_USES = boost_regex gomp
+EXTERNAL_USES = boost_system boost_thread boost_regex gomp
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -152,7 +152,10 @@ $(outPath)y.txt: $(outPath)$(nProj).txt
 	cut -f 1-2 $(outPath)parsed.txt > $@
 
 $(outPath)aic_%.txt: seq_regression $(outPath)y.txt 
-	cut -f 1-$* $(outPath)bigram_$(nProj).txt | ./seq_regression -n $(nDocs) -Y $(outPath)y.txt -X $(outPath)LSA_$(nProj).txt -x $(nProj) -i $* -o $@
+	cut -f 1-$* $(outPath)bigram_$(nProj).txt | ./seq_regression -n $(nDocs) -v 10 -Y $(outPath)y.txt -X $(outPath)LSA_$(nProj).txt -x $(nProj) -i $* -o $@
+
+doit: $(outPath)aic_10.txt $(outPath)aic_50.txt $(outPath)aic_100.txt
+	echo $(outpath)
 
 doaic: $(outPath)aic_10.txt $(outPath)aic_20.txt $(outPath)aic_30.txt $(outPath)aic_40.txt $(outPath)aic_50.txt $(outPath)aic_75.txt $(outPath)aic_100.txt \
        $(outPath)aic_200.txt $(outPath)aic_400.txt $(outPath)aic_600.txt $(outPath)aic_800.txt $(outPath)aic_900.txt $(outPath)aic_950.txt \
