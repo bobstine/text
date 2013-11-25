@@ -122,7 +122,8 @@ fit_models(int  n, std::istream &yStream,
       xStream >> X(i,j);
   // call code to validate using threads
   Eigen::MatrixXd results(X.cols(),4);            // R2, RSS, AICc, CVSS
-  validate_regression(Y, Xi, X, nFolds, results);
+  unsigned seed = 16387;
+  validate_regression(Y, Xi, X, nFolds, results, seed);
   Eigen::IOFormat fmt(Eigen::StreamPrecision,Eigen::DontAlignCols,"\t","\n","","","","");
   output << "R2\tRSS\tAICc\tCVSS\n" << results.format(fmt);
   std::clog << "MAIN: Regression completed with results written to output stream."<< endl;

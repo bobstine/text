@@ -459,56 +459,79 @@ reset()
 # 2-D AIC plots
 ##################################################################################
 
-path <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/"
-  D10 <- read.table(paste(path,"aic_10.txt",sep=""), header=TRUE)
-  D20 <- read.table(paste(path,"aic_20.txt",sep=""), header=TRUE)
-  D30 <- read.table(paste(path,"aic_30.txt",sep=""), header=TRUE)
-  D40 <- read.table(paste(path,"aic_40.txt",sep=""), header=TRUE)
-  D50 <- read.table(paste(path,"aic_50.txt",sep=""), header=TRUE)
-  D75 <- read.table(paste(path,"aic_75.txt",sep=""), header=TRUE)
- D100 <- read.table(paste(path,"aic_100.txt",sep=""), header=TRUE)
- D200 <- read.table(paste(path,"aic_200.txt",sep=""), header=TRUE)
- D400 <- read.table(paste(path,"aic_400.txt",sep=""), header=TRUE)
- D600 <- read.table(paste(path,"aic_600.txt",sep=""), header=TRUE)
- D800 <- read.table(paste(path,"aic_800.txt",sep=""), header=TRUE)
- D900 <- read.table(paste(path,"aic_900.txt",sep=""), header=TRUE)
- D950 <- read.table(paste(path,"aic_950.txt",sep=""), header=TRUE)
-D1000 <- read.table(paste(path,"aic_1000.txt",sep=""), header=TRUE)
-D1050 <- read.table(paste(path,"aic_1050.txt",sep=""), header=TRUE)
-D1100 <- read.table(paste(path,"aic_1100.txt",sep=""), header=TRUE)
-D1200 <- read.table(paste(path,"aic_1200.txt",sep=""), header=TRUE)
-D1300 <- read.table(paste(path,"aic_1300.txt",sep=""), header=TRUE)
-D1400 <- read.table(paste(path,"aic_1400.txt",sep=""), header=TRUE)
-D1500 <- read.table(paste(path,"aic_1500.txt",sep=""), header=TRUE)
+avg.cv <- function(n.init) {
+	path1 <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_26612/"  # identifies seed
+ 	path2 <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_16387/" 
+ 	cv1 <- read.table(paste(path1,"aic_",n.init,".txt",sep=""), header=TRUE)
+ 	cv2 <- read.table(paste(path2,"aic_",n.init,".txt",sep=""), header=TRUE)
+ 	if(cv1[3,3] != cv2[3,3]) cat("ERROR: Non-cv terms do not match\n");
+ 	(cv1+cv2)/2
+ 	}
+ 	
+  D10 <- avg.cv(  10)
+  D20 <- avg.cv(  20)
+  D30 <- avg.cv(  30)
+  D40 <- avg.cv(  40)
+  D50 <- avg.cv(  50)
+  D75 <- avg.cv(  75)
+ D100 <- avg.cv( 100)
+ D200 <- avg.cv( 200)
+ D400 <- avg.cv( 400)
+ D600 <- avg.cv( 600)
+ D800 <- avg.cv( 800)
+ D900 <- avg.cv( 900)
+ D950 <- avg.cv( 950)
+D1000 <- avg.cv(1000)
+D1050 <- avg.cv(1050)
+D1100 <- avg.cv(1100)
+D1200 <- avg.cv(1200)
+D1300 <- avg.cv(1300)
+D1400 <- avg.cv(1400)
+D1500 <- avg.cv(1500)
 
-xax <- 1:1500
-plot(D10[,"AICc"], type="l", log="y", xlab="Number of LSA Variables", ylab="AICc",
-			main="Initialized with varying bigram variables",
-			ylim=c(min(D1000[,"AICc"]), max(D200[,"AICc"])))
-smth <- lowess(xax,log(D10[,"AICc"]),f=0.05)
-lines(smth$x,exp(smth$y), col="red")
+c <- "AICc"
+colors <- rainbow(22, start=0.1, end=0.9); ci <- 1
+plot(D10[,c], type="l", log="y", xlab="Number of LSA Variables", ylab=c,
+			main="Initialized with varying bigram variables",col=colors[ci],
+			ylim=c(0.95*min(D400[,c]), 2*max(D400[,c])))
+	smth <- lowess(xax,log(D10[,c]),f=0.05)
+	lines(smth$x,exp(smth$y), col=colors[ci]); ci <- ci+1
+lines(  D20[,c], type="l", col=colors[ci]); ci <- ci+1
+lines(  D30[,c], type="l", col=colors[ci]); ci <- ci+1
+lines(  D40[,c], type="l", col=colors[ci]); ci <- ci+1
+lines(  D50[,c], type="l", col=colors[ci]); ci <- ci+1
+lines(  D75[,c], type="l", col=colors[ci]); ci <- ci+1
+lines( D100[,c], type="l", col=colors[ci]); ci <- ci+1	
+lines( D200[,c], type="l", col=colors[ci]); ci <- ci+1
+lines( D400[,c], type="l", col=colors[ci]); ci <- ci+1
+lines( D600[,c], type="l", col=colors[ci])
+ smth <- lowess(xax,log(D600[,c]),f=0.05)
+ lines(smth$x,exp(smth$y), col=colors[ci]); ci <- ci+1
+lines( D800[,c], type="l", col=colors[ci]); ci <- ci+1
+lines( D900[,c], type="l", col=colors[ci]); ci <- ci+1; paste(" 900 ", min(D900[,c]))
+lines( D950[,c], type="l", col=colors[ci]); ci <- ci+1; paste(" 950 ", min(D950[,c]))   # 2894
+lines(D1000[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1000 ", min(D1000[,c]))  # 2858
+lines(D1050[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1050 ", min(D1050[,c]))  # 2831
+lines(D1100[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1100 ", min(D1100[,c]))  # 2812
+lines(D1200[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1200 ", min(D1200[,c]))
+lines(D1300[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1300 ", min(D1300[,c]))
+lines(D1400[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1400 ", min(D1400[,c]))
+lines(D1500[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1500 ", min(D1500[,c]))
 
-lines(  D20[,"AICc"], type="l", col="red")
-lines(  D30[,"AICc"], type="l", col="green")
-lines(  D40[,"AICc"], type="l", col="cyan")
-lines(  D50[,"AICc"], type="l", col="blue")
-lines(  D75[,"AICc"], type="l", col="black")
-lines( D100[,"AICc"], type="l", col="red")
-lines( D200[,"AICc"], type="l", col="green")
-lines( D400[,"AICc"], type="l", col="cyan")
-lines( D600[,"AICc"], type="l", col="blue")
- smth <- lowess(xax,log(D600[,"AICc"]),f=0.05)
- lines(smth$x,exp(smth$y), col="blue")
-lines( D800[,"AICc"], type="l", col="black")
-lines( D900[,"AICc"], type="l", col="red")   ; paste("900 ", min(D900[,"AICc"]))
-lines( D950[,"AICc"], type="l", col="red")   ; paste("950 ", min(D950[,"AICc"]))    # 2790.9
-lines(D1000[,"AICc"], type="l", col="green") ; paste("1000 ", min(D1000[,"AICc"]))  # 2803.6
-lines(D1050[,"AICc"], type="l", col="green") ; paste("1050 ", min(D1050[,"AICc"]))  # 2857
-lines(D1100[,"AICc"], type="l", col="cyan")  ; paste("1100 ", min(D1100[,"AICc"]))
-lines(D1200[,"AICc"], type="l", col="blue")  ; paste("1200 ", min(D1200[,"AICc"]))
-lines(D1300[,"AICc"], type="l", col="black") ; paste("1300 ", min(D1300[,"AICc"]))
-lines(D1400[,"AICc"], type="l", col="red")   ; paste("1400 ", min(D1400[,"AICc"]))
+# correlation of AICc with CVSS
+plot(D1000[,"AICc"],D1000[,"CVSS"], type="l", log="xy", xlab="AICc", ylab="CVSS")
+		# xlim=c(0.95 * min(D1000[,"AICc"]),0.7*max(D1000[,"CVSS"])),
+		# ylim=c(0.99 * min(D1000[,"CVSS"]),0.8*max(D1000[,"CVSS"]))  )
+text(D1000[1,"AICc"],D1000[1,"CVSS"],"start", cex=0.5)
+lines(D1050[,"AICc"], D1050[,"CVSS"], type="l", col="red"  )
+lines(D1100[,"AICc"], D1000[,"CVSS"], type="l", col="blue"  )
 
+lines(D100[,"AICc"],D100[,"CVSS"], type="l", col="blue" )
+lines(D200[,"AICc"],D200[,"CVSS"], type="l", col="purple")
+lines(D400[,"AICc"],D400[,"CVSS"], type="l", col="green" )
+lines(D600[,"AICc"],D600[,"CVSS"], type="l", col="black" )
+
+	  
 # combine into data for rendering
 xx  <- c(10,20,30,40,50,75,100, 200,400,600,800,900,950, 1000, 1050, 1100,1200,1300,1400)
 yy  <- 1:nrow(D10)
