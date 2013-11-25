@@ -463,11 +463,13 @@ avg.cv <- function(n.init) {
 	path1 <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_26612/"  # identifies seed
  	path2 <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_16387/" 
  	path3 <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_24387/" 
+ 	path4 <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_51379/" 
  	cv1 <- read.table(paste(path1,"aic_",n.init,".txt",sep=""), header=TRUE)
  	cv2 <- read.table(paste(path2,"aic_",n.init,".txt",sep=""), header=TRUE)
  	cv3 <- read.table(paste(path3,"aic_",n.init,".txt",sep=""), header=TRUE)
+ 	cv4 <- read.table(paste(path4,"aic_",n.init,".txt",sep=""), header=TRUE)
  	if((cv1[3,3] != cv2[3,3]) |(cv1[3,3] != cv3[3,3]))  cat("ERROR: Non-cv terms do not match\n");
- 	(cv1+cv2+cv3)/3
+ 	(cv1+cv2+cv3+cv4)/4
  	}
  	
   D10 <- avg.cv(  10)
@@ -495,7 +497,7 @@ c <- "CVSS"
 colors <- rainbow(22, start=0.05, end=0.9); ci <- 1
 plot(D10[,c], type="l", log="y", xlab="Number of LSA Variables", ylab=c,
 			main="Initialized with varying bigram variables",col=colors[ci],
-			ylim=c(0.95*min(D400[,c]), 2*max(D400[,c])))
+			ylim=c(0.98*min(D400[,c]), 2*max(D400[,c])))
 	smth <- lowess(xax,log(D10[,c]),f=0.05)
 	lines(smth$x,exp(smth$y), col=colors[ci]); ci <- ci+1
 lines(  D20[,c], type="l", col=colors[ci]); ci <- ci+1
