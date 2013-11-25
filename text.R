@@ -462,10 +462,12 @@ reset()
 avg.cv <- function(n.init) {
 	path1 <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_26612/"  # identifies seed
  	path2 <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_16387/" 
+ 	path3 <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_24387/" 
  	cv1 <- read.table(paste(path1,"aic_",n.init,".txt",sep=""), header=TRUE)
  	cv2 <- read.table(paste(path2,"aic_",n.init,".txt",sep=""), header=TRUE)
- 	if(cv1[3,3] != cv2[3,3]) cat("ERROR: Non-cv terms do not match\n");
- 	(cv1+cv2)/2
+ 	cv3 <- read.table(paste(path3,"aic_",n.init,".txt",sep=""), header=TRUE)
+ 	if((cv1[3,3] != cv2[3,3]) |(cv1[3,3] != cv3[3,3]))  cat("ERROR: Non-cv terms do not match\n");
+ 	(cv1+cv2+cv3)/3
  	}
  	
   D10 <- avg.cv(  10)
@@ -489,8 +491,8 @@ D1300 <- avg.cv(1300)
 D1400 <- avg.cv(1400)
 D1500 <- avg.cv(1500)
 
-c <- "AICc"
-colors <- rainbow(22, start=0.1, end=0.9); ci <- 1
+c <- "CVSS"
+colors <- rainbow(22, start=0.05, end=0.9); ci <- 1
 plot(D10[,c], type="l", log="y", xlab="Number of LSA Variables", ylab=c,
 			main="Initialized with varying bigram variables",col=colors[ci],
 			ylim=c(0.95*min(D400[,c]), 2*max(D400[,c])))
@@ -522,14 +524,15 @@ lines(D1500[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1500 ", min(D1500
 plot(D1000[,"AICc"],D1000[,"CVSS"], type="l", log="xy", xlab="AICc", ylab="CVSS")
 		# xlim=c(0.95 * min(D1000[,"AICc"]),0.7*max(D1000[,"CVSS"])),
 		# ylim=c(0.99 * min(D1000[,"CVSS"]),0.8*max(D1000[,"CVSS"]))  )
-text(D1000[1,"AICc"],D1000[1,"CVSS"],"start", cex=0.5)
+	text(D1000[1,"AICc"],D1000[1,"CVSS"],"start", cex=0.5)
 lines(D1050[,"AICc"], D1050[,"CVSS"], type="l", col="red"  )
 lines(D1100[,"AICc"], D1000[,"CVSS"], type="l", col="blue"  )
 
-lines(D100[,"AICc"],D100[,"CVSS"], type="l", col="blue" )
-lines(D200[,"AICc"],D200[,"CVSS"], type="l", col="purple")
-lines(D400[,"AICc"],D400[,"CVSS"], type="l", col="green" )
-lines(D600[,"AICc"],D600[,"CVSS"], type="l", col="black" )
+plot(D100[,"AICc"],D100[,"CVSS"], type="l", log="xy", xlab="AICc", ylab="CVSS")
+	text(D100[1,"AICc"],D100[1,"CVSS"],"start", cex=0.5)
+lines(D200[,"AICc"],D200[,"CVSS"], type="l", col="blue")
+lines(D400[,"AICc"],D400[,"CVSS"], type="l", col="purple" )
+lines(D600[,"AICc"],D600[,"CVSS"], type="l", col="red" )
 
 	  
 # combine into data for rendering
