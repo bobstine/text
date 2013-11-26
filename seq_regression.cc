@@ -84,7 +84,7 @@ int main(int argc, char** argv)
     { std::cerr << "MAIN: Could not open file " << iFileName << " for reading initialization data.\n";
       return 0;
     }
-    fit_models(n, yStream, ni, iStream , nx, xStream, cvFolds, output);
+    fit_models(n, yStream, ni, iStream , nx, xStream, cvFolds, randomSeed, output);
   }
   else fit_models(n, yStream, ni, std::cin, nx, xStream, cvFolds, randomSeed, output);
 }
