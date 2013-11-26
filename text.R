@@ -459,93 +459,152 @@ reset()
 # 2-D AIC plots
 ##################################################################################
 
-avg.cv <- function(n.init) {
+avg.cv.big <- function(n.init) {
 	path1 <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_26612/"  # identifies seed
  	path2 <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_16387/" 
  	path3 <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_24387/" 
  	path4 <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_51379/" 
  	path5 <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_31427/" 
- 	cv1 <- read.table(paste(path1,"aic_",n.init,".txt",sep=""), header=TRUE)
- 	cv2 <- read.table(paste(path2,"aic_",n.init,".txt",sep=""), header=TRUE)
- 	cv3 <- read.table(paste(path3,"aic_",n.init,".txt",sep=""), header=TRUE)
- 	cv4 <- read.table(paste(path4,"aic_",n.init,".txt",sep=""), header=TRUE)
- 	cv5 <- read.table(paste(path5,"aic_",n.init,".txt",sep=""), header=TRUE)
+ 	path6 <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_73638/" 
+ 	cv1 <- read.table(paste(path1,"aic_pre_big_",n.init,".txt",sep=""), header=TRUE)
+ 	cv2 <- read.table(paste(path2,"aic_pre_big_",n.init,".txt",sep=""), header=TRUE)
+ 	cv3 <- read.table(paste(path3,"aic_pre_big_",n.init,".txt",sep=""), header=TRUE)
+ 	cv4 <- read.table(paste(path4,"aic_pre_big_",n.init,".txt",sep=""), header=TRUE)
+ 	cv5 <- read.table(paste(path5,"aic_pre_big_",n.init,".txt",sep=""), header=TRUE)
+ 	# cv6 <- read.table(paste(path6,"aic_pre_big_",n.init,".txt",sep=""), header=TRUE)
  	if((cv1[3,3] != cv2[3,3]) |(cv1[3,3] != cv3[3,3]))  cat("ERROR: Non-cv terms do not match\n");
  	(cv1+cv2+cv3+cv4+cv5)/5
  	}
  	
-  D10 <- avg.cv(  10)
-  D20 <- avg.cv(  20)
-  D30 <- avg.cv(  30)
-  D40 <- avg.cv(  40)
-  D50 <- avg.cv(  50)
-  D75 <- avg.cv(  75)
- D100 <- avg.cv( 100)
- D200 <- avg.cv( 200)
- D400 <- avg.cv( 400)
- D600 <- avg.cv( 600)
- D800 <- avg.cv( 800)
- D900 <- avg.cv( 900)
- D950 <- avg.cv( 950)
-D1000 <- avg.cv(1000)
-D1050 <- avg.cv(1050)
-D1100 <- avg.cv(1100)
-D1200 <- avg.cv(1200)
-D1300 <- avg.cv(1300)
-D1400 <- avg.cv(1400)
-D1500 <- avg.cv(1500)
+avg.cv.lsa <- function(n.init) {
+ 	path6 <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_73638/" 
+  	cv6 <- read.table(paste(path6,"aic_pre_lsa_",n.init,".txt",sep=""), header=TRUE)
+ 	cv6
+	}
 
-c <- "CVSS"
+ 	
+  D10.big <- avg.cv.big(  10);   D10.lsa <- avg.cv.lsa(  10)
+  D20.big <- avg.cv.big(  20);   D20.lsa <- avg.cv.lsa(  20)
+  D30.big <- avg.cv.big(  30);   D30.lsa <- avg.cv.lsa(  30)
+  D40.big <- avg.cv.big(  40);   D40.lsa <- avg.cv.lsa(  40)
+  D50.big <- avg.cv.big(  50);   D50.lsa <- avg.cv.lsa(  50)
+  D75.big <- avg.cv.big(  75);   D75.lsa <- avg.cv.lsa(  75)
+ D100.big <- avg.cv.big( 100);  D100.lsa <- avg.cv.lsa( 100)
+ D200.big <- avg.cv.big( 200);  D200.lsa <- avg.cv.lsa( 200)
+ D400.big <- avg.cv.big( 400);  D400.lsa <- avg.cv.lsa( 400)
+ D600.big <- avg.cv.big( 600);  D600.lsa <- avg.cv.lsa( 600)
+ D800.big <- avg.cv.big( 800);  D800.lsa <- avg.cv.lsa( 800)
+ D900.big <- avg.cv.big( 900);  D900.lsa <- avg.cv.lsa( 900)
+ D950.big <- avg.cv.big( 950);  D950.lsa <- avg.cv.lsa( 950)
+D1000.big <- avg.cv.big(1000); D1000.lsa <- avg.cv.lsa(1000)
+D1050.big <- avg.cv.big(1050); D1050.lsa <- avg.cv.lsa(1050)
+D1100.big <- avg.cv.big(1100); D1100.lsa <- avg.cv.lsa(1100)
+D1200.big <- avg.cv.big(1200); D1200.lsa <- avg.cv.lsa(1200)
+D1300.big <- avg.cv.big(1300); D1300.lsa <- avg.cv.lsa(1300)
+D1400.big <- avg.cv.big(1400); D1400.lsa <- avg.cv.lsa(1400)
+D1500.big <- avg.cv.big(1500); D1500.lsa <- avg.cv.lsa(1500)
+
+# --- precondition on Bigram
+c <- "CVSS" ; xax <- 1:1500
 colors <- rainbow(22, start=0.05, end=0.9); ci <- 1
-plot(D10[,c], type="l", log="y", xlab="Number of LSA Variables", ylab=c,
-			main="Initialized with varying bigram variables",col=colors[ci],
-			ylim=c(0.98*min(D400[,c]), 2*max(D400[,c])))
-	smth <- lowess(xax,log(D10[,c]),f=0.05)
+plot(D10.big[,c], type="l", log="y", xlab="Number of LSA Variables", ylab=c,
+			main="Preconditioned with Bigram variables",col=colors[ci],
+			ylim=c(0.98*min(D100.big[,c]), max(D10.big[,c])))
+	smth <- lowess(xax,log(D10.big[,c]),f=0.05)
 	lines(smth$x,exp(smth$y), col=colors[ci]); ci <- ci+1
-lines(  D20[,c], type="l", col=colors[ci]); ci <- ci+1
-lines(  D30[,c], type="l", col=colors[ci]); ci <- ci+1
-lines(  D40[,c], type="l", col=colors[ci]); ci <- ci+1
-lines(  D50[,c], type="l", col=colors[ci]); ci <- ci+1
-lines(  D75[,c], type="l", col=colors[ci]); ci <- ci+1
-lines( D100[,c], type="l", col=colors[ci]); ci <- ci+1	
-lines( D200[,c], type="l", col=colors[ci]); ci <- ci+1
-lines( D400[,c], type="l", col=colors[ci]); ci <- ci+1
-lines( D600[,c], type="l", col=colors[ci])
- smth <- lowess(xax,log(D600[,c]),f=0.05)
+lines(  D20.big[,c], type="l", col=colors[ci]); ci <- ci+1
+lines(  D30.big[,c], type="l", col=colors[ci]); ci <- ci+1
+lines(  D40.big[,c], type="l", col=colors[ci]); ci <- ci+1
+lines(  D50.big[,c], type="l", col=colors[ci]); ci <- ci+1
+lines(  D75.big[,c], type="l", col=colors[ci]); ci <- ci+1
+lines( D100.big[,c], type="l", col=colors[ci]); ci <- ci+1
+lines( D200.big[,c], type="l", col=colors[ci]); ci <- ci+1
+lines( D400.big[,c], type="l", col=colors[ci]); ci <- ci+1
+lines( D600.big[,c], type="l", col=colors[ci])
+ smth <- lowess(xax,log(D600.big[,c]),f=0.05)
  lines(smth$x,exp(smth$y), col=colors[ci]); ci <- ci+1
-lines( D800[,c], type="l", col=colors[ci]); ci <- ci+1
-lines( D900[,c], type="l", col=colors[ci]); ci <- ci+1; paste(" 900 ", min(D900[,c]))
-lines( D950[,c], type="l", col=colors[ci]); ci <- ci+1; paste(" 950 ", min(D950[,c]))   # 2894
-lines(D1000[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1000 ", min(D1000[,c]))  # 2858
-lines(D1050[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1050 ", min(D1050[,c]))  # 2831
-lines(D1100[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1100 ", min(D1100[,c]))  # 2812
-lines(D1200[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1200 ", min(D1200[,c]))
-lines(D1300[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1300 ", min(D1300[,c]))
-lines(D1400[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1400 ", min(D1400[,c]))
-lines(D1500[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1500 ", min(D1500[,c]))
+lines( D800.big[,c], type="l", col=colors[ci]); ci <- ci+1
+lines( D900.big[,c], type="l", col=colors[ci]); ci <- ci+1; paste(" 900 ", min(D900.big[,c]))
+lines( D950.big[,c], type="l", col=colors[ci]); ci <- ci+1; paste(" 950 ", min(D950.big[,c]))   # 2894
+lines(D1000.big[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1000 ", min(D1000.big[,c]))  # 2858
+lines(D1050.big[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1050 ", min(D1050.big[,c]))  # 2831
+lines(D1100.big[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1100 ", min(D1100.big[,c]))  # 2812
+lines(D1200.big[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1200 ", min(D1200.big[,c]))
+lines(D1300.big[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1300 ", min(D1300.big[,c]))
+lines(D1400.big[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1400 ", min(D1400.big[,c]))
+lines(D1500.big[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1500 ", min(D1500.big[,c]))
 
-# correlation of AICc with CVSS
-plot(D1000[,"AICc"],D1000[,"CVSS"], type="l", log="xy", xlab="AICc", ylab="CVSS")
-		# xlim=c(0.95 * min(D1000[,"AICc"]),0.7*max(D1000[,"CVSS"])),
-		# ylim=c(0.99 * min(D1000[,"CVSS"]),0.8*max(D1000[,"CVSS"]))  )
-	text(D1000[1,"AICc"],D1000[1,"CVSS"],"start", cex=0.5)
-lines(D1050[,"AICc"], D1050[,"CVSS"], type="l", col="red"  )
-lines(D1100[,"AICc"], D1000[,"CVSS"], type="l", col="blue"  )
+# --- precondition on LSA
+c <- "CVSS" ; xax <- 1:1500
+colors <- rainbow(22, start=0.05, end=0.9); ci <- 1
+plot(D10.lsa[,c], type="l", log="y", xlab="Number of Bigram Variables", ylab=c,
+			main="Preconditioned with LSA variables",col=colors[ci],
+			ylim=c(0.98*min(D100.lsa[,c]), max(D10.lsa[,c])))
+	smth <- lowess(xax,log(D10.lsa[,c]),f=0.05)
+	lines(smth$x,exp(smth$y), col=colors[ci]); ci <- ci+1
+lines(  D20.lsa[,c], type="l", col=colors[ci]); ci <- ci+1
+lines(  D30.lsa[,c], type="l", col=colors[ci]); ci <- ci+1
+lines(  D40.lsa[,c], type="l", col=colors[ci]); ci <- ci+1
+lines(  D50.lsa[,c], type="l", col=colors[ci]); ci <- ci+1
+lines(  D75.lsa[,c], type="l", col=colors[ci]); ci <- ci+1
+lines( D100.lsa[,c], type="l", col=colors[ci]); ci <- ci+1
+lines( D200.lsa[,c], type="l", col=colors[ci]); ci <- ci+1
+lines( D400.lsa[,c], type="l", col=colors[ci]); ci <- ci+1
+lines( D600.lsa[,c], type="l", col=colors[ci])              # best
+ smth <- lowess(xax,log(D600.lsa[,c]),f=0.05)
+ lines(smth$x,exp(smth$y), col=colors[ci]); ci <- ci+1
+lines( D800.lsa[,c], type="l", col=colors[ci]); ci <- ci+1
+lines( D900.lsa[,c], type="l", col=colors[ci]); ci <- ci+1; paste(" 900 ", min(D900.lsa[,c]))
+lines( D950.lsa[,c], type="l", col=colors[ci]); ci <- ci+1; paste(" 950 ", min(D950.lsa[,c]))   # 2894
+lines(D1000.lsa[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1000 ", min(D1000.lsa[,c]))  # 2858
+lines(D1050.lsa[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1050 ", min(D1050.lsa[,c]))  # 2831
+lines(D1100.lsa[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1100 ", min(D1100.lsa[,c]))  # 2812
+lines(D1200.lsa[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1200 ", min(D1200.lsa[,c]))
+lines(D1300.lsa[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1300 ", min(D1300.lsa[,c]))
+lines(D1400.lsa[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1400 ", min(D1400.lsa[,c]))
+lines(D1500.lsa[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1500 ", min(D1500.lsa[,c]))
 
-plot(D100[,"AICc"],D100[,"CVSS"], type="l", log="xy", xlab="AICc", ylab="CVSS")
-	text(D100[1,"AICc"],D100[1,"CVSS"],"start", cex=0.5)
-lines(D200[,"AICc"],D200[,"CVSS"], type="l", col="blue")
-lines(D400[,"AICc"],D400[,"CVSS"], type="l", col="purple" )
-lines(D600[,"AICc"],D600[,"CVSS"], type="l", col="red" )
+# --- checks: Why don't these match?
+#        What regression does C++ fit?
+#        How are the bigrams computed to have decreasing variation?
+#        Why is the SD of the first LSA different from others?
+lsa <- as.matrix(LSA[,1:10]); big <- as.matrix(Bigram[,1:10])
+summary(lm(logPrice ~ nTokens + lsa + big))
+
+D10.big[10,]
+D10.lsa[10,]
+
+plot(sapply(Bigram,sd)) # decreasing
+plot(sapply(LSA,sd))    # essentially constant ... but for the first one???
+
+# --- correlation of AICc with CVSS
+plot(D1000.big[,"AICc"],D1000.big[,"CVSS"], type="l", log="xy", xlab="AICc", ylab="CVSS")
+	text(D1000.big[1,"AICc"],D1000.big[1,"CVSS"],"start", cex=0.5)
+lines(D1050.big[,"AICc"], D1050.big[,"CVSS"], type="l", col="red"  )
+lines(D1100.big[,"AICc"], D1000.big[,"CVSS"], type="l", col="blue"  )
+
+plot(D100.big[,"AICc"],D100.big[,"CVSS"], type="l", log="xy", xlab="AICc", ylab="CVSS")
+	text(D100[1,"AICc"],D100.big[1,"CVSS"],"start", cex=0.5)
+lines(D200.big[,"AICc"],D200.big[,"CVSS"], type="l", col="blue")
+lines(D400.big[,"AICc"],D400.big[,"CVSS"], type="l", col="purple" )
+lines(D600.big[,"AICc"],D600.big[,"CVSS"], type="l", col="red" )
 
 	  
 # combine into data for rendering
-xx  <- c(10,20,30,40,50,75,100, 200,400,600,800,900,950, 1000, 1050, 1100,1200,1300,1400)
+xx  <- c(10,20,30,40,50,75,100,200,400,600,800,900,950,1000,1050,1100,1200,1300,1400)
 yy  <- 1:nrow(D10)
-mat <- rbind(D10[,4],D20[,4],D30[,4],D40[,4],D50[,4],D75[,4],
-		D100[,4],D200[,4],D400[,4],D600[,4],D800[,4],D900[,4],D950[,4],
-		D1000[,4],D1050[,4],D1100[,4],D1200[,4],D1300[,4],D1400[,4])
-write.table(mat,"~/Desktop/AIC.txt")
+c <- "AICc"
+mat.big <- rbind(D10.big[,c],D20.big[,c],D30.big[,c],D40.big[,c],D50.big[,c],D75.big[,c],
+		D100.big[,c],D200.big[,c],D400.big[,c],D600.big[,c],D800.big[,c],D900.big[,c],D950.big[,c],
+		D1000.big[,c],D1050.big[,c],D1100.big[,c],D1200.big[,c],D1300.big[,c])
+mat.lsa <- rbind(D10.lsa[,c],D20.lsa[,c],D30.lsa[,c],D40.lsa[,c],D50.lsa[,c],D75.lsa[,c],
+		D100.lsa[,c],D200.lsa[,c],D400.lsa[,c],D600.lsa[,c],D800.lsa[,c],D900.lsa[,c],D950.lsa[,c],
+		D1000.lsa[,c],D1050.lsa[,c],D1100.lsa[,c],D1200.lsa[,c],D1300.lsa[,c])
+
+write.table(mat.big,"~/Desktop/AIC.big.txt")
+write.table(mat.lsa,"~/Desktop/AIC.lsa.txt")
+
+
 
 # do some smoothing
 s.f <- function(x) exp(lowess(1:1500,log(x),f=0.05)$y) # smooth on log scale
