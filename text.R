@@ -464,12 +464,14 @@ avg.cv <- function(n.init) {
  	path2 <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_16387/" 
  	path3 <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_24387/" 
  	path4 <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_51379/" 
+ 	path5 <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_31427/" 
  	cv1 <- read.table(paste(path1,"aic_",n.init,".txt",sep=""), header=TRUE)
  	cv2 <- read.table(paste(path2,"aic_",n.init,".txt",sep=""), header=TRUE)
  	cv3 <- read.table(paste(path3,"aic_",n.init,".txt",sep=""), header=TRUE)
  	cv4 <- read.table(paste(path4,"aic_",n.init,".txt",sep=""), header=TRUE)
+ 	cv5 <- read.table(paste(path5,"aic_",n.init,".txt",sep=""), header=TRUE)
  	if((cv1[3,3] != cv2[3,3]) |(cv1[3,3] != cv3[3,3]))  cat("ERROR: Non-cv terms do not match\n");
- 	(cv1+cv2+cv3+cv4)/4
+ 	(cv1+cv2+cv3+cv4+cv5)/5
  	}
  	
   D10 <- avg.cv(  10)

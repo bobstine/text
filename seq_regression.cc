@@ -37,12 +37,14 @@ typedef Eigen::MatrixXd Matrix;
 
 void
 parse_arguments(int argc, char** argv,	int &n, string &yFileName,
-		int &ni, string &iFileName, int &nx, string &xFileName, int &nFoldsCV, string &outputFileName);
+		int &ni, string &iFileName, int &nx, string &xFileName,
+		int &nFoldsCV, int&randomSeed, string &outputFileName);
 
 void
 fit_models(int  n, std::istream &yStream,
 	   int ni, std::istream &iStream,
-	   int nx, std::istream &xStream, int nFoldsCV, std::ostream& output);
+	   int nx, std::istream &xStream,
+	   int randomSeed, int nFoldsCV, std::ostream& output);
 
 
 int main(int argc, char** argv)
@@ -52,12 +54,13 @@ int main(int argc, char** argv)
   int    ni        ( 0  );       // number X's used to initialize the model 
   int    nx        ( 0  );       // number X's used to extend the model (get AIC, CVSS for these)
   int    cvFolds   ( 0  );       // number folds for cross-validation (0 means no cross validation)
+  int    randomSeed(2837);       // random seed controls validation slices
   string yFileName ( "" ); 
   string iFileName ( "" );
   string xFileName ( "" );
   string outputFileName("");
 
-  parse_arguments(argc, argv, n, yFileName, ni, iFileName, nx, xFileName, cvFolds, outputFileName);
+  parse_arguments(argc, argv, n, yFileName, ni, iFileName, nx, xFileName, cvFolds, randomSeed, outputFileName);
   std::clog << "MAIN: seq_regressor --n=" << n << " --folds=" << cvFolds << endl
 	    << "  Files are        --y_file=" << yFileName << endl
 	    << "                   --i_file=" << iFileName << " --ni=" << ni << endl
@@ -83,13 +86,14 @@ int main(int argc, char** argv)
     }
     fit_models(n, yStream, ni, iStream , nx, xStream, cvFolds, output);
   }
-  else fit_models(n, yStream, ni, std::cin, nx, xStream, cvFolds, output);
+  else fit_models(n, yStream, ni, std::cin, nx, xStream, cvFolds, randomSeed, output);
 }
 
 void
 fit_models(int  n, std::istream &yStream,
 	   int ni, std::istream &iStream,
-	   int nx, std::istream &xStream, int nFolds, std::ostream& output)
+	   int nx, std::istream &xStream,
+	   int nFolds, int seed, std::ostream& output)
 {
   // read Y data and total word count (put counts into first col of Xi)
   string yName, countName;
@@ -122,7 +126,6 @@ fit_models(int  n, std::istream &yStream,
       xStream >> X(i,j);
   // call code to validate using threads
   Eigen::MatrixXd results(X.cols(),4);            // R2, RSS, AICc, CVSS
-  unsigned seed = 16387;
   validate_regression(Y, Xi, X, nFolds, results, seed);
   Eigen::IOFormat fmt(Eigen::StreamPrecision,Eigen::DontAlignCols,"\t","\n","","","","");
   output << "R2\tRSS\tAICc\tCVSS\n" << results.format(fmt);
@@ -132,7 +135,7 @@ fit_models(int  n, std::istream &yStream,
 
 void
 parse_arguments(int argc, char** argv, int &n, string &yFileName,
-		int &ni, string &iFileName, int &nx, string &xFileName, int &nFolds, string &outputFileName)
+		int &ni, string &iFileName, int &nx, string &xFileName, int &nFolds, int& seed, string &outputFileName)
 {
   static struct option long_options[] = {
     {"n",             required_argument, 0, 'n'},
@@ -142,12 +145,13 @@ parse_arguments(int argc, char** argv, int &n, string &yFileName,
     {"n_x",           required_argument, 0, 'x'},
     {"x_file",        required_argument, 0, 'X'},
     {"folds",         required_argument, 0, 'v'},
+    {"seed",          required_argument, 0, 's'},
     {"output_file",   required_argument, 0, 'o'},
     {0, 0, 0, 0}                             // terminator 
   };
   int key;
   int option_index = 0;
-  while (-1 !=(key = getopt_long (argc, argv, "n:Y:i:I:x:X:v:o:", long_options, &option_index))) // colon means has argument
+  while (-1 !=(key = getopt_long (argc, argv, "n:Y:i:I:x:X:v:s:o:", long_options, &option_index))) // colon means has argument
   {
     switch (key)
     {
@@ -158,6 +162,7 @@ parse_arguments(int argc, char** argv, int &n, string &yFileName,
     case 'x' : { nx             = read_utils::lexical_cast<int>(optarg);      break; }
     case 'X' : { xFileName      = optarg;                                     break; }
     case 'v' : { nFolds         = read_utils::lexical_cast<int>(optarg);      break; }
+    case 's' : { seed           = read_utils::lexical_cast<int>(optarg);      break; }
     case 'o' : { outputFileName = optarg;                                     break; }
     default  : { std::cout << "PARSE: Option not recognized; returning.\n";       }
     } // switch

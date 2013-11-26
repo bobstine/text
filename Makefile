@@ -147,21 +147,35 @@ dore:  $(outPath)$(nProj).txt
 
 nDocs = 7383
 
+cvseed = 73638
+
+cvPath = $(outPath)cv_$(seed)
+
+prfx = _pre_lsa_
+
+$(cvPath)/.directory_built: 
+	echo "Building directory for holding cv details."
+	mkdir $(cvPath)
+	touch $@
+
 #                          y includes m counts
-$(outPath)y.txt: $(outPath)$(nProj).txt
+$(outPath)y.txt: $(outPath)$(nProj).txt 
 	cut -f 1-2 $(outPath)parsed.txt > $@
 
-$(outPath)aic_%.txt: seq_regression $(outPath)y.txt 
-	cut -f 1-$* $(outPath)bigram_$(nProj).txt | ./seq_regression -n $(nDocs) -v 10 -Y $(outPath)y.txt -X $(outPath)LSA_$(nProj).txt -x $(nProj) -i $* -o $@
+$(cvPath)aic_pre_big_%.txt: seq_regression $(outPath)y.txt  $(cvPath)/.directory_built
+	cut -f 1-$* $(outPath)bigram_$(nProj).txt | ./seq_regression -n $(nDocs) -s $(cvseed) -v 10 -Y $(outPath)y.txt -X $(outPath)LSA_$(nProj).txt -x $(nProj) -i $* -o $@
 
-doit: $(outPath)aic_10.txt $(outPath)aic_50.txt $(outPath)aic_100.txt
-	echo $(outpath)
+$(cvPath)aic_pre_lsa_%.txt: seq_regression $(outPath)y.txt  $(cvPath)/.directory_built
+	cut -f 1-$* $(outPath)LSA_$(nProj).txt | ./seq_regression -n $(nDocs) -s $(cvseed) -v 10 -Y $(outPath)y.txt -X $(outPath)bigram_$(nProj).txt -x $(nProj) -i $* -o $@
 
-doaic: $(outPath)aic_10.txt $(outPath)aic_20.txt $(outPath)aic_30.txt $(outPath)aic_40.txt $(outPath)aic_50.txt $(outPath)aic_75.txt $(outPath)aic_100.txt \
-       $(outPath)aic_200.txt $(outPath)aic_400.txt $(outPath)aic_600.txt $(outPath)aic_800.txt $(outPath)aic_900.txt $(outPath)aic_950.txt \
-       $(outPath)aic_1000.txt $(outPath)aic_1050.txt $(outPath)aic_1100.txt $(outPath)aic_1200.txt \
-       $(outPath)aic_1300.txt $(outPath)aic_1400.txt $(outPath)aic_1500.txt
-	echo $(outPath)
+doit: $(cvPath)aic$(prfx)10.txt $(cvPath)aic$(prfx)50.txt $(cvPath)aic$(prfx)100.txt
+	echo $(cvpath)
+
+doaic: $(cvPath)aic$(prfx)10.txt  $(cvPath)aic$(prfx)20.txt   $(cvPath)aic$(prfx)30.txt   $(cvPath)aic$(prfx)40.txt   $(cvPath)aic$(prfx)50.txt  $(cvPath)aic$(prfx)75.txt \
+       $(cvPath)aic$(prfx)100.txt $(cvPath)aic$(prfx)200.txt  $(cvPath)aic$(prfx)400.txt  $(cvPath)aic$(prfx)600.txt  $(cvPath)aic$(prfx)800.txt $(cvPath)aic$(prfx)900.txt \
+       $(cvPath)aic$(prfx)950.txt $(cvPath)aic$(prfx)1000.txt $(cvPath)aic$(prfx)1050.txt $(cvPath)aic$(prfx)1100.txt $(cvPath)aic$(prfx)1200.txt \
+       $(cvPath)aic$(prfx)1300.txt $(cvPath)aic$(prfx)1400.txt $(cvPath)aic$(prfx)1500.txt
+	echo $(cvPath)
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
