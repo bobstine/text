@@ -61,7 +61,9 @@ int main(int argc, char** argv)
   string outputFileName("");
 
   parse_arguments(argc, argv, n, yFileName, ni, iFileName, nx, xFileName, cvFolds, randomSeed, outputFileName);
-  std::clog << "MAIN: seq_regressor --n=" << n << " --folds=" << cvFolds << endl
+  std::clog << "MAIN: seq_regressor --n=" << n << " --folds=" << cvFolds;
+  if (0 < cvFolds) std::clog << " --seed=" << randomSeed;
+  std::clog << endl
 	    << "  Files are        --y_file=" << yFileName << endl
 	    << "                   --i_file=" << iFileName << " --ni=" << ni << endl
             << "                   --x_file=" << xFileName << " --nx=" << nx << endl

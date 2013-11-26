@@ -149,7 +149,7 @@ nDocs = 7383
 
 cvseed = 73638
 
-cvPath = $(outPath)cv_$(seed)
+cvPath = $(outPath)cv_$(cvseed)/
 
 prfx = _pre_lsa_
 
@@ -162,11 +162,15 @@ $(cvPath)/.directory_built:
 $(outPath)y.txt: $(outPath)$(nProj).txt 
 	cut -f 1-2 $(outPath)parsed.txt > $@
 
-$(cvPath)aic_pre_big_%.txt: seq_regression $(outPath)y.txt  $(cvPath)/.directory_built
-	cut -f 1-$* $(outPath)bigram_$(nProj).txt | ./seq_regression -n $(nDocs) -s $(cvseed) -v 10 -Y $(outPath)y.txt -X $(outPath)LSA_$(nProj).txt -x $(nProj) -i $* -o $@
+#                          first 1500 columns of bigram (left side)
+$(outPath)big_$(nProj).txt: $(outPath)bigram_$(nProj).txt 
+	cut -f 1-1500 $^ > $@
 
-$(cvPath)aic_pre_lsa_%.txt: seq_regression $(outPath)y.txt  $(cvPath)/.directory_built
-	cut -f 1-$* $(outPath)LSA_$(nProj).txt | ./seq_regression -n $(nDocs) -s $(cvseed) -v 10 -Y $(outPath)y.txt -X $(outPath)bigram_$(nProj).txt -x $(nProj) -i $* -o $@
+$(cvPath)aic_pre_big_%.txt: seq_regression $(outPath)y.txt  $(cvPath)/.directory_built  
+	cut -f 1-$* $(outPath)bigram_$(nProj).txt | ./seq_regression -X $(outPath)LSA_$(nProj).txt  -n $(nDocs) -s $(cvseed) -v 10 -Y $(outPath)y.txt -x $(nProj) -i $* -o $@
+
+$(cvPath)aic_pre_lsa_%.txt: seq_regression $(outPath)y.txt  $(cvPath)/.directory_built $(outPath)big_$(nProj).txt
+	cut -f 1-$* $(outPath)LSA_$(nProj).txt | ./seq_regression -X $(outPath)big_$(nProj).txt  -n $(nDocs) -s $(cvseed) -v 10 -Y $(outPath)y.txt -x $(nProj) -i $* -o $@
 
 doit: $(cvPath)aic$(prfx)10.txt $(cvPath)aic$(prfx)50.txt $(cvPath)aic$(prfx)100.txt
 	echo $(cvpath)
