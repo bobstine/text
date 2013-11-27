@@ -130,7 +130,7 @@ seed  = 2763
 #                  number of projections for W, and nProj (each side) for bigram	
 nProj = 1500
 
-#                  allowed to have different files for vocabulary and for regression
+#                  allow different files for vocabulary and for regression
 vFile   = $(temppath)$(city).txt 
 rFile   = $(vFile)
 outPath = $(temppath)$(city)/
@@ -147,13 +147,13 @@ dore:  $(outPath)$(nProj).txt
 
 nDocs = 7384
 
-cvseed = 73638
+cvseed = 53853
 
 cvPath = $(outPath)cv_$(cvseed)/
 
-prfx = _pre_lsa_
+prfx = _pre_big_
 
-$(cvPath)/.directory_built: 
+$(cvPath).directory_built: 
 	echo "Building directory for holding cv details."
 	mkdir $(cvPath)
 	touch $@
@@ -166,21 +166,21 @@ $(outPath)y.txt: $(outPath)$(nProj).txt
 $(outPath)big_$(nProj).txt: $(outPath)bigram_$(nProj).txt 
 	cut -f 1-1500 $^ > $@
 
-$(cvPath)aic_pre_big_%.txt: seq_regression $(outPath)y.txt  $(cvPath)/.directory_built  
+$(cvPath)aic_pre_big_%.txt: seq_regression $(outPath)y.txt  $(cvPath).directory_built  
 	cut -f 1-$* $(outPath)bigram_$(nProj).txt | \
-        ./seq_regression -X $(outPath)LSA_$(nProj).txt  -n $(nDocs) -s $(cvseed) -v 10 -Y $(outPath)y.txt -x $(nProj) -i $* -o $@
+          ./seq_regression -X $(outPath)LSA_$(nProj).txt  -n $(nDocs) -s $(cvseed) -v 10 -Y $(outPath)y.txt -x $(nProj) -i $* -o $@
 
-$(cvPath)aic_pre_lsa_%.txt: seq_regression $(outPath)y.txt  $(cvPath)/.directory_built $(outPath)big_$(nProj).txt
-	cut -f 1-$* $(outPath)LSA_$(nProj).txt | \
-        ./seq_regression -X $(outPath)big_$(nProj).txt  -n $(nDocs) -s $(cvseed) -v 10 -Y $(outPath)y.txt -x $(nProj) -i $* -o $@
+$(cvPath)aic_pre_lsa_%.txt: seq_regression $(outPath)y.txt  $(cvPath).directory_built
+	cut -f 1-$* $(outPath)LSA_$(nProj).txt| \
+          ./seq_regression -X $(outPath)big_$(nProj).txt -n $(nDocs) -s $(cvseed) -v 10 -Y $(outPath)y.txt -x $(nProj) -i $* -o $@
 
-doaic:   $(cvPath)aic$(prfx)10.txt   $(cvPath)aic$(prfx)20.txt   $(cvPath)aic$(prfx)30.txt   $(cvPath)aic$(prfx)40.txt   $(cvPath)aic$(prfx)50.txt\
-         $(cvPath)aic$(prfx)75.txt  $(cvPath)aic$(prfx)100.txt  $(cvPath)aic$(prfx)200.txt  $(cvPath)aic$(prfx)400.txt  $(cvPath)aic$(prfx)600.txt\
-        $(cvPath)aic$(prfx)800.txt  $(cvPath)aic$(prfx)900.txt  $(cvPath)aic$(prfx)950.txt $(cvPath)aic$(prfx)1000.txt $(cvPath)aic$(prfx)1050.txt\
-       $(cvPath)aic$(prfx)1100.txt $(cvPath)aic$(prfx)1200.txt $(cvPath)aic$(prfx)1300.txt $(cvPath)aic$(prfx)1400.txt $(cvPath)aic$(prfx)1500.txt
+doaic: $(cvPath)aic$(prfx)10.txt   $(cvPath)aic$(prfx)20.txt   $(cvPath)aic$(prfx)30.txt   $(cvPath)aic$(prfx)40.txt   $(cvPath)aic$(prfx)50.txt\
+       $(cvPath)aic$(prfx)75.txt  $(cvPath)aic$(prfx)100.txt  $(cvPath)aic$(prfx)200.txt  $(cvPath)aic$(prfx)400.txt  $(cvPath)aic$(prfx)600.txt\
+      $(cvPath)aic$(prfx)800.txt  $(cvPath)aic$(prfx)900.txt  $(cvPath)aic$(prfx)950.txt $(cvPath)aic$(prfx)1000.txt $(cvPath)aic$(prfx)1050.txt\
+     $(cvPath)aic$(prfx)1100.txt $(cvPath)aic$(prfx)1200.txt $(cvPath)aic$(prfx)1300.txt $(cvPath)aic$(prfx)1400.txt $(cvPath)aic$(prfx)1500.txt
 	echo $(cvPath)
 
-#                   sets seed to zero for testing
+#                   sets seed=zero to set up testing
 
 $(outPath)big_750.txt:  $(outPath)big_$(nProj).txt
 	cut -f 1-750 $^ > $@

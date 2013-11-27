@@ -187,7 +187,7 @@ Helper::fill_random_projection(Matrix &P, Vocabulary::SparseMatrix const& M, Vec
   }
   else
     R = M * Matrix::Random(M.cols(), P.cols());    
-  P = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());  //  Eigen trick for thin Q
+  P = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());  // block does not work; use to get left P.cols()
   if (power > 0)
   { Vocabulary::SparseMatrix MMt = M * M.transpose();
     while (power--)
@@ -195,6 +195,8 @@ Helper::fill_random_projection(Matrix &P, Vocabulary::SparseMatrix const& M, Vec
       P = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());
     }
   }
+  std::clog << "MAIN: Checking norms of leading terms in random projection; 0'0="
+	    << P.col(0).dot(P.col(0)) << "   0'1=" << P.col(0).dot(P.col(1)) << "   1'1=" << P.col(1).dot(P.col(1)) << std::endl; 
 }
 
 
