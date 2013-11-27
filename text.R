@@ -564,12 +564,15 @@ lines(D1300.lsa[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1300 ", min(D
 lines(D1400.lsa[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1400 ", min(D1400.lsa[,c]))
 lines(D1500.lsa[,c], type="l", col=colors[ci]); ci <- ci+1; paste("1500 ", min(D1500.lsa[,c]))
 
-# --- checks: Why don't these match?
+# --- checks: Set seed to 0 in C++ (testaic)
 #        What regression does C++ fit?
 #        How are the bigrams computed to have decreasing variation?
 #        Why is the SD of the first LSA different from others?
-lsa <- as.matrix(LSA[,1:10]); big <- as.matrix(Bigram[,1:10])
-summary(lm(logPrice ~ nTokens + lsa + big))
+lsa <- as.matrix(LSA[,1:10]); big <- as.matrix(Bigram[,1:750])
+
+summary(r<-lm(logPrice ~ nTokens))                     # matches C++
+summary(r<-lm(logPrice ~ nTokens + lsa + big[,1:750])) # matches
+
 
 D10.big[10,]
 D10.lsa[10,]

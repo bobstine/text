@@ -143,9 +143,9 @@ dore:  $(outPath)$(nProj).txt
 	echo 'Running regressor'
 
 
-# aic sequential regressions
+# --- aic sequential regressions
 
-nDocs = 7383
+nDocs = 7384
 
 cvseed = 73638
 
@@ -167,19 +167,28 @@ $(outPath)big_$(nProj).txt: $(outPath)bigram_$(nProj).txt
 	cut -f 1-1500 $^ > $@
 
 $(cvPath)aic_pre_big_%.txt: seq_regression $(outPath)y.txt  $(cvPath)/.directory_built  
-	cut -f 1-$* $(outPath)bigram_$(nProj).txt | ./seq_regression -X $(outPath)LSA_$(nProj).txt  -n $(nDocs) -s $(cvseed) -v 10 -Y $(outPath)y.txt -x $(nProj) -i $* -o $@
+	cut -f 1-$* $(outPath)bigram_$(nProj).txt | \
+        ./seq_regression -X $(outPath)LSA_$(nProj).txt  -n $(nDocs) -s $(cvseed) -v 10 -Y $(outPath)y.txt -x $(nProj) -i $* -o $@
 
 $(cvPath)aic_pre_lsa_%.txt: seq_regression $(outPath)y.txt  $(cvPath)/.directory_built $(outPath)big_$(nProj).txt
-	cut -f 1-$* $(outPath)LSA_$(nProj).txt | ./seq_regression -X $(outPath)big_$(nProj).txt  -n $(nDocs) -s $(cvseed) -v 10 -Y $(outPath)y.txt -x $(nProj) -i $* -o $@
+	cut -f 1-$* $(outPath)LSA_$(nProj).txt | \
+        ./seq_regression -X $(outPath)big_$(nProj).txt  -n $(nDocs) -s $(cvseed) -v 10 -Y $(outPath)y.txt -x $(nProj) -i $* -o $@
 
-doit: $(cvPath)aic$(prfx)10.txt $(cvPath)aic$(prfx)50.txt $(cvPath)aic$(prfx)100.txt
-	echo $(cvpath)
-
-doaic: $(cvPath)aic$(prfx)10.txt  $(cvPath)aic$(prfx)20.txt   $(cvPath)aic$(prfx)30.txt   $(cvPath)aic$(prfx)40.txt   $(cvPath)aic$(prfx)50.txt  $(cvPath)aic$(prfx)75.txt \
-       $(cvPath)aic$(prfx)100.txt $(cvPath)aic$(prfx)200.txt  $(cvPath)aic$(prfx)400.txt  $(cvPath)aic$(prfx)600.txt  $(cvPath)aic$(prfx)800.txt $(cvPath)aic$(prfx)900.txt \
-       $(cvPath)aic$(prfx)950.txt $(cvPath)aic$(prfx)1000.txt $(cvPath)aic$(prfx)1050.txt $(cvPath)aic$(prfx)1100.txt $(cvPath)aic$(prfx)1200.txt \
-       $(cvPath)aic$(prfx)1300.txt $(cvPath)aic$(prfx)1400.txt $(cvPath)aic$(prfx)1500.txt
+doaic:   $(cvPath)aic$(prfx)10.txt   $(cvPath)aic$(prfx)20.txt   $(cvPath)aic$(prfx)30.txt   $(cvPath)aic$(prfx)40.txt   $(cvPath)aic$(prfx)50.txt\
+         $(cvPath)aic$(prfx)75.txt  $(cvPath)aic$(prfx)100.txt  $(cvPath)aic$(prfx)200.txt  $(cvPath)aic$(prfx)400.txt  $(cvPath)aic$(prfx)600.txt\
+        $(cvPath)aic$(prfx)800.txt  $(cvPath)aic$(prfx)900.txt  $(cvPath)aic$(prfx)950.txt $(cvPath)aic$(prfx)1000.txt $(cvPath)aic$(prfx)1050.txt\
+       $(cvPath)aic$(prfx)1100.txt $(cvPath)aic$(prfx)1200.txt $(cvPath)aic$(prfx)1300.txt $(cvPath)aic$(prfx)1400.txt $(cvPath)aic$(prfx)1500.txt
 	echo $(cvPath)
+
+#                   sets seed to zero for testing
+
+$(outPath)big_750.txt:  $(outPath)big_$(nProj).txt
+	cut -f 1-750 $^ > $@
+
+testaic: seq_regression $(outPath)y.txt $(outPath)big_750.txt
+	cut -f 1-10 $(outPath)LSA_$(nProj).txt | \
+        ./seq_regression -X $(outPath)big_750.txt -x 750  -n $(nDocs) -s 0 -v 10 -Y $(outPath)y.txt -i 10 -o $@
+
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

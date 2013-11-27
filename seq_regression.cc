@@ -2,15 +2,20 @@
   This application...
 
   -- reads 3 tab delimited data files that begin with the names of the
-  variables, then have the indicated number of data rows and columns.
-  The number of rows does not count the leading line of variable
-  names.
+     variables, then have the indicated number of data rows and
+     columns.  The number of rows does not count the leading line of
+     variable names.
 
   -- fits a sequence of regression models, with Y as the first
-  variable read, followed the initializers, then by each of the
-  predictors in X.
+     variable read, followed the initializers, then by each of the
+     predictors in X.
 
-  -- writes the sequence r2 obtained by the Xs
+  -- writes the sequence of r2, AICc, and optionally obtained by the
+     Xs to the output file
+
+  -- random seed controls the splits used in CV.  Setting the seed to
+     0 uses a deterministic split (see code in eigen/regression.cc)
+     along with output details of fitted models.
   
 */
 
@@ -77,7 +82,8 @@ int main(int argc, char** argv)
     return 0;
   }
   if ((!yStream) || (!xStream) || (!output))
-  { std::clog << "MAIN: Could not open required files for r2 sequence (" << yStream << "," << xStream << "," << output << ")." << endl;
+  { std::clog << "MAIN: Could not open required files for r2 sequence ("
+	      << yFileName << "," << xFileName << "," << outputFileName << ")." << endl;
     return 0;
   }
   if (iFileName.size() > 0)
@@ -92,9 +98,9 @@ int main(int argc, char** argv)
 }
 
 void
-fit_models(int  n, std::istream &yStream,
-	   int ni, std::istream &iStream,
-	   int nx, std::istream &xStream,
+fit_models(int  n, std::istream &yStream,                  // ystream has 2 cols, y and a first conditioning variable
+	   int ni, std::istream &iStream,                  // preconditioning variables
+	   int nx, std::istream &xStream,                  // stepwise sequence
 	   int nFolds, int seed, std::ostream& output)
 {
   // read Y data and total word count (put counts into first col of Xi)
