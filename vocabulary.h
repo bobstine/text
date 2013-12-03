@@ -41,32 +41,35 @@ class Vocabulary
   int  const      mMinFrequency;
   int             mOOVIndex;
   TypeList        mTokens;
-  TypeVector      mTypeVector;
-  TypeMap         mFreqMap;        // count of non-oov (OOV collected)
+  TypeVector      mTypeVector;     // types and counts of types, collected into vectors (OOV collected), in freq order
+  Vector          mTypeFreqVector; 
+  TypeMap         mFreqMap;        // count of non-oov (OOV collected, sorted by types order)
   TypeMap         mOOVMap;         // count of oov types
   TypeMap         mIndexMap;       // position of types (oov mapped to OOV)
 
  public:
 
   Vocabulary ()
-    : mSkipInitial(0), mMarkEOL(false), mNTokens(0), mMinFrequency(0), mOOVIndex(0), mTokens(), mTypeVector(), mFreqMap(), mOOVMap(), mIndexMap() { };
+    : mSkipInitial(0), mMarkEOL(false), mNTokens(0), mMinFrequency(0), mOOVIndex(0), mTokens(),
+      mTypeVector(), mTypeFreqVector(), mFreqMap(), mOOVMap(), mIndexMap() { };
 
  Vocabulary(std::string fileName, int skipInitial, bool markEOL, int minFrequency)
    : mSkipInitial(skipInitial), mMarkEOL(markEOL), mNTokens(0), mMinFrequency(minFrequency), mOOVIndex(0),
-     mTokens(), mTypeVector(), mFreqMap(), mOOVMap(), mIndexMap() { init_from_file(fileName); }
+     mTokens(), mTypeVector(), mTypeFreqVector(), mFreqMap(), mOOVMap(), mIndexMap() { init_from_file(fileName); }
 
  Vocabulary(std::istream &is, int skipInitial, bool markEOL, int minFrequency)
    : mSkipInitial(skipInitial), mMarkEOL(markEOL), mNTokens(0), mMinFrequency(minFrequency), mOOVIndex(0),
-     mTokens(), mTypeVector(), mFreqMap(), mOOVMap(), mIndexMap() { init_from_stream(is); }
+     mTokens(), mTypeVector(), mTypeFreqVector(), mFreqMap(), mOOVMap(), mIndexMap() { init_from_stream(is); }
 
   int        n_types()                          const { return mFreqMap.size(); }
   int        type_index(Type const& type)       const;                                // OOV position if not found
-  TypeVector types ()                           const { return mTypeVector; }         // types in Frequency order 
+  TypeVector types ()                           const { return mTypeVector; }         // types in Frequency order
+  Vector     type_frequency_vector()            const { return mTypeFreqVector; }
   TypeMap    oov_map()                          const { return mOOVMap; }
   
   int        n_tokens()                         const { return mNTokens; }
-
-  void       fill_sparse_bigram_matrix (SparseMatrix &B, int skip) const;
+  
+  void       fill_sparse_bigram_matrix (SparseMatrix &B, int skip, bool corrScaling) const;
   void       fill_sparse_regr_design (Vector &Y, SparseMatrix &X, std::istream &is) const;
   
   void       print_to_stream(std::ostream & os) const;

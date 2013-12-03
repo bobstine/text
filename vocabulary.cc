@@ -30,7 +30,8 @@ Vocabulary::print_to_stream(std::ostream & os) const
      << mFreqMap.at(OOV) << " OOV.  Most frequent 10 types are:\n      ";
   for (int i=0; i<10; ++i)
   { assert (i == mIndexMap.at(mTypeVector[i]));
-    os << " " << mTypeVector[i] << "->" << mFreqMap.at(mTypeVector[i]);
+    assert (mTypeFreqVector(i) == mFreqMap.at(mTypeVector[i]));
+    os << " " << mTypeVector[i] << "->" << mTypeFreqVector(i); 
   }
 }
 
@@ -99,7 +100,7 @@ Vocabulary::init_from_stream(std::istream& is)
     for(auto x: fullVocab)
       os << x.second << std::endl;
   }
-  for (auto x : fullVocab)
+  for (auto x : fullVocab)                    // mFreqMap collapses fullVocab by collecting OOV 
   { if (x.second < mMinFrequency)             // mark as oov
     { mOOVMap.insert(x);
       mFreqMap[OOV] += x.second;
@@ -114,9 +115,11 @@ Vocabulary::init_from_stream(std::istream& is)
   std::multimap<int,Type> sortTypesMap;                               // sort types in frequency order
   for(auto x : mFreqMap)
     sortTypesMap.insert( std::make_pair(x.second, x.first) );
+  mTypeFreqVector = Vector(mFreqMap.size());
   int index = 0;
   for(auto it=sortTypesMap.crbegin(); it != sortTypesMap.crend(); ++it, ++index) // reverse iter
-  { mTypeVector.push_back(it->second);
+  { mTypeFreqVector(index) = it->first;
+    mTypeVector.push_back(it->second);
     mIndexMap[it->second] = index;
   }
   assert(n_types() == (int) mTypeVector.size());
@@ -139,20 +142,30 @@ Vocabulary::type_index(Type const& type) const
 
 //     bigram     bigram     bigram     bigram     bigram     bigram     bigram     bigram     bigram     bigram     bigram
 
+
+
 void
-Vocabulary::fill_sparse_bigram_matrix(Vocabulary::SparseMatrix &B, int skip) const
+Vocabulary::fill_sparse_bigram_matrix(Vocabulary::SparseMatrix &B, int skip, bool corrScaling) const
 {
   BigramMap bgramMap;
   fill_bigram_map(bgramMap, skip); 
   EigenUtils::fill_sparse_matrix(B, bgramMap);
+  Vector v = type_frequency_vector().array().sqrt().inverse();
+  if (corrScaling)
+    B = v.asDiagonal() * B * v.asDiagonal();
+  /*
+    this version kept the Zipf trend in variances
+    Vector v = type_frequency_vector().array().inverse();
+    B = B * v.asDiagonal();
+  */
 }
 
 
 void
 Vocabulary::fill_bigram_map(BigramMap &bm, int skip) const
 {
-  std::pair<int,int> ij;                // beyond those indices for tokens found in tm
-  auto itBack = mTokens.cbegin();
+  std::pair<int,int> ij;                  // beyond those indices for tokens found in tm
+  auto itBack = mTokens.cbegin();         // bigram[i,j] based on type index of tokens (frequency order)
   for (int i=0; i<skip+1; ++i) ++itBack;
   for (auto it=mTokens.cbegin(); itBack != mTokens.cend(); ++it, ++itBack)
   { int i = type_index(*it);       

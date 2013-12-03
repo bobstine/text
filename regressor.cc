@@ -57,11 +57,11 @@ int main(int argc, char** argv)
   Vocabulary vocabulary(vocabFileName, nSkipInitTokens, markEndOfLine, minFrequency);
   std::clog << "MAIN: " << vocabulary << endl;
   {
-    std::ofstream os ("text_src/temp/type_freq.txt");                  // write frequencies to file
+    std::ofstream os ("text_src/temp/type_freq.txt");                       // write frequencies to file
     vocabulary.write_type_freq(os);
   }  
   {
-    std::clog << "MAIN: 200 OOV words are...\n    ";                     // display OOV tokens
+    std::clog << "MAIN: 200 OOV words are...\n    ";                        // display OOV tokens
     int i=0;
     for(auto x : vocabulary.oov_map())
     { ++i;
@@ -71,28 +71,27 @@ int main(int argc, char** argv)
     std::clog << endl;
   }
   if (false)
-    Helper::scan_google_vocabulary_for_oov (vocabulary);                      // check to see if oov words are in google
-
+    Helper::scan_google_vocabulary_for_oov (vocabulary);                    // check to see if oov words are in google
   
   // compute bigram matrix from vocabulary
+  bool const corrScaleBigram = true;                                        // normalize by diagonal counts
   Vocabulary::SparseMatrix B (vocabulary.n_types(), vocabulary.n_types());
-  vocabulary.fill_sparse_bigram_matrix(B, bigramSkip);
-  std::clog << "MAIN: Init sparse bigram B[" << B.rows() << "x" << B.cols() << "] from map; sum +/,B= " << B.sum() << endl;
-  std::clog << "MAIN: Bigram row sums are (0)"  // these should check with those printed by the vocabulary (but for 1 pairs, not singles)
+  vocabulary.fill_sparse_bigram_matrix(B, bigramSkip, corrScaleBigram);
+  std::clog << "MAIN: Bigram row sums are (0)"                              // match those from vocabulary if not scaled
 	    << B.row(0).sum() << "  (1)" << B.row(1).sum() << "  (2)"
 	    << B.row(2).sum() << "  (3)" << B.row(3).sum() << "  (4)" << B.row(4).sum() << std::endl;
   
   // form random projections of bigram matrix
   Matrix P(B.rows(), 2*nProjections);
-  Vector emptyVec = Vector::Zero(0);
+  Vector noWeights = Vector::Zero(0);
   if (!bidirectional)
-    Helper::fill_random_projection(P, B, emptyVec, powerIterations);
+    Helper::fill_random_projection(P, B, noWeights, powerIterations);
   else
   { Matrix Pl(B.rows(), nProjections);
-    Helper::fill_random_projection(Pl, B, emptyVec, powerIterations);
+    Helper::fill_random_projection(Pl, B, noWeights, powerIterations);
     Matrix Pr(B.rows(), nProjections);
     Vocabulary::SparseMatrix Bt = B.transpose();
-    Helper::fill_random_projection(Pr, Bt, emptyVec, powerIterations);
+    Helper::fill_random_projection(Pr, Bt, noWeights, powerIterations);
     P.leftCols (nProjections) = Pl;
     P.rightCols(nProjections) = Pr;
   }
@@ -138,8 +137,8 @@ int main(int argc, char** argv)
     std::clog << "MAIN: Wrote W matrix to file w.txt." << std::endl;
   }
   else std::clog << "MAIN: Skipping output of W matrix to file.\n";
-  
-  // build regressors from eigenwords as average word position (see below for correlation)
+
+  // build regressor matrix A from eigenwords as average word position (see below for correlation)
   Matrix A (nLines, P.cols());
   for (int i=0; i<W.outerSize(); ++i)            // W is in row major order
   { Vector dest (Vector::Zero(P.cols()));
@@ -161,7 +160,7 @@ int main(int argc, char** argv)
   else
   { std::clog << "MAIN: Computing left singular vectors of L by random projection";
     if (powerIterations) std::clog << " with power iterations.\n" ; else std::clog << "." << endl;
-    Helper::fill_random_projection(L, W, emptyVec /* m.array().inverse() */, powerIterations);
+    Helper::fill_random_projection(L, W, noWeights /* m.array().inverse() */, powerIterations);
   }
   std::clog << "MAIN: Completed LSA projection.  L[" << L.rows() << "x" << L.cols() << "]\n";
   if (false)                                                // compute sequence of regressions for LSA variables

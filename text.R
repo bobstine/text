@@ -115,8 +115,7 @@ LSA    <- read.table(file, header=TRUE); dim(LSA)
 file   <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,".txt", sep="")
 Bigram <- read.table(file, header=TRUE); dim(Bigram)
 Eigen  <- read.table("/Users/bob/C/text/text_src/temp/eigenwords.txt", row.names=1, header=TRUE)
-dim(Eigen)
-    
+dim(Eigen) 
 
 n <- nrow(Data)
 logPrice  <- Data[,"Y"]    # file holds log prices
@@ -144,6 +143,57 @@ regr <- lm(logPrice ~ nTokens + logTokens); summary(regr)
 lines(lowess(logTokens, logPrice, f=.3), col="red")
 points(logTokens, fitted.values(regr), col="cyan")
 }
+
+# --------------------------
+#   look at variation
+
+ss <- function(x) {  sum(x*x)  }
+
+#     variation of bigram predictors falls off steadily
+plot(y<-apply(as.matrix(Bigram[,1:1500]),2,ss), log="xy",
+		ylab="(x'x)", xlab="Bigram Predictor Sequence")
+
+abline(v=  10, col="gray"); text(  10, 0.05, round(ss(Bigram[,  10]),4))    
+abline(v=1000, col="gray"); text(1000, 0.05, round(ss(Bigram[,1000]),5))
+
+x <- 1:1500
+r <- lm(I(log(y)) ~ I(log(x))); summary(r)
+
+
+boxplot(Bigram[,c(1,10,25,100,250,1000)]); abline(h=0,col="gray")
+#     distributions appear vaguely bell-shaped
+par(mfrow=c(3,1))
+	hist(Bigram[,   1])
+	hist(Bigram[, 100])
+	hist(Bigram[,1000])
+reset()
+#     underlying eigenwords however have about the same variance (not centered)
+ss <- function(x) { sum(x*x) }
+plot(y<-apply(as.matrix( Eigen[,1:1500]  ),2,ss), ylab="(x'x)", log="xy")
+x <- 1:1500
+r <- lm(I(log(y)) ~ I(log(x))); r
+
+eig<- as.matrix(Eigen[,c(1,2,3,300,800,1342)]); t(eig)%*%eig  # near Iden
+
+
+#     pick coordinates at random from normal u'u=1 vectors or column of Eigen
+nr <- nrow(Eigen)
+vec <- rnorm(nr); vec <- vec/sqrt(sum(vec*vec))
+vec <- Eigen[,10]
+
+docs <- rep(0,10000)
+for(i in 1:length(docs)) {
+	ii<-sample(1:length(vec),70); # smaller as n gets larger than 70
+	docs[i] <- mean(vec[ii]) }    # answer 'does not depend' on column sampled
+ss(docs)                          # about 0.0016 for n=70 (as in plot of variation)
+sqrt( (1/nr)/70 )                 # if mean≈0, then var is 1/nr
+
+
+par(mfrow=c(2,1))
+	plot(apply(as.matrix(LSA[,1:50]),2,ss), ylab="x'x")    # essentially 1 but for rounding
+	plot(apply(as.matrix(LSA[,1:50]),2,sd), ylab="SD")    # vary considerably
+reset()
+
 
 ##################################################################################
 # Parsed variables
@@ -295,19 +345,20 @@ plot(wregr)
 lsa.analysis <- function() {
 
 # --- LSA analysis from matrix W
-#               may want to weight with sqrt(Data[,"m"])
 
 p    <- 500
 lsa  <- as.matrix(LSA[,1:500])
-sr   <- summary(regr.lsa <- lm(logPrice ~ lsa , x=TRUE, y=TRUE)); sr  
+sr   <- summary(regr.lsa <- lm(logPrice ~ nTokens + lsa , x=TRUE, y=TRUE)); sr  
 	
 correctly.ordered(logPrice, fitted.values(regr.lsa), 1000)
 
 xtable(regr.lsa)
 
 par(mfrow=c(1,2))    # regrW.pdf
-	plot(	x <- 1:(nProj/2), y <- abs(coefficients(sr)[-1,3]), 
-		xlab="Singular Vector of W", ylab="|t|", main="")
+	y <- abs(coefficients(sr)[-(1:2),3])
+	x <- 1:length(y)
+	plot(x,y, 
+		xlab="LSA Predictor", ylab="|t|", main="")
 		abline(h=-qnorm(.025/(nProj/2)), col="gray", lty=3)
 		abline(h=sqrt(2/pi), col="cyan")
 		lines(lowess(x,y,f=0.3), col="red")
@@ -357,8 +408,8 @@ correctly.ordered(logPrice, fitted.values(regr.bigram), 1000)
 
 par(mfrow=c(1,2))    # regrB.pdf
 	y <- abs(coefficients(summary(regr.bigram))[-1,3])
-	x <- rep(1:(nProj/2),2)          
-	plot(x,y,xlab="Correlation Variable from Bigram", ylab="|t|", main="")
+	x <- 1:length(y)          
+	plot(x,y,xlab="Predictors from Bigram", ylab="|t|", main="")
 		abline(h=-qnorm(.025/(nProj/2)), col="gray", lty=3)
 		abline(h=sqrt(2/pi), col="cyan")
 		lines(lowess(x,y, f=0.3), col="red")
@@ -459,6 +510,15 @@ reset()
 # 2-D AIC plots
 ##################################################################################
 
+cv.big <- function(n.init) {
+ 	path <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_53853/" 
+  	cvb <- as.matrix(read.table(paste(path,"aic_pre_big_",n.init,".txt",sep=""), header=TRUE))
+  	}
+cv.lsa <- function(n.init) {
+ 	path <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_53853/" 
+  	cvb <- as.matrix(read.table(paste(path,"aic_pre_lsa_",n.init,".txt",sep=""), header=TRUE))
+  	}
+
 avg.cv.big <- function(n.init) {
 	path1 <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_26612/"  # identifies seed
  	path2 <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_16387/" 
@@ -466,6 +526,10 @@ avg.cv.big <- function(n.init) {
  	path4 <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_51379/" 
  	path5 <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_31427/" 
  	path6 <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_73638/" 
+ 	
+ 	path <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/cv_73638/" 
+  	cv <- read.table(paste(path1,"aic_pre_big_",n.init,".txt",sep=""), header=TRUE)
+
  	cv1 <- read.table(paste(path1,"aic_pre_big_",n.init,".txt",sep=""), header=TRUE)
  	cv2 <- read.table(paste(path2,"aic_pre_big_",n.init,".txt",sep=""), header=TRUE)
  	cv3 <- read.table(paste(path3,"aic_pre_big_",n.init,".txt",sep=""), header=TRUE)
@@ -483,26 +547,26 @@ avg.cv.lsa <- function(n.init) {
 	}
 
  	
-  D10.big <- avg.cv.big(  10);   D10.lsa <- avg.cv.lsa(  10)
-  D20.big <- avg.cv.big(  20);   D20.lsa <- avg.cv.lsa(  20)
-  D30.big <- avg.cv.big(  30);   D30.lsa <- avg.cv.lsa(  30)
-  D40.big <- avg.cv.big(  40);   D40.lsa <- avg.cv.lsa(  40)
-  D50.big <- avg.cv.big(  50);   D50.lsa <- avg.cv.lsa(  50)
-  D75.big <- avg.cv.big(  75);   D75.lsa <- avg.cv.lsa(  75)
- D100.big <- avg.cv.big( 100);  D100.lsa <- avg.cv.lsa( 100)
- D200.big <- avg.cv.big( 200);  D200.lsa <- avg.cv.lsa( 200)
- D400.big <- avg.cv.big( 400);  D400.lsa <- avg.cv.lsa( 400)
- D600.big <- avg.cv.big( 600);  D600.lsa <- avg.cv.lsa( 600)
- D800.big <- avg.cv.big( 800);  D800.lsa <- avg.cv.lsa( 800)
- D900.big <- avg.cv.big( 900);  D900.lsa <- avg.cv.lsa( 900)
- D950.big <- avg.cv.big( 950);  D950.lsa <- avg.cv.lsa( 950)
-D1000.big <- avg.cv.big(1000); D1000.lsa <- avg.cv.lsa(1000)
-D1050.big <- avg.cv.big(1050); D1050.lsa <- avg.cv.lsa(1050)
-D1100.big <- avg.cv.big(1100); D1100.lsa <- avg.cv.lsa(1100)
-D1200.big <- avg.cv.big(1200); D1200.lsa <- avg.cv.lsa(1200)
-D1300.big <- avg.cv.big(1300); D1300.lsa <- avg.cv.lsa(1300)
-D1400.big <- avg.cv.big(1400); D1400.lsa <- avg.cv.lsa(1400)
-D1500.big <- avg.cv.big(1500); D1500.lsa <- avg.cv.lsa(1500)
+  D10.big <- cv.big(  10);   D10.lsa <- cv.lsa(  10)
+  D20.big <- cv.big(  20);   D20.lsa <- cv.lsa(  20)
+  D30.big <- cv.big(  30);   D30.lsa <- cv.lsa(  30)
+  D40.big <- cv.big(  40);   D40.lsa <- cv.lsa(  40)
+  D50.big <- cv.big(  50);   D50.lsa <- cv.lsa(  50)
+  D75.big <- cv.big(  75);   D75.lsa <- cv.lsa(  75)
+ D100.big <- cv.big( 100);  D100.lsa <- cv.lsa( 100)
+ D200.big <- cv.big( 200);  D200.lsa <- cv.lsa( 200)
+ D400.big <- cv.big( 400);  D400.lsa <- cv.lsa( 400)
+ D600.big <- cv.big( 600);  D600.lsa <- cv.lsa( 600)
+ D800.big <- cv.big( 800);  D800.lsa <- cv.lsa( 800)
+ D900.big <- cv.big( 900);  D900.lsa <- cv.lsa( 900)
+ D950.big <- cv.big( 950);  D950.lsa <- cv.lsa( 950)
+D1000.big <- cv.big(1000); D1000.lsa <- cv.lsa(1000)
+D1050.big <- cv.big(1050); D1050.lsa <- cv.lsa(1050)
+D1100.big <- cv.big(1100); D1100.lsa <- cv.lsa(1100)
+D1200.big <- cv.big(1200); D1200.lsa <- cv.lsa(1200)
+D1300.big <- cv.big(1300); D1300.lsa <- cv.lsa(1300)
+D1400.big <- cv.big(1400); D1400.lsa <- cv.lsa(1400)
+D1500.big <- cv.big(1500); D1500.lsa <- cv.lsa(1500)
 
 # --- precondition on Bigram
 c <- "CVSS" ; xax <- 1:1500
@@ -574,34 +638,6 @@ summary(r<-lm(logPrice ~ nTokens + lsa[,1:10] + big[,1:750])) # matches
 D10.big[10,]   # why different?
 D10.lsa[10,]
 
-# --- look at variation
-ss <- function(x) { sqrt(sum(x*x)) }
-plot(apply(as.matrix(Bigram[,1:1500]),2,ss), ylab="sqrt(x'x)", log="y")  # higher variation in low
-boxplot(Bigram[,c(1,10,25,100,250,1000)]); abline(h=0,col="gray")
-par(mfrow=c(3,1))  # all are roughly bell shaped
-	hist(Bigram[,   1])
-	hist(Bigram[, 100])
-	hist(Bigram[,1000])
-reset()
-plot(apply(as.matrix( Eigen  ),2,ss), ylab="x'x")             # all near 1, wth very slow decay
-eig<- as.matrix(Eigen[,c(1,2,3,300,800,1342)]); t(eig)%*%eig  # near Iden
-
-sim.doc <- function(ewords, n) {
-	i<- sample(1:nrow(ewords), n) # n possible words in bag
-	c <- rpois(n,1)              # some will be 0
-	(c %*% ewords[i,])/sum(c)
-}
-
-ew <- as.matrix(Eigen)
-docs <- matrix(0, nrow=2000, ncol=3000)
-for(i in 1:nrow(docs)) docs[i,] <- sim.doc(ew,60)
-plot(apply(docs,2,ss), ylab="x'x", log="y") # vary considerably
-
-
-par(mfrow=c(2,1))
-	plot(apply(as.matrix(LSA[,1:50]),2,ss), ylab="x'x")    # essentially 1 but for rounding
-	plot(apply(as.matrix(LSA[,1:50]),2,sd), ylab="SD")    # vary considerably
-reset()
 
 # --- correlation of AICc with CVSS
 plot(D1000.big[,"AICc"],D1000.big[,"CVSS"], type="l", log="xy", xlab="AICc", ylab="CVSS")
@@ -619,7 +655,7 @@ lines(D600.big[,"AICc"],D600.big[,"CVSS"], type="l", col="red" )
 # combine into data for rendering
 xx  <- c(10,20,30,40,50,75,100,200,400,600,800,900,950,1000,1050,1100,1200,1300,1400)
 yy  <- 1:nrow(D10)
-c <- "AICc"
+c <- "CVSS"
 mat.big <- rbind(D10.big[,c],D20.big[,c],D30.big[,c],D40.big[,c],D50.big[,c],D75.big[,c],
 		D100.big[,c],D200.big[,c],D400.big[,c],D600.big[,c],D800.big[,c],D900.big[,c],D950.big[,c],
 		D1000.big[,c],D1050.big[,c],D1100.big[,c],D1200.big[,c],D1300.big[,c])
@@ -627,8 +663,8 @@ mat.lsa <- rbind(D10.lsa[,c],D20.lsa[,c],D30.lsa[,c],D40.lsa[,c],D50.lsa[,c],D75
 		D100.lsa[,c],D200.lsa[,c],D400.lsa[,c],D600.lsa[,c],D800.lsa[,c],D900.lsa[,c],D950.lsa[,c],
 		D1000.lsa[,c],D1050.lsa[,c],D1100.lsa[,c],D1200.lsa[,c],D1300.lsa[,c])
 
-write.table(mat.big,"~/Desktop/AIC.big.txt")
-write.table(mat.lsa,"~/Desktop/AIC.lsa.txt")
+write.table(mat.big,"~/Desktop/CVSS.big.txt")
+write.table(mat.lsa,"~/Desktop/CVSS.lsa.txt")
 
 
 
