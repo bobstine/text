@@ -99,21 +99,33 @@ lines(x,y,col="red")
 
 }
 
-##################################################################################
+#######################################################################################
 # Comparison of different normalizations of the bigram matrix
-##################################################################################
+#######################################################################################
 bigram.analysis <- function() { 
+
 nProj <- 1500
 city  <- "ChicagoOld3/"
+
+# ------------------------------------------------------------------------------------
+#   compare exact and random project singular vectors
+#		exact spectrum of raw bigram is very weird (rounding?)
+#      only first has high correlation, rest are occasionally correlated
+#      high cancor up to last 20% of components
+
+d <- scan(paste("/Users/bob/C/text/text_src/temp/",city,"UDV.d.txt",sep=""))
+par(mfrow=c(2,1))
+	plot(d, xlab="Index of Singular Value", ylab="Singular Value", log="", 
+		main="Singular Values of Raw Bigram Matrix")
+	plot(d, xlab="Index of Singular Value", ylab="Singular Value", log="y", 
+		main="Singular Values of Raw Bigram Matrix")
+reset();
 
 file     <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,"_raw.txt", sep="")
 Bigram.n <- read.table(file, header=TRUE); dim(Bigram.n)
 file     <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,"_exact.txt", sep="")
 Bigram.e <- read.table(file, header=TRUE); dim(Bigram.n)
 
-# -------------------------------------------
-#   compare exact and random project singular vectors
-#      only first has high correlation
 j<-3;
 plot(Bigram.n[,j], Bigram.e[,j], 
 	xlab=paste("Random Projection, Component",j,sep=" "), ylab="Exact Singular Vector")
@@ -133,7 +145,7 @@ par(mfrow=c(3,1))
 reset()
 
 
-# -------------------------------------------
+# ------------------------------------------------------------------------------------
 #   look at variation
 file     <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,"_sym.txt", sep="")
 Bigram.s <- read.table(file, header=TRUE); dim(Bigram.s)
