@@ -150,13 +150,23 @@ Vocabulary::fill_sparse_bigram_matrix(Vocabulary::SparseMatrix &B, int skip, boo
   BigramMap bgramMap;
   fill_bigram_map(bgramMap, skip); 
   EigenUtils::fill_sparse_matrix(B, bgramMap);
-  Vector v = type_frequency_vector().array().sqrt().inverse();
-  if (corrScaling)
+  // symmetric
+    Vector v = type_frequency_vector().array().sqrt().inverse();
+    if (corrScaling)
     B = v.asDiagonal() * B * v.asDiagonal();
+  
   /*
-    this version kept the Zipf trend in variances
+  //   norm rhs
     Vector v = type_frequency_vector().array().inverse();
+    if (corrScaling)
     B = B * v.asDiagonal();
+  */
+
+  /*
+  //   norm lhs
+  Vector v = type_frequency_vector().array().inverse();
+  if (corrScaling)
+    B = v.asDiagonal() * B;
   */
 }
 

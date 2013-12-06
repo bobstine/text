@@ -100,6 +100,89 @@ lines(x,y,col="red")
 }
 
 ##################################################################################
+# Comparison of different normalizations of the bigram matrix
+##################################################################################
+bigram.analysis <- function() { 
+nProj <- 1500
+city  <- "ChicagoOld3/"
+
+file     <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,"_raw.txt", sep="")
+Bigram.n <- read.table(file, header=TRUE); dim(Bigram.n)
+file     <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,"_exact.txt", sep="")
+Bigram.e <- read.table(file, header=TRUE); dim(Bigram.n)
+
+# -------------------------------------------
+#   compare exact and random project singular vectors
+#      only first has high correlation
+j<-3;
+plot(Bigram.n[,j], Bigram.e[,j], 
+	xlab=paste("Random Projection, Component",j,sep=" "), ylab="Exact Singular Vector")
+abline(a=0,b=1, col="gray")
+abline(h=0,col="gray", lty=3); abline(v=0,col="gray", lty=3); 
+
+drawit <- function(k) {
+	cca <- cancor(Bigram.n[,1:k], Bigram.e[,1:k])
+	plot(1:k, cca$cor, xlab="Dimensions", ylab="Canonical Correlation")
+	abline(v=0.8*k,col="gray")
+	}
+
+par(mfrow=c(3,1))
+	drawit(100);
+	drawit(200);
+	drawit(400);
+reset()
+
+
+# -------------------------------------------
+#   look at variation
+file     <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,"_sym.txt", sep="")
+Bigram.s <- read.table(file, header=TRUE); dim(Bigram.s)
+file     <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,"_lhs.txt", sep="")
+Bigram.l <- read.table(file, header=TRUE); dim(Bigram.l)
+file     <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,"_rhs.txt", sep="")
+Bigram.r <- read.table(file, header=TRUE); dim(Bigram.r)
+
+ss <- function(x) {  sum(x*x)  }
+
+#     SS of the bigram singular vectors
+par(mfrow=c(2,1))
+	plot(y<-apply(as.matrix(Bigram.s[,1:1500]),2,ss), log="xy", main="Symmetric Normalization",
+		ylab="Sum of Squares", xlab="Left Components, Bigram Predictor Sequence")
+	plot(y<-apply(as.matrix(Bigram.s[,1501:3000]),2,ss), log="xy",
+		ylab="Sum of Squares", xlab="Right Components, Bigram Predictor Sequence")
+reset()
+
+par(mfrow=c(2,1))
+	plot(y<-apply(as.matrix(Bigram.s[,1:1500]),2,ss), log="xy", main="Symmetric Normalization",
+		ylab="Sum of Squares", xlab="Left Components, Bigram Predictor Sequence")
+	plot(y<-apply(as.matrix(Bigram.s[,1501:3000]),2,ss), log="xy",
+		ylab="Sum of Squares", xlab="Right Components, Bigram Predictor Sequence")
+reset()
+
+par(mfrow=c(2,1))
+	plot(y<-apply(as.matrix(Bigram.l[,1:1500]),2,ss), log="xy", main="Left Normalization (row sum 1)",
+		ylab="Sum of Squares", xlab="Left Components, Bigram Predictor Sequence")
+	plot(y<-apply(as.matrix(Bigram.l[,1501:3000]),2,ss), log="xy",
+		ylab="Sum of Squares", xlab="Right Components, Bigram Predictor Sequence")
+reset()
+
+par(mfrow=c(2,1))
+	plot(y<-apply(as.matrix(Bigram.r[,1:1500]),2,ss), log="xy", main="Right Normalization (col sum 1)",
+		ylab="Sum of Squares", xlab="Left Components, Bigram Predictor Sequence")
+	plot(y<-apply(as.matrix(Bigram.r[,1501:3000]),2,ss), log="xy",
+		ylab="Sum of Squares", xlab="Right Components, Bigram Predictor Sequence")
+reset()
+
+
+abline(v=  10, col="gray"); text(  10, 0.05, round(ss(Bigram[,  10]),4))    
+abline(v=1000, col="gray"); text(1000, 0.05, round(ss(Bigram[,1000]),5))
+
+x <- 1:1500
+r <- lm(I(log(y)) ~ I(log(x))); summary(r)
+
+
+}
+##################################################################################
 # Analysis of text regressors for real estate
 ##################################################################################
 import.data <- function() { 
@@ -143,21 +226,6 @@ regr <- lm(logPrice ~ nTokens + logTokens); summary(regr)
 lines(lowess(logTokens, logPrice, f=.3), col="red")
 points(logTokens, fitted.values(regr), col="cyan")
 }
-
-# --------------------------
-#   look at variation
-
-ss <- function(x) {  sum(x*x)  }
-
-#     variation of bigram predictors falls off steadily
-plot(y<-apply(as.matrix(Bigram[,1:1500]),2,ss), log="xy",
-		ylab="(x'x)", xlab="Bigram Predictor Sequence")
-
-abline(v=  10, col="gray"); text(  10, 0.05, round(ss(Bigram[,  10]),4))    
-abline(v=1000, col="gray"); text(1000, 0.05, round(ss(Bigram[,1000]),5))
-
-x <- 1:1500
-r <- lm(I(log(y)) ~ I(log(x))); summary(r)
 
 
 boxplot(Bigram[,c(1,10,25,100,250,1000)]); abline(h=0,col="gray")

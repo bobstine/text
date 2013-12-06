@@ -1,4 +1,4 @@
-#include "bigram.h"
+#include "cluster.h"
 
 typedef Eigen::VectorXf                   Vector;
 typedef Eigen::VectorXi                   IntVector;

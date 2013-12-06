@@ -27,7 +27,7 @@ EXTERNAL_USES = boost_system boost_thread boost_regex gomp
 level_1 = k_means.o token_manager.o confusion_matrix.o porter.o vocabulary.o eigenword_dictionary.o regex.o
 level_2 = helpers.o
 level_3 = classifier.o regressor.o
-level_4 = bigram.o
+level_4 = cluster.o
 level_5 = 
 
 regex_test: regex_test.o
@@ -46,7 +46,7 @@ seq_regression: seq_regression.o helpers.o
 lsa: lsa.o vocabulary.o regex.o eigenword_dictionary.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
-bigram: bigram.o k_means.o token_manager.o classifier.o confusion_matrix.o
+cluster: cluster.o k_means.o token_manager.o classifier.o confusion_matrix.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -133,10 +133,10 @@ nProj = 1500
 #                  allow different files for vocabulary and for regression
 vFile   = $(temppath)$(city).txt 
 rFile   = $(vFile)
-outPath = $(temppath)$(city)/
+outREPath = $(temppath)$(city)/
 
 $(outPath)$(nProj).txt: regressor $(vFile) $(rfile) 
-	./regressor --vocab_file=$(vFile) --regr_file=$(rFile) --output_path=$(outPath)  -s $(seed) --n_projections $(nProj) --power_iter 1  --bidirectional  
+	./regressor --vocab_file=$(vFile) --regr_file=$(rFile) --output_path=$(outREPath)  -s $(seed) --n_projections $(nProj) --power_iter 1  --bidirectional  
 	date >> $@
 
 dore:  $(outPath)$(nProj).txt
@@ -211,14 +211,21 @@ dosim:  $(temppath)sim_regr.txt
 #  wine descriptions
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-winepath = text_src/wine/
+winePath = text_src/wine/
 
-nWineProj = 500
+nWineProj = 1000
 
-vWineFile = $(winepath)RatingsAndNotes.tokens
+vWineFile = $(winePath)RatingsAndNotes.tokens
+outWinePath = $(temppath)/wine/
 
-$(temppath)wine_regr.txt: regressor $(vWineFile)
-	./regressor --vocab_file=$(vWineFile) --regr_file=$(vWineFile) --output_file=$@  -s $(seed) --n_projections $(nWineProj) --power_iter 1  --bidirectional  
+
+$(outWinePath).directory_built: 
+	mkdir $(outWinePath)
+	touch $@
+
+$(temppath)wine_regr.txt: regressor $(vWineFile) $(outWinePath).directory_built
+	./regressor --vocab_file=$(vWineFile) --regr_file=$(vWineFile) --output_path=$(outWinePath)  -s $(seed) --n_projections $(nWineProj) \
+            --power_iter 1  --bidirectional  
 
 dowine:  $(temppath)wine_regr.txt
 

@@ -13,7 +13,7 @@
 #include <Eigen/Core>
 #include <Eigen/SparseCore>
 #include <Eigen/SVD>
- 
+
 
 #define MIN(A,B) (((A)<(B)) ? (A) : (B))
 
@@ -74,13 +74,37 @@ int main(int argc, char** argv)
     Helper::scan_google_vocabulary_for_oov (vocabulary);                    // check to see if oov words are in google
   
   // compute bigram matrix from vocabulary
-  bool const corrScaleBigram = true;                                        // normalize by diagonal counts
+  bool const useCorrScaling = true;                                         // normalize by diagonal counts
   Vocabulary::SparseMatrix B (vocabulary.n_types(), vocabulary.n_types());
-  vocabulary.fill_sparse_bigram_matrix(B, bigramSkip, corrScaleBigram);
+  vocabulary.fill_sparse_bigram_matrix(B, bigramSkip, useCorrScaling);
   std::clog << "MAIN: Bigram row sums are (0)"                              // match those from vocabulary if not scaled
 	    << B.row(0).sum() << "  (1)" << B.row(1).sum() << "  (2)"
 	    << B.row(2).sum() << "  (3)" << B.row(3).sum() << "  (4)" << B.row(4).sum() << std::endl;
   
+  if (false) // exact decomposition via SVD
+  {
+    std::clog << "MAIN: Computing exact SVD of bigram matrix begins.\n";
+    std::ofstream os1 ("/home/bob/C/text/text_src/temp/ChicagoOld3/UDV.d.txt");
+    if(!os1)
+      std::clog << "MAIN: Could not open files for reporting exact SVD of bigram; skipping.\n";
+    else
+    { Eigen::JacobiSVD<Matrix> svd(B, Eigen::ComputeThinU|Eigen::ComputeThinV);
+      Matrix U = svd.matrixU() * Matrix::Identity(B.rows(), nProjections);
+      Matrix V = svd.matrixV() * Matrix::Identity(B.rows(), nProjections);
+      Vector s = svd.singularValues();
+      std::clog << "MAIN: Leading singular values are " << s.transpose().head(20) << endl;
+      Eigen::IOFormat fmt(Eigen::StreamPrecision,Eigen::DontAlignCols,"\t","\n","","","","");
+      os1 << s.transpose() << std::endl;
+      os1.close();
+      std::ofstream os2 ("/home/bob/C/text/text_src/temp/ChicagoOld3/UDV.u.txt");
+      os2 << U.format(fmt) << std::endl;
+      os2.close();
+      std::ofstream os3 ("/home/bob/C/text/text_src/temp/ChicagoOld3/UDV.v.txt");
+      os3 << V.format(fmt) << std::endl;
+      os3.close();
+    }
+  }
+
   // form random projections of bigram matrix
   Matrix P(B.rows(), 2*nProjections);
   Vector noWeights = Vector::Zero(0);
