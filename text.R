@@ -113,12 +113,14 @@ city  <- "ChicagoOld3/"
 #      only first has high correlation, rest are occasionally correlated
 #      high cancor up to last 20% of components
 
-d <- scan(paste("/Users/bob/C/text/text_src/temp/",city,"UDV.d.txt",sep=""))
+ds <- scan(paste("/Users/bob/C/text/text_src/temp/",city,"UDV_single.d.txt",sep=""))
+dd <- scan(paste("/Users/bob/C/text/text_src/temp/",city,"UDV_double.d.txt",sep=""))
 par(mfrow=c(2,1))
-	plot(d, xlab="Index of Singular Value", ylab="Singular Value", log="", 
+	plot(dd, xlab="Index of Singular Value", ylab="Singular Value", log="y", 
 		main="Singular Values of Raw Bigram Matrix")
-	plot(d, xlab="Index of Singular Value", ylab="Singular Value", log="y", 
-		main="Singular Values of Raw Bigram Matrix")
+	lines(ds, col="red")
+	plot(dd,ds, xlab="Double Precision", ylab="Single Precision", log="xy", 
+		main="Singular Values of Unweighted Bigram Matrix")
 reset();
 
 file     <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,"_raw.txt", sep="")
