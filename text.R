@@ -123,6 +123,21 @@ par(mfrow=c(2,1))
 		main="Singular Values of Unweighted Bigram Matrix")
 reset();
 
+all <- 1:2500
+plot(dd[all], log="xy", ylab="Leading Singular Values, Bigram Matrix", xlab="Index")
+y <- log(dd[all]); x <- log(all)
+summary(regr <- lm(y ~ x ))          # overall fit = 12.31 - 1.55 log(i) 
+lines(exp(x),exp(fitted.values(regr)), col="blue")
+x2 <- (x-mean(x))^2
+summary(regr <- lm(y ~ x + x2))      # 14.33 - 1.823 log(i) - 0.145 (log(i)-mean)^2
+lines(exp(x),exp(fitted.values(regr)), col="red")
+i <- 100:500
+y <- log(dd[i]); x <- log(i)
+summary(regr <- lm(y ~ x ))          # overall fit = 12.31 - 1.55 log(i) 
+lines(exp(x),exp(fitted.values(regr)), col="magenta")
+
+
+# --- these are centroid variables, not the eigenwords
 file     <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,"_raw.txt", sep="")
 Bigram.n <- read.table(file, header=TRUE); dim(Bigram.n)
 file     <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,"_exact.txt", sep="")
@@ -145,10 +160,10 @@ par(mfrow=c(3,1))
 	drawit(200);
 	drawit(400);
 reset()
-
+}
 
 # ------------------------------------------------------------------------------------
-#   look at variation
+#   look at variation; again, these are the constructed variables, not eigenwords
 file     <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,"_sym.txt", sep="")
 Bigram.s <- read.table(file, header=TRUE); dim(Bigram.s)
 file     <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,"_lhs.txt", sep="")
@@ -160,9 +175,9 @@ ss <- function(x) {  sum(x*x)  }
 
 #     SS of the bigram singular vectors
 par(mfrow=c(2,1))
-	plot(y<-apply(as.matrix(Bigram.s[,1:1500]),2,ss), log="xy", main="Symmetric Normalization",
+	plot(y<-apply(as.matrix(Bigram.n[,1:1500]),2,ss), log="xy", main="No Normalization",
 		ylab="Sum of Squares", xlab="Left Components, Bigram Predictor Sequence")
-	plot(y<-apply(as.matrix(Bigram.s[,1501:3000]),2,ss), log="xy",
+	plot(y<-apply(as.matrix(Bigram.n[,1501:3000]),2,ss), log="xy",
 		ylab="Sum of Squares", xlab="Right Components, Bigram Predictor Sequence")
 reset()
 
