@@ -104,6 +104,26 @@ Helper::write_word_counts_to_file(string fileName, Vocabulary::SparseMatrix cons
 
 
 void
+Helper::write_matrix_to_file(Matrix const& m, std::string fileName, std::string prefix)
+{
+  std::ofstream os(fileName);
+  if (!os)
+  { std::clog << "MAIN: Could not open matrix output file " << fileName << std::endl;
+    return;
+  }
+  os << prefix + "0";
+  prefix = "\t" + prefix;
+  for(int i=1; i<m.cols(); ++i)
+    os << prefix << i;
+  // prec, align, col sep, row sep, row pre, row suf, file pre, file suff
+  Eigen::IOFormat fmt(Eigen::StreamPrecision,Eigen::DontAlignCols,"\t","\n","","","","");
+  os << std::endl << m.format(fmt) << endl;
+}
+
+
+
+
+void
 Helper::calculate_sequence_r2 (Eigen::VectorXd const& Y, Eigen::VectorXd tokenCount, string xLabel, Eigen::MatrixXf X, string file)
 {
   const int k = X.cols();
@@ -176,27 +196,57 @@ Helper::calculate_sequence_r2 (Eigen::VectorXd const& Y, Eigen::VectorXd tokenCo
   std::clog << "MAIN: Regression on W completed with results written to " << file << ".\n";
 }
 
+
 void
-Helper::fill_random_projection(Matrix &P, Vocabulary::SparseMatrix const& M, Vector const& wts, int power)
+Helper::write_exact_svd_to_path(Vocabulary::SparseMatrix const& B, int nProjections, std::string path)
+{
+  std::ofstream os1 (path + "svd_exact_d.txt");
+  if(!os1)
+    std::cerr << "MAIN: Invalid path. Could not open files for reporting exact SVD of bigram; skipping.\n";
+  else
+  { Eigen::JacobiSVD<Matrix> svd(B, Eigen::ComputeThinU|Eigen::ComputeThinV);
+    Matrix U = svd.matrixU() * Matrix::Identity(B.rows(), nProjections);
+    Matrix V = svd.matrixV() * Matrix::Identity(B.rows(), nProjections);
+    Vector s = svd.singularValues();
+    std::clog << "MAIN: Leading singular values of bigram are " << s.transpose().head(20) << endl;
+    Eigen::IOFormat fmt(Eigen::StreamPrecision,Eigen::DontAlignCols,"\t","\n","","","","");
+    os1 << s.transpose() << std::endl;
+    os1.close();
+    std::ofstream os2 (path + "svd_exact_u.txt");
+    os2 << U.format(fmt) << std::endl;
+    os2.close();
+    std::ofstream os3 (path + "svd_exact_v.txt");
+    os3 << V.format(fmt) << std::endl;
+    os3.close();
+  }
+}
+
+
+void
+Helper::fill_random_projection(Matrix &P, Vocabulary::SparseMatrix const& M, Vector const& leftWeights, Vector const& rightWeights, int power)
 {
   assert (M.rows() == P.rows());
   Matrix R;
-  if(wts.size() > 0)
-  { std::clog << "MAIN: Weighting in random projection.\n";
-    R = wts.asDiagonal() * (M * Matrix::Random(M.cols(), P.cols()));
+  Vocabulary::SparseMatrix wMw = M;
+  if (0 < leftWeights.size())
+  { std::clog << "MAIN: Weighting on left side in random projection.\n";
+    wMw = leftWeights.asDiagonal() * wMw;
   }
-  else
-    R = M * Matrix::Random(M.cols(), P.cols());    
+  if (0 < rightWeights.size())
+  { std::clog << "MAIN: Weighting on right side in random projection.\n";
+    wMw = wMw * rightWeights.asDiagonal();  
+  }
+  R = wMw * Matrix::Random(wMw.cols(), P.cols());    
   P = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());  // block does not work; use to get left P.cols()
   if (power > 0)
-  { Vocabulary::SparseMatrix MMt = M * M.transpose();
+  { Vocabulary::SparseMatrix MMt = wMw * wMw.transpose();
     while (power--)
     { R = MMt * P;
       P = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());
     }
   }
   std::clog << "MAIN: Checking norms of leading terms in random projection; 0'0="
-	    << P.col(0).dot(P.col(0)) << "   0'1=" << P.col(0).dot(P.col(1)) << "   1'1=" << P.col(1).dot(P.col(1)) << std::endl; 
+	    << P.col(0).dot(P.col(0)) << "   0'1=" << P.col(0).dot(P.col(1)) << "   1'1=" << P.col(1).dot(P.col(1)) << std::endl;
 }
 
 

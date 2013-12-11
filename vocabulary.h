@@ -69,11 +69,12 @@ class Vocabulary
   
   int        n_tokens()                         const { return mNTokens; }
   
-  void       fill_sparse_bigram_matrix (SparseMatrix &B, int skip, bool corrScaling) const;
+  void       fill_sparse_bigram_matrix (SparseMatrix &B, int skip) const;
   void       fill_sparse_regr_design (Vector &Y, SparseMatrix &X, std::istream &is) const;
   
-  void       print_to_stream(std::ostream & os) const;
-  void       write_type_freq(std::ostream & os) const;
+  void       print_to_stream    (std::ostream & os) const;
+  void       write_type_freq    (std::ostream & os) const;
+  void       write_oov_to_stream(std::ostream &os, int maxNumberToWrite) const;
   
  private:
   void init_from_file  (std::string fileName);

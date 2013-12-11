@@ -26,7 +26,7 @@ EXTERNAL_USES = boost_system boost_thread boost_regex gomp
 
 level_1 = k_means.o token_manager.o confusion_matrix.o porter.o vocabulary.o eigenword_dictionary.o regex.o
 level_2 = helpers.o
-level_3 = classifier.o regressor.o
+level_3 = classifier.o regressor.o bigram.o
 level_4 = cluster.o
 level_5 = 
 
@@ -35,6 +35,9 @@ regex_test: regex_test.o
 	./regex_test
 
 porter: porter.o
+	$(GCC) $^ $(LDLIBS) -o  $@
+
+bigram: bigram.o vocabulary.o eigenword_dictionary.o helpers.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
 regressor: regressor.o vocabulary.o regex.o eigenword_dictionary.o helpers.o
@@ -128,19 +131,33 @@ $(temppath)$(city).txt: text_src/real_estate/Set10Tokenized/$(city)Tokenized
 #                  defines random projection
 seed  = 2763
 #                  number of projections for W, and nProj (each side) for bigram	
-nProj = 1500
+nProj = 500
 
 #                  allow different files for vocabulary and for regression
 vFile   = $(temppath)$(city).txt 
 rFile   = $(vFile)
 outREPath = $(temppath)$(city)/
 
-$(outPath)$(nProj).txt: regressor $(vFile) $(rfile) 
+$(outREPath)$(nProj).txt: regressor $(vFile) $(rfile) 
 	./regressor --vocab_file=$(vFile) --regr_file=$(rFile) --output_path=$(outREPath)  -s $(seed) --n_projections $(nProj) --power_iter 1  --bidirectional  
 	date >> $@
 
-dore:  $(outPath)$(nProj).txt
+dore:  $(outREPath)$(nProj).txt
 	echo 'Running regressor'
+
+# --- bigram various decompositions
+
+bigramPath = $(temppath)bigram/
+
+$(bigramPath).dir_built: 
+	mkdir $(bigramPath)
+	touch $@
+
+$(bigramPath)date.txt: bigram $(rFile) $(bigramPath).dir_built 
+	./bigram --text_file=$(rFile) --output_path=$(bigramPath)  -s $(seed) --n_projections $(nProj) --power_iter 1
+	date >> $@
+
+dobigram: $(bigramPath)date.txt
 
 
 # --- aic sequential regressions

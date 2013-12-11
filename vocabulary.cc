@@ -42,6 +42,19 @@ Vocabulary::write_type_freq(std::ostream & os) const
     os << x.second << " ";
 }
 
+void
+Vocabulary::write_oov_to_stream(std::ostream &os, int maxNumberToWrite)  const
+{
+  int n = (int) mOOVMap.size();
+  n = (n < maxNumberToWrite) ? n : maxNumberToWrite;
+  os << messageTag << " Leading " << n << " OOV words from vocabulary are...\n    ";
+  for(auto x : mOOVMap)
+  { --n;
+    std::clog << " (" << x.first << "," << x.second << ")";
+    if (0 == n) break;
+  }
+  os << std::endl;
+}
 
 //     init     init     init     init     init     init     init     init     init     init     init     init     
 
@@ -145,29 +158,11 @@ Vocabulary::type_index(Type const& type) const
 
 
 void
-Vocabulary::fill_sparse_bigram_matrix(Vocabulary::SparseMatrix &B, int skip, bool corrScaling) const
+Vocabulary::fill_sparse_bigram_matrix(Vocabulary::SparseMatrix &B, int skip) const
 {
   BigramMap bgramMap;
   fill_bigram_map(bgramMap, skip); 
   EigenUtils::fill_sparse_matrix(B, bgramMap);
-  // symmetric
-    Vector v = type_frequency_vector().array().sqrt().inverse();
-    if (corrScaling)
-    B = v.asDiagonal() * B * v.asDiagonal();
-  
-  /*
-  //   norm rhs
-    Vector v = type_frequency_vector().array().inverse();
-    if (corrScaling)
-    B = B * v.asDiagonal();
-  */
-
-  /*
-  //   norm lhs
-  Vector v = type_frequency_vector().array().inverse();
-  if (corrScaling)
-    B = v.asDiagonal() * B;
-  */
 }
 
 

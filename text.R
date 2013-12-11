@@ -149,7 +149,7 @@ reset()
 
 # ------------------------------------------------------------------------------------
 #   look at variation
-file     <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,"_sym.txt", sep="")
+file     <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,".txt", sep="")
 Bigram.s <- read.table(file, header=TRUE); dim(Bigram.s)
 file     <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,"_lhs.txt", sep="")
 Bigram.l <- read.table(file, header=TRUE); dim(Bigram.l)

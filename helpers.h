@@ -23,15 +23,23 @@ namespace Helper
   void
     write_word_counts_to_file(std::string fileName, Vocabulary::SparseMatrix const& W, int nCols, Vocabulary const& vocab);
   
+
   void
     calculate_sequence_r2 (Eigen::VectorXd const& Y, Eigen::VectorXd tokenCount, std::string xLabel, Eigen::MatrixXf X, std::string file);
   
   void
     calculate_sequence_r2 (Eigen::VectorXd const& Y, Eigen::VectorXd tokenCount, bool reverse, Vocabulary::SparseMatrix const& W,
 			   Vocabulary const& vocab, int nToFit, std::string file);
+
   
   void
-    fill_random_projection(Matrix &P, Vocabulary::SparseMatrix const& M, Vector const& wts, int power);
+    fill_random_projection(Matrix &P, Vocabulary::SparseMatrix const& B, Vector const& leftWts, Vector const& rightWts, int power);
+
+  void
+    write_exact_svd_to_path(Vocabulary::SparseMatrix const& B, int nProjections, std::string path);
+
+  void
+    write_matrix_to_file(Matrix const& A, std::string fileName, std::string columnPrefix);
   
   void
     fill_left_SVD(Matrix &P, Vocabulary::SparseMatrix const& M);
