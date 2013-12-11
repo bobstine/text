@@ -201,6 +201,8 @@ Vocabulary::fill_sparse_regr_design (Vector &Y, Vocabulary::SparseMatrix &X, std
     is >> Y(i);                     // read y-value at head of line
     while (is >> token)
       ++counts[ Type(token) ];      // map of remaining text tokens
+    if (mMarkEOL)
+      ++counts[ Vocabulary::EOL ];
     for (auto x : counts)
       triplets.push_back(T(i, type_index(x.first), x.second)); // convert to indices
   }

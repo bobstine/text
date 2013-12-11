@@ -46,7 +46,7 @@ int main(int argc, char** argv)
   int    randomSeed      ( 77777 );  // used to replicate random projection
   
   parse_arguments(argc, argv, vocabFileName, regrFileName, minFrequency, bidirectional, nProjections, powerIterations, randomSeed, outputPath);
-  std::clog << "MAIN: regressor --vocab_file=" << vocabFileName << " --regr_file=" << regrFileName << " --output_file=" << outputPath
+  std::clog << "MAIN: regressor --vocab_file=" << vocabFileName << " --regr_file=" << regrFileName << " --output_path=" << outputPath
 	    << " --min_frequency=" << minFrequency << " --n_projections=" << nProjections << " --power_iter " << powerIterations
 	    << " --random_seed=" << randomSeed;
   srand(randomSeed);
@@ -57,7 +57,7 @@ int main(int argc, char** argv)
   Vocabulary vocabulary(vocabFileName, nSkipInitTokens, markEndOfLine, minFrequency);
   std::clog << "MAIN: " << vocabulary << endl;
   {
-    std::ofstream os ("text_src/temp/type_freq.txt");                       // write frequencies to file
+    std::ofstream os (outputPath + "type_freq.txt");                       // write frequencies to file
     vocabulary.write_type_freq(os);
   }  
   int const maxNumberToWrite (200);
@@ -69,27 +69,33 @@ int main(int argc, char** argv)
   // compute bigram matrix from vocabulary
   Vocabulary::SparseMatrix B (vocabulary.n_types(), vocabulary.n_types());
   vocabulary.fill_sparse_bigram_matrix(B, bigramSkip);
-  std::clog << "MAIN: Bigram row sums are (0)"                              // match those from vocabulary if not scaled
-	    << B.row(0).sum() << "  (1)" << B.row(1).sum() << "  (2)"
-	    << B.row(2).sum() << "  (3)" << B.row(3).sum() << "  (4)" << B.row(4).sum() << std::endl;
+  std::clog << "MAIN: Leading bigram row sums are ";                        // match counts from vocabulary (but for first/last)
+  for (int j=0; j<11; ++j)
+    std::clog << "  (" << j << ")=" << B.row(j).sum();
+  std::clog << std::endl;
   
   if (false) // exact decomposition via SVD
   { std::clog << "MAIN: Computing exact SVD of bigram matrix begins.\n";
-    write_exact_svd_to_path();
+    Helper::write_exact_svd_to_path(B, nProjections, outputPath);
   }
 
   // form random projections of bigram matrix
   bool const useCorrScaling = true;                                         // normalize by diagonal counts
-  Matrix P(B.rows(), 2*nProjections);
   Vector noWeights = Vector::Zero(0);
+  Vector bigramWeights;
+  if (useCorrScaling)
+    bigramWeights = vocabulary.type_frequency_vector().array().sqrt().inverse();
+  else
+    bigramWeights = noWeights;
+  Matrix P(B.rows(), 2*nProjections);
   if (!bidirectional)
-    Helper::fill_random_projection(P, B, noWeights, powerIterations);
+    Helper::fill_random_projection(P, B, bigramWeights, bigramWeights, powerIterations);
   else
   { Matrix Pl(B.rows(), nProjections);
-    Helper::fill_random_projection(Pl, B, noWeights, powerIterations);
+    Helper::fill_random_projection(Pl, B, bigramWeights, bigramWeights, powerIterations);
     Matrix Pr(B.rows(), nProjections);
     Vocabulary::SparseMatrix Bt = B.transpose();
-    Helper::fill_random_projection(Pr, Bt, noWeights, powerIterations);
+    Helper::fill_random_projection(Pr, Bt, bigramWeights, bigramWeights,powerIterations);
     P.leftCols (nProjections) = Pl;
     P.rightCols(nProjections) = Pr;
   }
@@ -97,7 +103,7 @@ int main(int argc, char** argv)
   if (powerIterations) std::clog << " with power iterations.";
   std::clog << endl;
   if (true)
-    Helper::write_eigenwords_to_file ("text_src/temp/eigenwords.txt", P, vocabulary);
+    Helper::write_eigenwords_to_file (outputPath + "eigenwords.txt", P, vocabulary);
   else std::clog << "MAIN: Skipping output of eigenword matrix to file.\n";
   
   // convert data text lines into vectors for regression
@@ -112,6 +118,13 @@ int main(int argc, char** argv)
   Vector m = W * Vector::Ones(W.cols());                   // token count for each document
   std::clog << "MAIN: Sum of row 0 of W is " << m(0) << "  sum of row 1 of W is " << m(1) << endl;
 
+  if(false)
+  { std::clog << "DEBUG: Checking counts of EOL in W matrix\n";
+    Vector counts;
+    counts = Vector::Ones(W.rows()).transpose() * W;
+    std::clog << "DEBUG: Counts of totals in leading columns of W are " << counts.transpose().head(10) << std::endl;
+  }
+  
   // optionally track R2 sequence of regression models for words
   if (false)
   { const int nColsRegr = 3000;
@@ -121,7 +134,7 @@ int main(int argc, char** argv)
       mm(i) = m(i);
     }
     bool reverse (false);                                  // reverse tests low frequency words first
-    std::string fileName ("text_src/temp/word_regr_fit_");
+    std::string fileName (outputPath + "word_regr_fit_");
     if (m.size() > 0) fileName += "with_m";
     else              fileName += "no_m";
     if (reverse) fileName += "_rev.txt";
@@ -130,9 +143,11 @@ int main(int argc, char** argv)
   }
   
   // optionally write W to file
-  if (false)
-  { Helper::write_word_counts_to_file ("text_src/temp/w3000.txt", W, MIN(W.cols(), 3000), vocabulary);
-    std::clog << "MAIN: Wrote W matrix to file w.txt." << std::endl;
+  if (true)
+    { const int numWords (MIN(W.cols(), 6000));
+      std::string name ("w" + std::to_string(numWords) + ".txt");
+      Helper::write_word_counts_to_file (outputPath + name, W, numWords, vocabulary);
+      std::clog << "MAIN: Wrote W matrix to file " << name << std::endl;
   }
   else std::clog << "MAIN: Skipping output of W matrix to file.\n";
 
@@ -158,7 +173,7 @@ int main(int argc, char** argv)
   else
   { std::clog << "MAIN: Computing left singular vectors of L by random projection";
     if (powerIterations) std::clog << " with power iterations.\n" ; else std::clog << "." << endl;
-    Helper::fill_random_projection(L, W, noWeights /* m.array().inverse() */, powerIterations);
+    Helper::fill_random_projection(L, W, noWeights, noWeights, powerIterations);
   }
   std::clog << "MAIN: Completed LSA projection.  L[" << L.rows() << "x" << L.cols() << "]\n";
   if (false)                                                // compute sequence of regressions for LSA variables

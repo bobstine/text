@@ -99,123 +99,6 @@ lines(x,y,col="red")
 
 }
 
-#######################################################################################
-# Comparison of different normalizations of the bigram matrix
-#######################################################################################
-bigram.analysis <- function() { 
-
-nProj <- 1500
-city  <- "ChicagoOld3/"
-
-# ------------------------------------------------------------------------------------
-#   compare exact and random project singular vectors
-#		exact spectrum of raw bigram is very weird (rounding?)
-#      only first has high correlation, rest are occasionally correlated
-#      high cancor up to last 20% of components
-
-ds <- scan(paste("/Users/bob/C/text/text_src/temp/",city,"UDV_single.d.txt",sep=""))
-dd <- scan(paste("/Users/bob/C/text/text_src/temp/",city,"UDV_double.d.txt",sep=""))
-par(mfrow=c(2,1))
-	plot(dd, xlab="Index of Singular Value", ylab="Singular Value", log="y", 
-		main="Singular Values of Raw Bigram Matrix")
-	lines(ds, col="red")
-	plot(dd,ds, xlab="Double Precision", ylab="Single Precision", log="xy", 
-		main="Singular Values of Unweighted Bigram Matrix")
-reset();
-
-all <- 1:2500
-plot(dd[all], log="xy", ylab="Leading Singular Values, Bigram Matrix", xlab="Index")
-y <- log(dd[all]); x <- log(all)
-summary(regr <- lm(y ~ x ))          # overall fit = 12.31 - 1.55 log(i) 
-lines(exp(x),exp(fitted.values(regr)), col="blue")
-x2 <- (x-mean(x))^2
-summary(regr <- lm(y ~ x + x2))      # 14.33 - 1.823 log(i) - 0.145 (log(i)-mean)^2
-lines(exp(x),exp(fitted.values(regr)), col="red")
-i <- 100:500
-y <- log(dd[i]); x <- log(i)
-summary(regr <- lm(y ~ x ))          # overall fit = 12.31 - 1.55 log(i) 
-lines(exp(x),exp(fitted.values(regr)), col="magenta")
-
-
-# --- these are centroid variables, not the eigenwords
-file     <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,"_raw.txt", sep="")
-Bigram.n <- read.table(file, header=TRUE); dim(Bigram.n)
-file     <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,"_exact.txt", sep="")
-Bigram.e <- read.table(file, header=TRUE); dim(Bigram.n)
-
-j<-3;
-plot(Bigram.n[,j], Bigram.e[,j], 
-	xlab=paste("Random Projection, Component",j,sep=" "), ylab="Exact Singular Vector")
-abline(a=0,b=1, col="gray")
-abline(h=0,col="gray", lty=3); abline(v=0,col="gray", lty=3); 
-
-drawit <- function(k) {
-	cca <- cancor(Bigram.n[,1:k], Bigram.e[,1:k])
-	plot(1:k, cca$cor, xlab="Dimensions", ylab="Canonical Correlation")
-	abline(v=0.8*k,col="gray")
-	}
-
-par(mfrow=c(3,1))
-	drawit(100);
-	drawit(200);
-	drawit(400);
-reset()
-}
-
-# ------------------------------------------------------------------------------------
-<<<<<<< HEAD
-#   look at variation
-file     <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,".txt", sep="")
-=======
-#   look at variation; again, these are the constructed variables, not eigenwords
-file     <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,"_sym.txt", sep="")
->>>>>>> 53eacad9ba5adbc88a5bb01a065269a569d56d0f
-Bigram.s <- read.table(file, header=TRUE); dim(Bigram.s)
-file     <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,"_lhs.txt", sep="")
-Bigram.l <- read.table(file, header=TRUE); dim(Bigram.l)
-file     <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,"_rhs.txt", sep="")
-Bigram.r <- read.table(file, header=TRUE); dim(Bigram.r)
-
-ss <- function(x) {  sum(x*x)  }
-
-#     SS of the bigram singular vectors
-par(mfrow=c(2,1))
-	plot(y<-apply(as.matrix(Bigram.n[,1:1500]),2,ss), log="xy", main="No Normalization",
-		ylab="Sum of Squares", xlab="Left Components, Bigram Predictor Sequence")
-	plot(y<-apply(as.matrix(Bigram.n[,1501:3000]),2,ss), log="xy",
-		ylab="Sum of Squares", xlab="Right Components, Bigram Predictor Sequence")
-reset()
-
-par(mfrow=c(2,1))
-	plot(y<-apply(as.matrix(Bigram.s[,1:1500]),2,ss), log="xy", main="Symmetric Normalization",
-		ylab="Sum of Squares", xlab="Left Components, Bigram Predictor Sequence")
-	plot(y<-apply(as.matrix(Bigram.s[,1501:3000]),2,ss), log="xy",
-		ylab="Sum of Squares", xlab="Right Components, Bigram Predictor Sequence")
-reset()
-
-par(mfrow=c(2,1))
-	plot(y<-apply(as.matrix(Bigram.l[,1:1500]),2,ss), log="xy", main="Left Normalization (row sum 1)",
-		ylab="Sum of Squares", xlab="Left Components, Bigram Predictor Sequence")
-	plot(y<-apply(as.matrix(Bigram.l[,1501:3000]),2,ss), log="xy",
-		ylab="Sum of Squares", xlab="Right Components, Bigram Predictor Sequence")
-reset()
-
-par(mfrow=c(2,1))
-	plot(y<-apply(as.matrix(Bigram.r[,1:1500]),2,ss), log="xy", main="Right Normalization (col sum 1)",
-		ylab="Sum of Squares", xlab="Left Components, Bigram Predictor Sequence")
-	plot(y<-apply(as.matrix(Bigram.r[,1501:3000]),2,ss), log="xy",
-		ylab="Sum of Squares", xlab="Right Components, Bigram Predictor Sequence")
-reset()
-
-
-abline(v=  10, col="gray"); text(  10, 0.05, round(ss(Bigram[,  10]),4))    
-abline(v=1000, col="gray"); text(1000, 0.05, round(ss(Bigram[,1000]),5))
-
-x <- 1:1500
-r <- lm(I(log(y)) ~ I(log(x))); summary(r)
-
-
-}
 ##################################################################################
 # Analysis of text regressors for real estate
 ##################################################################################
@@ -389,7 +272,7 @@ lines(c(opt.k,opt.k), c(0,4500), col="gray")
 
 
 # --- regression with W count matrix  (have to remove """ from type names in source)
-W <- as.matrix(read.table("/Users/bob/C/text/text_src/temp/w2000.txt", header=TRUE)); dim(W)
+W <- as.matrix(read.table("/Users/bob/C/text/text_src/temp/w5708.txt", header=TRUE)); dim(W)
 
 # --- compare fits at AIC min to 2000
 #  sr$r.squared  =  0.7667; 0.7708 w log   sr.1200$r.squared = 0.7020
