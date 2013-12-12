@@ -108,13 +108,17 @@ import.data <- function() {
 nProj <- 1500
 city  <- "ChicagoOld3/"
 
-file   <- paste("/Users/bob/C/text/text_src/temp/",city,"parsed.txt", sep="")
-Data   <- read.table(file, header=TRUE); dim(Data)
-file   <- paste("/Users/bob/C/text/text_src/temp/",city,"LSA_",nProj,".txt", sep="")
-LSA    <- read.table(file, header=TRUE); dim(LSA)
-file   <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,".txt", sep="")
-Bigram <- read.table(file, header=TRUE); dim(Bigram)
-Eigen  <- read.table("/Users/bob/C/text/text_src/temp/eigenwords.txt", row.names=1, header=TRUE)
+file    <- paste("/Users/bob/C/text/text_src/temp/",city,"parsed.txt", sep="")
+Data    <- read.table(file, header=TRUE); dim(Data)
+file    <- paste("/Users/bob/C/text/text_src/temp/",city,"LSA_",nProj,".txt", sep="")
+LSA     <- read.table(file, header=TRUE); dim(LSA)
+file    <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,".txt", sep="")  # skip factor
+Bigram  <- read.table(file, header=TRUE); dim(Bigram5)
+file    <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,"_5.txt", sep="")  # skip factor
+Bigram5 <- read.table(file, header=TRUE); dim(Bigram5)
+file    <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,"_10.txt", sep="")  # skip factor
+Bigram10<- read.table(file, header=TRUE); dim(Bigram5)
+Eigen   <- read.table("/Users/bob/C/text/text_src/temp/eigenwords.txt", row.names=1, header=TRUE)
 dim(Eigen) 
 
 n <- nrow(Data)
@@ -333,7 +337,7 @@ lsa.analysis <- function() {
 
 p    <- 500
 lsa  <- as.matrix(LSA[,1:500])
-sr   <- summary(regr.lsa <- lm(logPrice ~ nTokens + lsa , x=TRUE, y=TRUE)); sr  
+sr   <- summary(regr.lsa <- lm(logPrice ~ nTokens + logTokens + lsa , x=TRUE, y=TRUE)); sr  
 	
 correctly.ordered(logPrice, fitted.values(regr.lsa), 1000)
 
@@ -382,11 +386,12 @@ plot(udv$d[1:(k-10)], log="xy", main=paste("Exact Singular Values of W, k=",k),
 ##################################################################################
 	
 # --- whole model summaries
-kb <- 500                                            # left and right
+kb <- 500                                            				# left and right, consider skip versions
 
-p    <- 500
-bigr <- as.matrix(Bigram[,1:500])
-sr   <- summary(regr.bigram <- lm(logPrice ~ bigr , x=TRUE, y=TRUE)); sr  
+bigr <- as.matrix(Bigram10[,c(seq(1,kb/2),seq(nProj-kb/2,nProj)) ])	# first and last
+bigr <- as.matrix(Bigram10[,1:kb])									# first kb
+
+sr   <- summary(regr.bigram <- lm(logPrice ~ nTokens + logTokens + bigr , x=TRUE, y=TRUE)); sr  
 
 correctly.ordered(logPrice, fitted.values(regr.bigram), 1000)
 
