@@ -124,22 +124,22 @@ federalist: regressor lsa $(temppath)fedregr.txt $(temppath)fedx.txt
 
 city = ChicagoOld3
 
-#                  removes lines with no text (need $$ to escape $ in make)
+#			removes lines with no text (need $$ to escape $ in make)
 $(temppath)$(city).txt: text_src/real_estate/Set10Tokenized/$(city)Tokenized
 	grep -v '^[0-9\,\.[:blank:]]\+$$' $^ > $@
-
-#                  defines random projection
-seed  = 2763
-#                  number of projections for W, and nProj (each side) for bigram	
-nProj = 500
-
-#                  allow different files for vocabulary and for regression
+#			skip for bigram
+reSkip = 0
+#			defines random projection
+reSeed = 2763
+#			number of projections for W, and nProj (each side) for bigram	
+nProj  = 1500
+#			allow different files for vocabulary and for regression
 vFile   = $(temppath)$(city).txt 
 rFile   = $(vFile)
 outREPath = $(temppath)$(city)/
 
 $(outREPath)$(nProj).txt: regressor $(vFile) $(rfile) 
-	./regressor --vocab_file=$(vFile) --regr_file=$(rFile) --output_path=$(outREPath)  -s $(seed) --n_projections $(nProj) --power_iter 1  --bidirectional  
+	./regressor --vocab_file=$(vFile) --regr_file=$(rFile) --output_path=$(outREPath) -s $(reSeed) -k $(reSkip) --n_projections $(nProj) --power_iter 1  --bidirectional  
 	date >> $@
 
 dore:  $(outREPath)$(nProj).txt

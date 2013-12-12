@@ -27,7 +27,7 @@ typedef Eigen::MatrixXf Matrix;
 void
 parse_arguments(int argc, char** argv,
 		string &vocabFileName, string &regrFileName,
-		int &minFrequency, bool &bidirectional, int &nProjections, int &powerIterations, int &seed,
+		int &minFrequency, int &nSkip, bool &bidirectional, int &nProjections, int &powerIterations, int &seed,
 		string &outputPath);
   
 int main(int argc, char** argv)
@@ -45,9 +45,9 @@ int main(int argc, char** argv)
   int    bigramSkip      (   0   );  // 0 is standard bigram
   int    randomSeed      ( 77777 );  // used to replicate random projection
   
-  parse_arguments(argc, argv, vocabFileName, regrFileName, minFrequency, bidirectional, nProjections, powerIterations, randomSeed, outputPath);
+  parse_arguments(argc, argv, vocabFileName, regrFileName, minFrequency, bigramSkip, bidirectional, nProjections, powerIterations, randomSeed, outputPath);
   std::clog << "MAIN: regressor --vocab_file=" << vocabFileName << " --regr_file=" << regrFileName << " --output_path=" << outputPath
-	    << " --min_frequency=" << minFrequency << " --n_projections=" << nProjections << " --power_iter " << powerIterations
+	    << " --min_frequency=" << minFrequency << " --bigram_skip=" << bigramSkip << " --n_projections=" << nProjections << " --power_iter " << powerIterations
 	    << " --random_seed=" << randomSeed;
   srand(randomSeed);
   if (bidirectional) std::clog << " --bidirectional ";
@@ -81,12 +81,11 @@ int main(int argc, char** argv)
 
   // form random projections of bigram matrix
   bool const useCorrScaling = true;                                         // normalize by diagonal counts
-  Vector noWeights = Vector::Zero(0);
   Vector bigramWeights;
   if (useCorrScaling)
     bigramWeights = vocabulary.type_frequency_vector().array().sqrt().inverse();
   else
-    bigramWeights = noWeights;
+    bigramWeights = Vector::Zero(0);
   Matrix P(B.rows(), 2*nProjections);
   if (!bidirectional)
     Helper::fill_random_projection(P, B, bigramWeights, bigramWeights, powerIterations);
@@ -143,7 +142,7 @@ int main(int argc, char** argv)
   }
   
   // optionally write W to file
-  if (true)
+  if (false)
     { const int numWords (MIN(W.cols(), 6000));
       std::string name ("w" + std::to_string(numWords) + ".txt");
       Helper::write_word_counts_to_file (outputPath + name, W, numWords, vocabulary);
@@ -173,6 +172,7 @@ int main(int argc, char** argv)
   else
   { std::clog << "MAIN: Computing left singular vectors of L by random projection";
     if (powerIterations) std::clog << " with power iterations.\n" ; else std::clog << "." << endl;
+    Vector noWeights = Vector::Zero(0);
     Helper::fill_random_projection(L, W, noWeights, noWeights, powerIterations);
   }
   std::clog << "MAIN: Completed LSA projection.  L[" << L.rows() << "x" << L.cols() << "]\n";
@@ -183,11 +183,11 @@ int main(int argc, char** argv)
     { YY(i) = log (Y(i));
       mm(i) = m(i);
     }
-    std::string fileName ("text_src/temp/lsa_regr_fit_");
+    std::string fileName (outputPath + "lsa_regr_fit_");
     if (m.size() > 0) fileName += "with_m";
     else              fileName += "no_m";
     Helper::calculate_sequence_r2 (YY, mm, "LSA_", L, fileName+".txt");
-    fileName = "text_src/temp/bigram_regr_fit_";
+    fileName = outputPath + "bigram_regr_fit_";
     if (m.size() > 0) fileName += "with_m";
     else              fileName += "no_m";
     Helper::calculate_sequence_r2 (YY, mm, "Bigram_", A.leftCols(nProjections), fileName+".txt");
@@ -259,7 +259,9 @@ int main(int argc, char** argv)
       os << endl << L.format(fmt) << endl;
     }
     {
-      std::ofstream os (outputPath + "bigram_" + dim + ".txt");
+      std::string skipStr ("");
+      if (0 < bigramSkip) skipStr = "_" + std::to_string(bigramSkip);
+      std::ofstream os (outputPath + "bigram_" + dim + skipStr + ".txt");
       os << "BL0";
       for(int i=1; i<A.cols()/2; ++i) os << "\tBL" << i;
       for(int i=0; i<A.cols()/2; ++i) os << "\tBR" << i;
@@ -274,12 +276,13 @@ int main(int argc, char** argv)
 void
 parse_arguments(int argc, char** argv,
 		string &fileName, string &regrFileName,
-		int &oovThreshold, bool &bidirectional, int &nProjections, int &powerIterations, int &seed, string &outputPath)
+		int &oovThreshold, int &bigramSkip, bool &bidirectional, int &nProjections, int &powerIterations, int &seed, string &outputPath)
 {
   static struct option long_options[] = {
     {"vocab_file",    required_argument, 0, 'v'},
     {"regr_file",     required_argument, 0, 'i'},
     {"min_frequency", required_argument, 0, 'f'},
+    {"bigram_skip",   required_argument, 0, 'k'},
     {"bidirectional",       no_argument, 0, 'b'},
     {"power_iter",    required_argument, 0, 'p'},
     {"n_projections", required_argument, 0, 'r'},
@@ -289,7 +292,7 @@ parse_arguments(int argc, char** argv,
   };
   int key;
   int option_index = 0;
-  while (-1 !=(key = getopt_long (argc, argv, "v:i:f:bp:r:s:o:", long_options, &option_index))) // colon means has argument
+  while (-1 !=(key = getopt_long (argc, argv, "v:i:f:k:bp:r:s:o:", long_options, &option_index))) // colon means has argument
   {
     // std::cout << "Option key " << char(key) << " for option " << long_options[option_index].name << ", option_index=" << option_index << std::endl;
     switch (key)
@@ -297,6 +300,7 @@ parse_arguments(int argc, char** argv,
     case 'v' : { fileName       = optarg;                                  break; }
     case 'i' : { regrFileName   = optarg;                                  break; }
     case 'f' : { oovThreshold   = read_utils::lexical_cast<int>(optarg);   break; }
+    case 'k' : { bigramSkip     = read_utils::lexical_cast<int>(optarg);   break; }
     case 'b' : { bidirectional  = true ;                                   break; }
     case 'p' : { powerIterations= read_utils::lexical_cast<int>(optarg);   break; }
     case 'r' : { nProjections   = read_utils::lexical_cast<int>(optarg);   break; }

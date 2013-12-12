@@ -180,8 +180,46 @@ r <- lm(I(log(y)) ~ I(log(x))); summary(r)
 #     Need U matrix from above to compute
 
 W <- as.matrix(read.table(paste(path,"w5708.txt",sep=""), header=TRUE)); dim(W)    # 7384 x 5708
+W[,7] <- rep(1,7384)
+type.freq <-  apply(W,2,sum)
+
 U <- U.raw; dim(U)                                                                 # 5708 x 500
 
 B <- W %*% U
+
+par(mfrow=c(2,1))
+	plot(type.freq, log="xy",
+		main="Type Frequency Distribution", xlab="Rank", ylab="Frequency of Word")
+	y <- log(type.freq[1:500]); x <- log(1:length(y))
+	summary(regr <- lm(y ~ x)); lines(exp(x), exp(fitted.values(regr)), col="red")
+	plot(y <- apply(B,2,ss),
+		main="Document Eigenword Centroid SS",log="xy", 
+		ylab="Sum of Squares", xlab="Left Components, Bigram Predictor Sequence")
+	y <- log(y); x<-log(1:length(y))
+	summary(regr <- lm(y ~ x)); lines(exp(x),exp(fitted.values(regr)), col="red")
+reset()
+
+# --- Must be the case that leading eigenwords have more weight on more common words?
+#     Average squared weights in bundles
+
+#     constant SS in eigenwords
+plot(apply(U^2,2,sum), xlab="Eigenword Index", ylab="SS")
+
+
+par(mfrow=c(2,2))
+	plot(U.raw[,  4]^2,  log="y", main="Raw Bigram Eigenwords", col="gray", pch=20, 
+				xlab="Word Type Index", ylab="Squared Weight")
+	plot(U.raw[,450]^2, pch=20, col="gray", log="y", xlab="Word Type Index", ylab="Squared Weight")
+    plot(U.sym[,  4]^2,  log="y", main="Symmetrically Normalized", col="gray", pch=20, 
+		xlab="Word Type Index", ylab="Squared Weight")
+	plot(U.sym[,450]^2, pch=20, col="gray", log="y", xlab="Word Type Index", ylab="Squared Weight")
+reset()
+
+
+u1 <- apply(U[,  1: 10]^2,1,sum)
+u2 <- apply(U[,401:410]^2,1,sum)
+plot(u1, xlab="Word Type Index", ylab="Avg Squared Weight", log="y")
+points(u2,col="blue")
+
 
 }
