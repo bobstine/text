@@ -22,6 +22,36 @@ using std::string;
 using std::endl;
 
 
+float
+Helper::entropy(Vector const& prob)                     // assumes sum p(i) = 1 and p(i) >= 0
+{
+  float entropy = 0.0;
+  for(int i = 0; i<prob.size(); ++i)
+    if(0 < prob(i))
+      entropy += prob(i) * log(prob(i));
+  if (entropy < 0)
+    return -entropy/log(prob.size());
+  else
+    return 0.0;
+}
+
+float
+Helper::entropy(Vector const& x, float xSum)           // assumes x(i) >= 0
+{
+  float entropy = 0.0;
+  float logSum = log(xSum);
+  for(int i = 0; i<x.size(); ++i)
+    if(0 < x(i))
+      entropy += x(i) * (log(x(i)) - logSum);
+  if (entropy != 0)
+  { entropy /= xSum;
+    return -entropy/log(x.size());
+  }
+  else
+    return 0.0;
+}
+
+  
 void
 Helper::scan_google_vocabulary_for_oov (Vocabulary const& vocab)
 {

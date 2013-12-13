@@ -15,7 +15,11 @@ namespace Helper
   
   void
     scan_google_vocabulary_for_oov (Vocabulary const& vocab);
-  
+
+  float
+    entropy(Vector const& prob);                     // assumes sum p(i) = 1 and p(i) >= 0
+  float
+    entropy(Vector const& x, float xSum);            // assumes x(i) >= 0
   
   void
     write_eigenwords_to_file (string fileName, Matrix const& M, Vocabulary const& vocab);
