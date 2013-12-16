@@ -30,7 +30,21 @@ Brown$nTokens <- as.vector( sapply(Brown$words,length) )
 Brown$words[[which.max(Brown$nTokens)]]
 
 hist(Brown$nTokens)
-cat("Median number of tokens", median(Brown$nTokens))
+cat("Median number of word tokens", median(Brown$nTokens))
+
+
+# --- count number of codes; related to text length?
+
+Brown$codes  <- Brown[,paste("Code",0:7,sep="")]
+Brown$nCodes <- apply(Brown$codes,1,function(x) 8-sum(is.na(x)))
+
+hist(Brown$nCodes); mean(Brown$nCodes)   # 1.63
+counts <- table(Brown$nCodes); p <- counts["2"]/counts["1"]
+lines(counts["1"]*p^(0:7))    # drops faster than geometric
+
+plot(jitter(Brown$nTokens), jitter(Brown$nCodes), xlab="Number of Word Tokens", ylab="Number of Assigned Codes")
+
+Brown$words[which(0 == Brown$nCodes)]  # no text for 2
 
 
 # --- build vocabulary
