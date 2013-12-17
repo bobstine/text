@@ -3,12 +3,8 @@ include ../c_flags
 ###########################################################################
 #
 #   Note on special forms
-#      $^ are prereq    $@ is target    $* is stem
+#      $^ are prereq    $@ is target    $* is stem   % -> $*
 #
-#   Examples of depending on libaries
-#        LDLIBS =  -lthing -lregression 
-#        libs_used =  ../lib/libthing.a ../lib/libregression.a 
-# 
 ###########################################################################
 
 
@@ -264,8 +260,6 @@ epath = text_src/eigenwords/
 
 # trigram eigenwords
 
-
-
 $(epath)google_tri.txt: $(epath)pretty_m_3_grams_PHC_50k.csv
 	sed 's/, / /g' $^ | cut --delimiter=' ' --fields=1,6-25 > $@
 
@@ -288,9 +282,31 @@ $(epath)vocab: $(epath)vocab.gz
 $(epath)vocab.gz:
 	scp sob:/data/google_data/1gms/vocab.gz $(epath)
 
-# ---  
-doanes: anes_reply_encoder $(epath)google_tri.txt
-	./anes_reply_encoder
+# ANES text
+
+apath = text_src/anes/
+
+$(apath)brown.csv: 
+	scp anes.ldc.upenn.edu:/data/anes_revised/coding_dfs/OFCREC.KNOW_BROWN.csv $@
+
+$(apath)cheney.csv: 
+	scp anes.ldc.upenn.edu:/data/anes_revised/coding_dfs/OFCREC.KNOW_CHENEY.csv $@
+
+$(apath)pelosi.csv: 
+	scp anes.ldc.upenn.edu:/data/anes_revised/coding_dfs/OFCREC.KNOW_PELOSI.csv $@
+
+$(apath)roberts.csv: 
+	scp anes.ldc.upenn.edu:/data/anes_revised/coding_dfs/OFCREC.KNOW_ROBERTS.csv $@
+
+name = roberts
+
+$(apath)$(name).txt: $(apath)$(name).csv
+	cut -d ',' -f 2 $^ | tail -n +2 | sed -f $(apath)sed.script >> $@
+
+doanes: anes_reply_encoder $(epath)google_tri.txt $(apath)$(name).txt
+	./anes_reply_encoder --name $(name)
+
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

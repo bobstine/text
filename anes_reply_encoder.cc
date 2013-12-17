@@ -3,13 +3,16 @@
 
 #include <iostream>
 #include <fstream>
-//#include <cctype>
 #include <vector>
+#include <getopt.h>
 
 typedef EigenwordDictionary::Matrix  Matrix;
 typedef EigenwordDictionary::Vector  Vector;
 
-int main(int, char**)
+void
+parse_arguments(int argc, char** argv, string &name);
+
+int main(int argc, char** argv)
 {
   // build eigenword dictionary
   const std::string dictionaryFileName ("text_src/eigenwords/google_tri.txt");
@@ -21,7 +24,9 @@ int main(int, char**)
   std::cout << "MAIN: Dictionary is " << dict << std::endl;
 
   // read document strings
-  const std::string documentFileName ("text_src/anes/brown.txt");
+  std::string baseName = "";
+  parse_arguments(argc, argv, baseName);
+  const std::string documentFileName ("text_src/anes/" + baseName + ".txt");
   const int nDocs = FileUtils::count_lines(documentFileName);
   std::cout << "MAIN: Found " << nDocs << " lines of text in file " << documentFileName << " for encoding centroids." << std::endl;
   std::vector<std::string> docs;
@@ -68,7 +73,8 @@ int main(int, char**)
   
   // write to output file
   std::clog << "MAIN: Leading rows of centroid matrix are " << std::endl << docCentroids.topRows(5) << std::endl;
-  const std::string outFileName ("text_src/anes/centroids.txt");
+  const std::string outFileName ("text_src/anes/" + baseName + "_centroids.txt");
+  std::cout << "MAIN: Writing output centroids to file " << outFileName << std::endl;
   std::ofstream of (outFileName);
   of << "Source\t";
   for(int i=0; i<docCentroids.cols(); ++i)
@@ -78,3 +84,27 @@ int main(int, char**)
   for(int i=0; i<docCentroids.rows(); ++i)
     of << docs[i] << "\t" << docCentroids.row(i).format(fmt) << std::endl;
 }
+
+
+
+void
+parse_arguments(int argc, char** argv, string &name)
+{
+  static struct option long_options[] = {
+    {"name",          required_argument, 0, 'n'},
+    {0, 0, 0, 0}                             // terminator 
+  };
+  int key;
+  int option_index = 0;
+  while (-1 !=(key = getopt_long (argc, argv, "n:", long_options, &option_index))) // colon means has argument
+  {
+    switch (key)
+    {
+    case 'n' : { name      = optarg;                                        break; }
+    default  : { std::cout << "PARSE: Option not recognized; returning.\n";       }
+    } // switch
+  } 
+}
+
+
+      //    case 'n' : { n              = read_utils::lexical_cast<int>(optarg);      break; }
