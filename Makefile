@@ -52,6 +52,10 @@ lsa: lsa.o vocabulary.o regex.o eigenword_dictionary.o
 cluster: cluster.o k_means.o token_manager.o classifier.o confusion_matrix.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
+anes_reply_encoder: anes_reply_encoder.o vocabulary.o eigenword_dictionary.o helpers.o
+	$(GCC) $^ $(LDLIBS) -o  $@
+
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 ##################
@@ -251,25 +255,42 @@ dowine:  $(temppath)wine_regr.txt
 #  google eigenwords
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-# Error here: cut separates terms with embedded comma in string
+# Cut used to pick PCs from left and right context fields
+#    See column header to interpret cut columns
+#    Error here: cut separates terms with embedded comma in string
+# 
+
 epath = text_src/eigenwords/
 
-$(temppath)google.txt: $(epath)pretty_2_grams_PC_100k_300.csv
+# trigram eigenwords
+
+
+
+$(epath)google_tri.txt: $(epath)pretty_m_3_grams_PHC_50k.csv
+	sed 's/, / /g' $^ | cut --delimiter=' ' --fields=1,6-25 > $@
+
+$(epath)pretty_m_3_grams_PHC_50k.csv:
+	scp sob:/data/pretty/pretty_m_3_grams_PHC_50k.csv $(epath)
+
+# bigrams
+
+$(temppath)google_bi.txt: $(epath)pretty_2_grams_PC_100k_300.csv
 	sed 's/, / /g' $^ | cut --delimiter=' ' --fields=1,6-26,306-326 > $@
 
 $(epath)pretty_2_grams_PC_100k_300.csv:
 	scp sob:/data/pretty/pretty_2_grams_PC_100k_300.csv $(epath)
 
 # unigram vocabulary
-vpath = text_src/google/
 
-$(vpath)vocab: $(vpath)vocab.gz
+$(epath)vocab: $(epath)vocab.gz
 	gunzip $^
 
-$(vpath)vocab.gz:
-	scp sob:/data/google_data/1gms/vocab.gz $(vpath)
+$(epath)vocab.gz:
+	scp sob:/data/google_data/1gms/vocab.gz $(epath)
 
-
+# ---  
+doanes: anes_reply_encoder $(epath)google_tri.txt
+	./anes_reply_encoder
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

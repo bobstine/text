@@ -26,7 +26,7 @@ class EigenwordDictionary
   Matrix     mEigenwords;
 
  public:
-  EigenwordDictionary (string fileName, int nTypes, int dim)
+  EigenwordDictionary (string fileName, int nTypes, int dim)                         // file needs header
     : mTypes(), mIndexMap(), mEigenwords(nTypes,dim) { init_from_file(fileName); }
 
   int        n_types()                           const  { return mEigenwords.rows(); }

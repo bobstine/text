@@ -12,6 +12,7 @@ regressor
 lsa
 bigram
 bigram.prj
+anes_reply_encoder
 text_src
 tokens.txt
 results

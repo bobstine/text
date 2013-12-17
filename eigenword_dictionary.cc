@@ -15,11 +15,17 @@ EigenwordDictionary::init_from_file(string fileName)
     return 0;
   }
   std::string line;
-  { getline(input,line);             // check column count from headings
+  int columnCount = 0;
+  {
+    getline(input,line);                  // check column count from headings
     std::istringstream is (line);
     std::string name;
-    int count = 0;
-    while(is >> name) ++count;
+    while(is >> name) ++columnCount;
+  }
+  if ((columnCount-1) != eigen_dim())     // first in header is name of words
+  { std::cerr << messageTag << " *** ERROR *** Found " << columnCount << " columns, but expected " << eigen_dim() << std::endl
+	      << "      Line read: <<<" << line << ">>>" << std::endl;
+    return 0;
   }
   int lineNumber = 0;
   while(std::getline(input,line))
@@ -30,7 +36,7 @@ EigenwordDictionary::init_from_file(string fileName)
     { std::string token;
       int count = 2;
       ++it;
-      while (*it != '"' && count < 50)
+      while (*it != '"' && count < 75)
       { token.push_back(*it);
 	++count; 
 	++it;
@@ -43,8 +49,9 @@ EigenwordDictionary::init_from_file(string fileName)
 	  is >> mEigenwords(lineNumber,j);
 	++lineNumber;
       }
-      else // did not find matching " for end of type within 50 chars
-	std::cerr << messageTag << "*** ERROR *** Line around " << lineNumber << " that begins -->" << line.substr(0,30) << "<-- appears incorrectly formatted.\n";
+      else // did not find matching " for end of type within 75 chars
+	std::cerr << messageTag << "*** ERROR *** Line around "
+		  << lineNumber << " that begins -->" << line.substr(0,30) << "<-- appears incorrectly formatted.\n";
      }
   }
   std::clog << messageTag << "Read " << lineNumber << " lines from file " << fileName << std::endl;
@@ -68,8 +75,8 @@ EigenwordDictionary::operator[](Type const& t) const
 {
   int row = type_index(t);
   if(row < 0)
-  { std::cerr << messageTag << "*** ERROR *** Type " << t << " not found; return 1 vector.\n";
-    return Vector::Ones(mEigenwords.cols());
+  { std::cerr << messageTag << "*** ERROR *** Type " << t << " not found; return null vector.\n";
+    return Vector::Zero(0);
   }
   else
     return mEigenwords.row(row);
@@ -81,7 +88,12 @@ EigenwordDictionary::eigenwords(TypeVector const& types) const
   Matrix dict(types.size(), mEigenwords.cols());
 
   for(int row=0; row<(int)types.size(); ++row)
-    dict.row(row) = operator[](types[row]);
+  { int index = type_index(types[row]);
+    if (-1 < index)
+      dict.row(row) = operator[](index);
+    else
+      dict.row(row) = Vector::Zero(dict.cols());
+  }
   return dict;
 }
 
@@ -91,7 +103,7 @@ void
 EigenwordDictionary::print_to_stream(std::ostream &os) const
 {
   os << "EigenwordDictionary with " << n_types() << " types and " << mEigenwords.cols() << " dimensions. Leading types are:";
-  for (int i=0; i<5; ++i)
+  for (int i=0; i<10; ++i)
     os << " " << mTypes[i];
 }
 
