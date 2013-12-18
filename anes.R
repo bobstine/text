@@ -26,43 +26,48 @@ Pelosi  <- read.csv(add.path("pelosi.csv")); dim(Pelosi)     # 2098 x 12
 Roberts <- read.csv(add.path("roberts.csv")); dim(Roberts)     # 2098 x 12
 
 # --- text is in second column; convert to lower-case text
+  
+  Brown$name <- "Brown" ; Brown$ncol <- ncol(Brown)-3
+  Brown$InterviewerTranscript <- tolower(as.character(Brown$InterviewerTranscript))
 
-df <- Brown;   
-  df$name <- name <- "Brown" ; df$ncol <- ncol <- ncol(df)-3
-  df$InterviewerTranscript <- tolower(as.character(df$InterviewerTranscript))
-df <- Cheney;  
-  df$name <- name <- "Cheney" ; df$ncol <- ncol <- ncol(df)-3
-  df$InterviewerTranscript <- tolower(as.character(df$InterviewerTranscript))
+  Cheney$name <- "Cheney" ; Cheney$ncol <-ncol(Cheney)-3
+  Cheney$InterviewerTranscript <- tolower(as.character(Cheney$InterviewerTranscript))
 
-df <- Pelosi;  
-  df$name <- name <- "Pelosi" ; df$ncol <- ncol <- ncol(df)-3
-  df$InterviewerTranscript <- tolower(as.character(df$InterviewerTranscript))
-df <- Roberts; 
-  df$name <- name <- "Roberts" ; df$ncol <- ncol <- ncol(df)-3
-  df$InterviewerTranscript <- tolower(as.character(df$InterviewerTranscript))
+  Pelosi$name <- "Pelosi" ; Pelosi$ncol <- ncol(Pelosi)-3
+  Pelosi$InterviewerTranscript <- tolower(as.character(Pelosi$InterviewerTranscript))
 
-{
+  Roberts$name <- "Roberts" ; Roberts$ncol <- ncol(Roberts)-3
+  Roberts$InterviewerTranscript <- tolower(as.character(Roberts$InterviewerTranscript))
 	
+dfs <- list(brown=Brown, cheney=Cheney, pelosi=Pelosi, roberts=Roberts)
 	
 	# --- separate into words
-
-	for (df in list(Brown, Cheney, Pelosi, Roberts))
-	{	df$words <- strsplit(df$InterviewerTranscript," ")
+par(mfrow=c(2,2))
+	for (d in 1:4)
+	{	df <- dfs[[d]]
+		df$words <- strsplit(df$InterviewerTranscript," ")
 		df$nTokens <- as.vector( sapply(df$words,length) )
 		df$words[[which.max(df$nTokens)]]
-		hist(df$nTokens, xlab="Number of Word Tokens", main=name)
-		cat("Median number of word tokens,", name, median(df$nTokens))
+		hist(df$nTokens, xlab="Number of Word Tokens", main=df$name[1], xlim=c(0,60), breaks=20)
+		text(40,500, paste("mean = ", round(mean(df$nTokens),1)))
+		cat("Median number of word tokens,", df$name[1], median(df$nTokens)," mean ", mean(df$nTokens), "\n")
 	}
-	
+reset()
 		
 	# --- count number of codes; related to text length?
 
-	df$codes  <- df[,paste("Code",0:ncol,sep="")]
-	df$nCodes <- apply(df$codes,1,function(x) ncol-sum(is.na(x)))
-
-	hist(df$nCodes, main=paste("Number of Codes,", name)); mean(df$nCodes)   # 1.63
+par(mfrow=c(2,2))
+	for (d in 1:4)
+	{	df <- dfs[[d]]
+		df$codes  <- df[,paste("Code",0:(df$ncol[1]-1),sep="")]
+		df$nCodes <- apply(df$codes,1,function(x) df$ncol[1]-sum(is.na(x)))
+		hist(df$nCodes, xlab="Number of Codes",  xlim=c(0,10), main=paste("Number of Codes,", df$name[1])); 
+		text(6,600, paste("mean =",round(mean(df$nCodes),1)))   # 1.63
 	# counts <- table(df$nCodes); p <- counts["2"]/counts["1"]
 	# lines(counts["1"]*p^(0:ncol))    # drops faster than geometric
+	}
+reset()
+
 
 	plot(jitter(df$nCodes), jitter(df$nTokens), main=name,
 		xlab="Number of Assigned Codes",ylab="Number of Word Tokens")
