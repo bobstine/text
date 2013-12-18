@@ -2,8 +2,16 @@
 #  Analysis of ANES data from LDC
 #
 
-dataPath <- "/Users/bob/data/text/text_src/anes/"
+dataPath <- "/Users/bob/C/text/text_src/anes/"
 add.path <- function(file) { paste(dataPath,file,sep="") }
+
+reset <- function() {
+	# par(mfrow=c(1,1), mgp=c(3,1,0), mar=c(5,4,4,2)+0.1)      # default
+	par(mfrow=c(1,1), mgp=c(1.5,0.5,0), mar=c(3,2.5,2,1)+0.1)  # bottom left top right
+	}
+
+reset()
+
 
 #####################################################################################
 #
@@ -11,84 +19,97 @@ add.path <- function(file) { paste(dataPath,file,sep="") }
 #
 #####################################################################################
 
-Brown <- read.csv(add.path("brown.csv")); dim(Brown)   # 2098 x 10, but last was empty
+
+Brown   <- read.csv(add.path("brown.csv")); dim(Brown)       # 2098 x 10, but last was empty
+Cheney  <- read.csv(add.path("cheney.csv")); dim(Cheney)     # 
+Pelosi  <- read.csv(add.path("pelosi.csv")); dim(Pelosi)     # 2098 x 12
+Roberts <- read.csv(add.path("roberts.csv")); dim(Roberts)     # 2098 x 12
 
 # --- text is in second column; convert to lower-case text
 
-typeof(Brown$InterviewerTranscript)
+df <- Brown;   name <- "Brown"
+df <- Cheney;  name <- "Cheney"
+df <- Pelosi;  name <- "Pelosi"
+df <- Roberts; name <- "Roberts"
 
-Brown$InterviewerTranscript <- tolower(as.character(Brown$InterviewerTranscript))
-typeof(Brown$InterviewerTranscript)
+{
+	ncol <- ncol(df)-3
+	
+	df$InterviewerTranscript <- tolower(as.character(df$InterviewerTranscript))
+	typeof(df$InterviewerTranscript)
 
+	# --- separate into words
 
-# --- separate into words
+	df$words <- strsplit(df$InterviewerTranscript," ")
 
-Brown$words <- strsplit(Brown$InterviewerTranscript," ")
-Brown$words[[1]]
+	df$nTokens <- as.vector( sapply(df$words,length) )
+	df$words[[which.max(df$nTokens)]]
 
-Brown$nTokens <- as.vector( sapply(Brown$words,length) )
-Brown$words[[which.max(Brown$nTokens)]]
-
-hist(Brown$nTokens)
-cat("Median number of word tokens", median(Brown$nTokens))
-
-
-# --- count number of codes; related to text length?
-
-Brown$codes  <- Brown[,paste("Code",0:7,sep="")]
-Brown$nCodes <- apply(Brown$codes,1,function(x) 8-sum(is.na(x)))
-
-hist(Brown$nCodes); mean(Brown$nCodes)   # 1.63
-counts <- table(Brown$nCodes); p <- counts["2"]/counts["1"]
-lines(counts["1"]*p^(0:7))    # drops faster than geometric
-
-plot(jitter(Brown$nTokens), jitter(Brown$nCodes), xlab="Number of Word Tokens", ylab="Number of Assigned Codes")
-
-Brown$words[which(0 == Brown$nCodes)]  # no text for 2
+	hist(df$nTokens, xlab="Number of Word Tokens", main=name)
+	cat("Median number of word tokens,", name, median(df$nTokens))
 
 
-# --- build vocabulary
+	# --- count number of codes; related to text length?
 
-all.counts <- table(c(Brown$words, recursive=TRUE))
-all.counts <- sort(all.counts, decreasing=TRUE)
-all.counts[1:20]
-all.types <- names(all.counts)
+	df$codes  <- df[,paste("Code",0:ncol,sep="")]
+	df$nCodes <- apply(df$codes,1,function(x) ncol-sum(is.na(x)))
+
+	hist(df$nCodes, main=paste("Number of Codes,", name)); mean(df$nCodes)   # 1.63
+	# counts <- table(df$nCodes); p <- counts["2"]/counts["1"]
+	# lines(counts["1"]*p^(0:ncol))    # drops faster than geometric
+
+	plot(jitter(df$nCodes), jitter(df$nTokens), main=name,
+		xlab="Number of Assigned Codes",ylab="Number of Word Tokens")
+	r <- lm(nTokens ~ poly(nCodes,2), data=df); summary(r)
+	i <- order(df$nCodes)
+	lines(df$nCodes[i], fitted.values(r)[i], col="red")
+
+	df$words[which(0 == df$nCodes)]  # no text for 2
 
 
-# --- remove rare types (oov); 680 for brown
+	# --- build vocabulary
 
-oov.types <- all.types[(all.counts==1)|(all.counts == 2)]
-length(oov.types)
+	all.counts <- table(c(df$words, recursive=TRUE))
+	cat ("Size of vocabulary for", name, length(all.counts))
+	all.counts <- sort(all.counts, decreasing=TRUE)
+	all.counts[1:20]
+	all.types <- names(all.counts)
 
-types <- all.types[all.counts>2]; length(types)
+
+	# --- remove rare types (oov); 680 for brown
+
+	oov.types <- all.types[(all.counts==1)|(all.counts == 2)]
+	length(oov.types)
+
+	types <- all.types[all.counts>2]; length(types)
 
 
-# --- create document/type matrix W
+	# --- create document/type matrix W
 
-equal <- function(a,b) { as.numeric(a == b) }
+	equal <- function(a,b) { as.numeric(a == b) }
 
-#     test it
-i <- 2;
-Brown$InterviewerTranscript[[i]]
-w <- (outer(Brown$words[[i]], types, FUN="equal"))
-b <- apply(w,2,sum)
-sum(b)
+	#     test it
+	i <- 2;
+	df$InterviewerTranscript[[i]]
+	w <- (outer(df$words[[i]], types, FUN="equal"))
+	b <- apply(w,2,sum)
+	sum(b)
 
-W <- matrix(0, nrow=nrow(Brown), ncol=length(types))
-for(i in 1:nrow(Brown)) W[i,] <- apply(outer(as.vector(Brown$words[[i]]),types,FUN="=="),2,sum)
+	W <- matrix(0, nrow=nrow(df), ncol=length(types))
+	for(i in 1:nrow(Brown)) W[i,] <- apply(outer(as.vector(df$words[[i]]),types,FUN="=="),2,sum)
 
-#    difference in these counts are oov tokens
-apply(W,1,sum)[1:10]
-Brown$nTokens[1:10]
+	#    difference in these counts are oov tokens
+	apply(W,1,sum)[1:10]
+	df$nTokens[1:10]
 
-#    tack on oov
-W <- cbind(W,Brown$nTokens-apply(W,1,sum))
-colnames(W)<-c(types,"OOV")
+	#    tack on oov
+	W <- cbind(W,df$nTokens-apply(W,1,sum))
+	colnames(W)<-c(types,"OOV")
 
-#    check that lengths match total counts 10453
-sum(W)
-sum(Brown$nTokens)
-
+	#    check that lengths match total counts 10453
+	sum(W)
+	sum(df$nTokens)
+}
 
 # --- LSA , after frequency and entropy normalization
 
