@@ -75,7 +75,7 @@ EigenwordDictionary::operator[](Type const& t) const
 {
   int row = type_index(t);
   if(row < 0)
-  { std::cerr << messageTag << "*** ERROR *** Type " << t << " not found; return null vector.\n";
+  { std::cerr << messageTag << "Word type " << t << " not in eigenword dictionary; return null vector.\n";
     return Vector::Zero(0);
   }
   else

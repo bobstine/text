@@ -3,7 +3,7 @@ include ../c_flags
 ###########################################################################
 #
 #   Note on special forms
-#      $^ are prereq    $@ is target    $* is stem   % -> $*
+#      $^ are prereq   $< is first prerequisite  $@ is target    $* is stem   % -> $*
 #
 ###########################################################################
 
@@ -298,10 +298,11 @@ $(apath)pelosi.csv:
 $(apath)roberts.csv: 
 	scp anes.ldc.upenn.edu:/data/anes_revised/coding_dfs/OFCREC.KNOW_ROBERTS.csv $@
 
+# valid names are brown, cheney, pelosi, roberts
 name = roberts
 
-$(apath)$(name).txt: $(apath)$(name).csv
-	cut -d ',' -f 2 $^ | tail -n +2 | sed -f $(apath)sed.script >> $@
+$(apath)$(name).txt: $(apath)$(name).csv $(apath)sed.script
+	cut -d ',' -f 2 $< | tail -n +2 | sed -f $(apath)sed.script >> $@
 
 doanes: anes_reply_encoder $(epath)google_tri.txt $(apath)$(name).txt
 	./anes_reply_encoder --name $(name)

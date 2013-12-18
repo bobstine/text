@@ -27,28 +27,34 @@ Roberts <- read.csv(add.path("roberts.csv")); dim(Roberts)     # 2098 x 12
 
 # --- text is in second column; convert to lower-case text
 
-df <- Brown;   name <- "Brown"
-df <- Cheney;  name <- "Cheney"
-df <- Pelosi;  name <- "Pelosi"
-df <- Roberts; name <- "Roberts"
+df <- Brown;   
+  df$name <- name <- "Brown" ; df$ncol <- ncol <- ncol(df)-3
+  df$InterviewerTranscript <- tolower(as.character(df$InterviewerTranscript))
+df <- Cheney;  
+  df$name <- name <- "Cheney" ; df$ncol <- ncol <- ncol(df)-3
+  df$InterviewerTranscript <- tolower(as.character(df$InterviewerTranscript))
+
+df <- Pelosi;  
+  df$name <- name <- "Pelosi" ; df$ncol <- ncol <- ncol(df)-3
+  df$InterviewerTranscript <- tolower(as.character(df$InterviewerTranscript))
+df <- Roberts; 
+  df$name <- name <- "Roberts" ; df$ncol <- ncol <- ncol(df)-3
+  df$InterviewerTranscript <- tolower(as.character(df$InterviewerTranscript))
 
 {
-	ncol <- ncol(df)-3
 	
-	df$InterviewerTranscript <- tolower(as.character(df$InterviewerTranscript))
-	typeof(df$InterviewerTranscript)
-
+	
 	# --- separate into words
 
-	df$words <- strsplit(df$InterviewerTranscript," ")
-
-	df$nTokens <- as.vector( sapply(df$words,length) )
-	df$words[[which.max(df$nTokens)]]
-
-	hist(df$nTokens, xlab="Number of Word Tokens", main=name)
-	cat("Median number of word tokens,", name, median(df$nTokens))
-
-
+	for (df in list(Brown, Cheney, Pelosi, Roberts))
+	{	df$words <- strsplit(df$InterviewerTranscript," ")
+		df$nTokens <- as.vector( sapply(df$words,length) )
+		df$words[[which.max(df$nTokens)]]
+		hist(df$nTokens, xlab="Number of Word Tokens", main=name)
+		cat("Median number of word tokens,", name, median(df$nTokens))
+	}
+	
+		
 	# --- count number of codes; related to text length?
 
 	df$codes  <- df[,paste("Code",0:ncol,sep="")]
