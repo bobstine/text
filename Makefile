@@ -299,7 +299,7 @@ $(apath)roberts.csv:
 	scp anes.ldc.upenn.edu:/data/anes_revised/coding_dfs/OFCREC.KNOW_ROBERTS.csv $@
 
 # valid names are brown, cheney, pelosi, roberts
-name = roberts
+name = pelosi
 
 $(apath)$(name).txt: $(apath)$(name).csv $(apath)sed.script
 	cut -d ',' -f 2 $< | tail -n +2 | sed -f $(apath)sed.script >> $@

@@ -1,5 +1,7 @@
 s/n't/ not /g
 s/dk/do not know/g
+s/<dk>/do not know/g
+s/dk/do not know/g
 s/d.k./do not know/g
 s/<rf>/refused/g
 s/<>/ . /g

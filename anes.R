@@ -27,26 +27,35 @@ Roberts <- read.csv(add.path("roberts.csv")); dim(Roberts)     # 2098 x 12
 
 # --- text is in second column; convert to lower-case text
   
-  Brown$name <- "Brown" ; Brown$ncol <- ncol(Brown)-3
-  Brown$InterviewerTranscript <- tolower(as.character(Brown$InterviewerTranscript))
+Brown$name <- "Brown" ; Brown$ncol <- ncol(Brown)-3
+Brown$InterviewerTranscript <- tolower(as.character(Brown$InterviewerTranscript))
+Brown$words <- strsplit(Brown$InterviewerTranscript," ")
+Brown$nTokens <- as.vector( sapply(Brown$words,length) )
 
-  Cheney$name <- "Cheney" ; Cheney$ncol <-ncol(Cheney)-3
-  Cheney$InterviewerTranscript <- tolower(as.character(Cheney$InterviewerTranscript))
+Cheney$name <- "Cheney" ; Cheney$ncol <-ncol(Cheney)-3
+Cheney$InterviewerTranscript <- tolower(as.character(Cheney$InterviewerTranscript))
+Cheney$words <- strsplit(Cheney$InterviewerTranscript," ")
+Cheney$nTokens <- as.vector( sapply(Cheney$words,length) )
 
-  Pelosi$name <- "Pelosi" ; Pelosi$ncol <- ncol(Pelosi)-3
-  Pelosi$InterviewerTranscript <- tolower(as.character(Pelosi$InterviewerTranscript))
+Pelosi$name <- "Pelosi" ; Pelosi$ncol <- ncol(Pelosi)-3
+Pelosi$InterviewerTranscript <- tolower(as.character(Pelosi$InterviewerTranscript))
+Pelosi$words <- strsplit(Pelosi$InterviewerTranscript," ")
+Pelosi$nTokens <- as.vector( sapply(Pelosi$words,length) )
 
-  Roberts$name <- "Roberts" ; Roberts$ncol <- ncol(Roberts)-3
-  Roberts$InterviewerTranscript <- tolower(as.character(Roberts$InterviewerTranscript))
-	
+Roberts$name <- "Roberts" ; Roberts$ncol <- ncol(Roberts)-3
+Roberts$InterviewerTranscript <- tolower(as.character(Roberts$InterviewerTranscript))
+Roberts$words <- strsplit(Roberts$InterviewerTranscript," ")
+Roberts$nTokens <- as.vector( sapply(Roberts$words,length) )
+
+
+
 dfs <- list(brown=Brown, cheney=Cheney, pelosi=Pelosi, roberts=Roberts)
+
 	
 	# --- separate into words
 par(mfrow=c(2,2))
 	for (d in 1:4)
 	{	df <- dfs[[d]]
-		df$words <- strsplit(df$InterviewerTranscript," ")
-		df$nTokens <- as.vector( sapply(df$words,length) )
 		df$words[[which.max(df$nTokens)]]
 		hist(df$nTokens, xlab="Number of Word Tokens", main=df$name[1], xlim=c(0,60), breaks=20)
 		text(40,500, paste("mean = ", round(mean(df$nTokens),1)))
@@ -54,13 +63,23 @@ par(mfrow=c(2,2))
 	}
 reset()
 		
-	# --- count number of codes; related to text length?
+# --- count number of codes; related to text length?
+
+Brown$codes  <-   Brown[,paste("Code", 0:(Brown$ncol[1]-1 ),sep="")]
+Cheney$codes <-  Cheney[,paste("Code", 0:(Cheney$ncol[1]-1),sep="")]
+Pelosi$codes <-  Pelosi[,paste("Code", 0:(Pelosi$ncol[1]-1),sep="")]
+Roberts$codes<- Roberts[,paste("Code", 0:(Roberts$ncol[1]-1),sep="")]
+
+Brown$nCodes   <- apply(  Brown$codes, 1, function(x)   Brown$ncol[1]-sum(is.na(x)))
+Cheney$nCodes  <- apply( Cheney$codes, 1, function(x)  Cheney$ncol[1]-sum(is.na(x)))
+Pelosi$nCodes  <- apply( Pelosi$codes, 1, function(x)  Pelosi$ncol[1]-sum(is.na(x)))
+Roberts$nCodes <- apply(Roberts$codes, 1, function(x) Roberts$ncol[1]-sum(is.na(x)))
+
+dfs <- list(brown=Brown, cheney=Cheney, pelosi=Pelosi, roberts=Roberts)
 
 par(mfrow=c(2,2))
 	for (d in 1:4)
 	{	df <- dfs[[d]]
-		df$codes  <- df[,paste("Code",0:(df$ncol[1]-1),sep="")]
-		df$nCodes <- apply(df$codes,1,function(x) df$ncol[1]-sum(is.na(x)))
 		hist(df$nCodes, xlab="Number of Codes",  xlim=c(0,10), main=paste("Number of Codes,", df$name[1])); 
 		text(6,600, paste("mean =",round(mean(df$nCodes),1)))   # 1.63
 	# counts <- table(df$nCodes); p <- counts["2"]/counts["1"]
@@ -69,19 +88,28 @@ par(mfrow=c(2,2))
 reset()
 
 
-	plot(jitter(df$nCodes), jitter(df$nTokens), main=name,
-		xlab="Number of Assigned Codes",ylab="Number of Word Tokens")
-	r <- lm(nTokens ~ poly(nCodes,2), data=df); summary(r)
-	i <- order(df$nCodes)
-	lines(df$nCodes[i], fitted.values(r)[i], col="red")
+par(mfrow=c(2,2))
+	for (d in 1:4)
+	{	df <- dfs[[d]]
+		plot(jitter(df$nCodes), jitter(df$nTokens), main=df$name[1], ylim=c(0,60),
+			xlab="Number of Assigned Codes",ylab="Number of Word Tokens")
+		r <- lm(nTokens ~ poly(nCodes,2), data=df); summary(r)
+		i <- order(df$nCodes)
+		lines(df$nCodes[i], fitted.values(r)[i], col="red")
+	}
+reset()
 
-	df$words[which(0 == df$nCodes)]  # no text for 2
 
+	# --- build vocabulary; count number unique
 
-	# --- build vocabulary
-
-	all.counts <- table(c(df$words, recursive=TRUE))
-	cat ("Size of vocabulary for", name, length(all.counts))
+	for (d in 1:4)
+	{	df <- dfs[[d]];
+		all.counts <- table(c(df$words, recursive=TRUE))
+		cat ("Size of vocabulary for", df$name[1], length(all.counts),"\n")
+	}
+	
+	
+	
 	all.counts <- sort(all.counts, decreasing=TRUE)
 	all.counts[1:20]
 	all.types <- names(all.counts)
