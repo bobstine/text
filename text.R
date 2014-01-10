@@ -110,10 +110,11 @@ city  <- "ChicagoOld3/"
 
 file    <- paste("/Users/bob/C/text/text_src/temp/",city,"parsed.txt", sep="")
 Data    <- read.table(file, header=TRUE); dim(Data)
-file    <- paste("/Users/bob/C/text/text_src/temp/",city,"LSA_",nProj,".txt", sep="")
+file    <- paste("/Users/bob/C/text/text_src/temp/",city,"LSA_",nProj,"_raw.txt", sep="")
 LSA     <- read.table(file, header=TRUE); dim(LSA)
-file    <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,".txt", sep="")  # skip factor
-Bigram  <- read.table(file, header=TRUE); dim(Bigram5)
+file    <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,".txt", sep="")
+Bigram  <- read.table(file, header=TRUE); dim(Bigram)
+
 file    <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,"_5.txt", sep="")  # skip factor
 Bigram5 <- read.table(file, header=TRUE); dim(Bigram5)
 file    <- paste("/Users/bob/C/text/text_src/temp/",city,"bigram_",nProj,"_10.txt", sep="")  # skip factor
@@ -247,7 +248,6 @@ mse <- show.cv(regr.parsed,5)
 #
 ##################################################################################
 word.regression <- function () {
-	
 
 # --- plot cum R2 statistic, AICc  (must patch """ in source file)
 r2.words.for <- read.table("/Users/bob/C/text/text_src/temp/word_regr_fit_with_m_for.txt", 
@@ -274,7 +274,6 @@ lines( r2.words.rev[,"AICc"] , col="black", lty=4)
 opt.k <- which.min(r2.words.for[,"AICc"])    # 1094
 lines(c(opt.k,opt.k), c(0,4500), col="gray")
 
-
 # --- regression with W count matrix  (have to remove """ from type names in source)
 W <- as.matrix(read.table("/Users/bob/C/text/text_src/temp/w5708.txt", header=TRUE)); dim(W)
 
@@ -284,7 +283,6 @@ sr     <- summary(  mwregr  <-lm(logPrice ~ nTokens + W          , x=TRUE,y=TRUE
 sr.opt <- summary(mwregr.opt<-lm(logPrice ~ nTokens + W[,1:opt.k], x=TRUE,y=TRUE));
 
 anova(mwregr.opt,mwregr)  # F=1.93 with p<0.001 and 888,5404 df
-
 
 # --- cross-validation
 mse     <- show.cv(mwregr,    reps=2,seed=33213); mean(mse$mse)    #  0.7142
@@ -333,11 +331,11 @@ plot(wregr)
 ##################################################################################
 lsa.analysis <- function() {
 
-# --- LSA analysis from matrix W
+# --- LSA analysis from matrix W    adj R2=0.6567 with 1000 and log tokens
 
-p    <- 500
-lsa  <- as.matrix(LSA[,1:500])
-sr   <- summary(regr.lsa <- lm(logPrice ~ nTokens + logTokens + lsa , x=TRUE, y=TRUE)); sr  
+p    <- 1000
+lsa  <- as.matrix(LSA[,1:p])
+sr   <- summary(regr.lsa <- lm(logPrice ~ logTokens + lsa , x=TRUE, y=TRUE)); sr  
 	
 correctly.ordered(logPrice, fitted.values(regr.lsa), 1000)
 
@@ -385,19 +383,19 @@ plot(udv$d[1:(k-10)], log="xy", main=paste("Exact Singular Values of W, k=",k),
 # SVD variables, B
 ##################################################################################
 	
-# --- whole model summaries
-kb <- 500                                            				# left and right, consider skip versions
+# --- whole model summaries   adj R2 = 0.6759 with first 1000 of left with log tokens
+kb <- 1000                                            				# left and right, consider skip versions
 
-bigr <- as.matrix(Bigram10[,c(seq(1,kb/2),seq(nProj-kb/2,nProj)) ])	# first and last
-bigr <- as.matrix(Bigram10[,1:kb])									# first kb
+bigr <- as.matrix(Bigram[,c(seq(1,kb/2),seq(nProj-kb/2,nProj)) ])	# first and last
+bigr <- as.matrix(Bigram[,1:kb])									# first kb
 
-sr   <- summary(regr.bigram <- lm(logPrice ~ nTokens + logTokens + bigr , x=TRUE, y=TRUE)); sr  
+sr   <- summary(regr.bigram <- lm(logPrice ~ logTokens + bigr , x=TRUE, y=TRUE)); sr  
 
 correctly.ordered(logPrice, fitted.values(regr.bigram), 1000)
 
 
 par(mfrow=c(1,2))    # regrB.pdf
-	y <- abs(coefficients(summary(regr.bigram))[-1,3])
+	y <- abs(coefficients(sr)[-1,3])
 	x <- 1:length(y)          
 	plot(x,y,xlab="Predictors from Bigram", ylab="|t|", main="")
 		abline(h=-qnorm(.025/(nProj/2)), col="gray", lty=3)
@@ -494,6 +492,85 @@ par(mfrow=c(1,2))
 	plot(f, abs(r), xlab="Fitted Values", ylab="Absolute Residual", main="Residual Plot"); 
 	abline(h=s * sqrt(2/pi), col="red")
 	lines(lowess(f,abs(r),f=0.2),col="cyan")
+reset()
+
+
+##################################################################################
+# Centroids for LSA: unified SVD
+##################################################################################
+
+vocab.size <- 50
+n.tokens <- 1000
+n.docs   <- 20
+doc.len  <- n.tokens/n.docs
+
+tokens <- sample(1:vocab.size, n.tokens, replace=TRUE)
+docs   <- 1+ floor( (0:(n.tokens-1))/doc.len)
+
+
+W <- matrix(0, nrow=n.tokens, ncol=vocab.size)
+for(i in 1:nrow(W)) W[i,tokens[i]] <- 1
+
+D <- matrix(0, nrow=n.tokens, ncol=n.docs)
+for(i in 1:nrow(D)) D[i,docs[i]] <- 1
+
+# lsa formed from left singular vectors of D'W, or right from W'D
+udv <- svd(t(W) %*% D)
+
+lsa <- udv$v
+
+# alternatively form centroids of documents from left singular vectors (mean shifts coefs)
+u      <- udv$u
+center <- matrix(0, n.docs, ncol(u))
+for(i in 1:n.docs) center[i,] <- apply(u[tokens[which(docs==i)],],2,sum)
+
+# similarity: if docs don't have the same length, then you need to put that scaling into
+# D matrix... otherwise you lose the linearity.
+
+par(mfrow=c(2,2))
+	j <- 1; plot(x<-lsa[,j], y<-center[,j]); abline(r<-lm(y~x),col="red"); round(coefficients(r)[2],2)
+	j <- 2; plot(x<-lsa[,j], y<-center[,j]); abline(r<-lm(y~x),col="red"); round(coefficients(r)[2],2)
+	j <- 3; plot(x<-lsa[,j], y<-center[,j]); abline(r<-lm(y~x),col="red"); round(coefficients(r)[2],2)
+	j <- 4; plot(x<-lsa[,j], y<-center[,j]); abline(r<-lm(y~x),col="red"); round(coefficients(r)[2],2)
+reset()
+
+b <- rep(0,length(udv$d))
+for(j in 1:length(b)) {x<-lsa[,j]; y<-center[,j]; b[j] <- coefficients(lm(y~x))[2]}
+plot(b,udv$d); abline(r<-lm(udv$d ~ b), col="red"); coefficients(r)
+
+cca <- cancor(lsa,center)
+
+cca$cor
+round(cca$xcoef,2)
+
+
+
+##################################################################################
+# Unified SVD results
+##################################################################################
+
+path <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/"
+YM <- as.matrix(read.table( paste(path,"unified_y_m.txt",sep=""), header=TRUE, as.is=TRUE))
+X  <- as.matrix(read.table( paste(path,"unified_svd_1500.txt",sep=""), header=TRUE, as.is=TRUE))
+
+
+y <- YM[,1]       # log price
+m <- log(YM[,2])  # length of documents
+
+sr <- summary(r <- lm(y ~  m + X[,1: 500]))  # R-bar2 = 0.6222
+sr <- summary(r <- lm(y ~  m + X[,1:1000]))  # R-bar2 = 0.6791, about same as 2000 words
+sr <- summary(r <- lm(y ~  m + X[,1:1500]))  # R-bar2 = 0.716 
+
+
+par(mfrow=c(1,2))    # regrW.pdf
+	y <- abs(coefficients(sr)[-(1:2),3])
+	x <- 1:length(y)
+	plot(x,y, 
+		xlab="Unified Predictor", ylab="|t|", main="")
+		abline(h=-qnorm(.025/(nProj/2)), col="gray", lty=3)
+		abline(h=sqrt(2/pi), col="cyan")
+		lines(lowess(x,y,f=0.3), col="red")
+	half.normal.plot(y,height=5)
 reset()
 
 ##################################################################################

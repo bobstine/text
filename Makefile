@@ -22,7 +22,7 @@ EXTERNAL_USES = boost_system boost_thread boost_regex gomp
 
 level_1 = k_means.o token_manager.o confusion_matrix.o porter.o vocabulary.o eigenword_dictionary.o regex.o
 level_2 = helpers.o
-level_3 = classifier.o regressor.o bigram.o
+level_3 = classifier.o regressor.o bigram.o unified_regressor.o
 level_4 = cluster.o
 level_5 = 
 
@@ -37,6 +37,9 @@ bigram: bigram.o vocabulary.o eigenword_dictionary.o helpers.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
 regressor: regressor.o vocabulary.o regex.o eigenword_dictionary.o helpers.o
+	$(GCC) $^ $(LDLIBS) -o  $@
+
+unified_regressor: unified_regressor.o vocabulary.o eigenword_dictionary.o helpers.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
 seq_regression: seq_regression.o helpers.o
@@ -138,12 +141,15 @@ vFile   = $(temppath)$(city).txt
 rFile   = $(vFile)
 outREPath = $(temppath)$(city)/
 
-$(outREPath)$(nProj).txt: regressor $(vFile) $(rfile) 
-	./regressor --vocab_file=$(vFile) --regr_file=$(rFile) --output_path=$(outREPath) -s $(reSeed) -k $(reSkip) --n_projections $(nProj) --power_iter 1  --bidirectional  
+
+engine = unified_regressor
+
+$(outREPath)$(nProj).txt: $(engine) $(vFile) $(rfile) 
+	./$(engine) --vocab_file=$(vFile) --regr_file=$(rFile) --output_path=$(outREPath) -s $(reSeed) -k $(reSkip) --n_projections $(nProj) --power_iter 1
 	date >> $@
 
 dore:  $(outREPath)$(nProj).txt
-	echo 'Running regressor'
+	echo 'Running text analysis with engine $(engine)' 
 
 # --- bigram various decompositions
 

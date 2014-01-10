@@ -54,7 +54,7 @@ int main(int argc, char** argv)
   if (bidirectional) std::clog << " --bidirectional ";
   std::clog << endl;
   
-  // global random seed set here
+  // global random seed set here - choice determines random projections
   srand(randomSeed);
 
   // build vocabulary
@@ -116,12 +116,11 @@ int main(int argc, char** argv)
   int nLines (FileUtils::count_lines(regrFileName));
   std::clog << "MAIN: Building regressor matrix from " << nLines << " lines of input in file " << regrFileName << ".\n";
   Vocabulary::SparseMatrix W(nLines,vocabulary.n_types());
-  Vector Y (nLines);
+  Vector Y(nLines), nTokens(nLines);
   {
     std::ifstream is(regrFileName);
-    vocabulary.fill_sparse_regr_design(Y, W, is);
+    vocabulary.fill_sparse_regr_design_from_stream(Y, W, nTokens, is);
   }
-  Vector nTokens = W * Vector::Ones(W.cols());                   // token count for each document
   std::clog << "MAIN: Sum of row 0 of W is " << nTokens(0) << "  sum of row 1 of W is " << nTokens(1) << endl;
 
   if(false)
