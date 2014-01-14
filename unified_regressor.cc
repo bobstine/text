@@ -76,45 +76,46 @@ int main(int argc, char** argv)
   if (false)
     Helper::scan_google_vocabulary_for_oov (vocabulary);                    // check to see if oov words are in google
 
-  // compute the type x document matrix, with averages used; also reads off house prices (response)
+  // compute the type x document matrix; also reads house prices (response) at head of input line
   int nDocs (FileUtils::count_lines(regrFileName));
   std::clog << "MAIN: Building word count matrix from " << nDocs << " lines of input in file " << regrFileName << ".\n";
   Vocabulary::SparseMatrix W(nDocs,vocabulary.n_types());
   Vector Y(nDocs), nTokens(nDocs);
   {
-    bool sumToOne = false;
+    bool sumToOne = true;            // avg of types (row sums to one; used to find centroids)
     std::ifstream is(regrFileName);
     vocabulary.fill_sparse_regr_design_from_stream(Y, W, nTokens, is, sumToOne);
   }
   std::clog << "MAIN: Number tokens in first docs are "        << nTokens.head(5).transpose() << endl;
-  {
-    Vector checkSum = W * Vector::Ones(W.cols());                           // total for each document
-    std::clog << "MAIN: Sums of leading rows of LSA matrix are " << checkSum.head(5).transpose() << endl;
+  std::clog << "MAIN: Leading rows/columns of LSA matrix: \n" ;
+  for(int i=0; i<5; ++i)
+  { Vector row(W.cols());
+    row = W.row(i);
+    std::clog << "       " << row.head(10).transpose() << "  with sum=" << row.sum() << endl;
   }
   
-  // compute bigram matrix from vocabulary, weighted to have column sum 1
+  // compute bigram matrix from vocabulary, weight symmetrically by F^(-1/2)
   Vocabulary::SparseMatrix B (vocabulary.n_types(), vocabulary.n_types());
   vocabulary.fill_sparse_bigram_matrix(B, bigramSkip);
   Vector bCounts = B * Vector::Ones(B.cols());
-  Vector scaleWeights = vocabulary.type_frequency_vector().array().inverse();
-  B = B * scaleWeights.asDiagonal();
-
-  // transpose the LSA matrix
+  Vector scaleWeights = vocabulary.type_frequency_vector().array().sqrt().inverse();
+  B = scaleWeights.asDiagonal() * B * scaleWeights.asDiagonal();
+  
+  // transpose the LSA matrix, weight rows
   Vocabulary::SparseMatrix Wt = W.transpose();
   assert(Wt.rows() /* types */ == B.rows());
-  Vector wCounts = Wt * Vector::Ones(Wt.cols());
-  scaleWeights = nTokens.array().inverse();
-  Wt = Wt * scaleWeights.asDiagonal();
+  Wt = scaleWeights.asDiagonal() * Wt;
   
   // join two sparse matrices, [B Wt]
   Vocabulary::SparseMatrix C (B.rows(), B.cols()+W.rows());
-  C.reserve(bCounts + wCounts);
+  C.reserve(bCounts);
   for (int r=0; r<B.outerSize(); ++r)
     for (Vocabulary::SparseMatrix::InnerIterator it(B,r); it; ++it)
       C.coeffRef(it.row(), it.col()) = it.value();
   for (int r=0; r<Wt.outerSize(); ++r)
     for (Vocabulary::SparseMatrix::InnerIterator it(Wt,r); it; ++it)
       C.coeffRef(it.row(), it.col()+B.cols()) = it.value();
+
   {
     Vector sumB     = B  * Vector::Ones(B.cols());
     Vector sumWt    = Wt * Vector::Ones(Wt.cols());
@@ -125,11 +126,12 @@ int main(int argc, char** argv)
     std::clog << "                   C    " << checkSum.head(10).transpose() << endl;
   }
   
-  // form random projections of unified matrix
+  // form random projections of unified matrix; rescale singular vectors
   std::clog << "MAIN: Building random projection for unified matrix.\n";
   Matrix P(C.rows(), nProjections);
   Vector noWeights = Vector::Zero(0);
   Helper::fill_random_projection(P, C, noWeights, noWeights, powerIterations);
+  P = scaleWeights.asDiagonal() * P;
   std::clog << "MAIN: Completed random projection of bigram P[" << P.rows() << "x" << P.cols() << "]";
   if (powerIterations) std::clog << " with power iteration.";
   std::clog << endl;
@@ -140,15 +142,10 @@ int main(int argc, char** argv)
   }
   else std::clog << "MAIN: Skipping output of eigenword matrix to file.\n";
   
-  // build centroid predictors eigenwords as average word position
+  // build centroid predictors as average eigenword position
   std::clog << "MAIN: Building centroid matrix A [" << nDocs << "," << P.cols() << "]\n";
   Matrix A (nDocs, P.cols());
-  for (int i=0; i<W.outerSize(); ++i)            // W is in row major order
-  { Vector centroid = Vector::Zero(P.cols());
-    for (Vocabulary::SparseMatrix::InnerIterator it(W,i); it; ++it)
-      centroid += P.row(it.col()) * it.value();
-    A.row(i) = centroid.array() / nTokens(i);
-  }
+  A = W * P;
 
   // compute dense projection coefficients for common words
   Matrix YX (W.rows(), 2);                         // y , m_i
