@@ -119,15 +119,16 @@ lM <- log(M)
 Xw <- X
 for(i in 1:nrow(Xw)) { Xw[i,] <- sqrt(YM[i,2]) * X[i,]; }
 #																Adjusted R2
-#														words	counts			sym wts
-sr <- summary(r <- lm(Y ~ M + lM + X [,1: 500])); sr  #	0.5809	0.6422			0.5724
-srw<- summary(r <- lm(Y ~ M + lM + Xw[,1: 500])); srw # 		0.6509			0.5831
+#                                                               W'[D W1]
+#														words	counts		sym wts		
+sr <- summary(r <- lm(Y ~ M + lM + X [,1: 500])); sr  #	0.5809	0.6422		0.5724			
+srw<- summary(r <- lm(Y ~ M + lM + Xw[,1: 500])); srw # 		0.6509		0.5831
 
 sr <- summary(r <- lm(Y ~ M + lM + X [,1:1000])); sr  #	0.6311	0.6925           
 srw<- summary(r <- lm(Y ~ M + lM + Xw[,1:1000])); srw # 		0.6929
 
-sr <- summary(r <- lm(Y ~ M + lM + X [,1:1500])); sr  #	0.6699	0.7244			0.6896 
-srw<- summary(r <- lm(Y ~ M + lM + Xw[,1:1500])); srw # 		0.7186			0.6863
+sr <- summary(r <- lm(Y ~ M + lM + X [,1:1500])); sr  #	0.6699	0.7244		0.6896 
+srw<- summary(r <- lm(Y ~ M + lM + Xw[,1:1500])); srw # 		0.7186		0.6863
 
 plot(coefficients(sr)[-1,3],coefficients(srw)[-1,3])
 text(coefficients(sr)[ 2,3],coefficients(srw)[ 2,3], "M")
