@@ -10,7 +10,7 @@ a.out
 porter
 unified_regressor
 regressor
-lsa
+lsa_regr
 bigram
 bigram.prj
 anes_reply_encoder

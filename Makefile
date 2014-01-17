@@ -22,7 +22,7 @@ EXTERNAL_USES = boost_system boost_thread boost_regex gomp
 
 level_1 = k_means.o token_manager.o confusion_matrix.o porter.o vocabulary.o eigenword_dictionary.o regex.o
 level_2 = helpers.o
-level_3 = classifier.o regressor.o bigram.o unified_regressor.o
+level_3 = classifier.o regressor.o bigram.o unified_regressor.o  lsa_regr.o
 level_4 = cluster.o
 level_5 = 
 
@@ -45,7 +45,7 @@ unified_regressor: unified_regressor.o vocabulary.o eigenword_dictionary.o helpe
 seq_regression: seq_regression.o helpers.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
-lsa: lsa.o vocabulary.o regex.o eigenword_dictionary.o
+lsa_regr: lsa_regr.o vocabulary.o helpers.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
 cluster: cluster.o k_means.o token_manager.o classifier.o confusion_matrix.o
