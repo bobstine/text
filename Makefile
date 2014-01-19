@@ -135,7 +135,7 @@ reSkip = 0
 #			defines random projection
 reSeed = 2763
 #			number of projections for W, and nProj (each side) for bigram	
-nProj  = 1500
+nProj  = 250
 #			allow different files for vocabulary and for regression
 vFile   = $(temppath)$(city).txt 
 rFile   = $(vFile)
@@ -150,6 +150,20 @@ $(outREPath)$(nProj).txt: $(engine) $(vFile) $(rfile)
 
 dore:  $(outREPath)$(nProj).txt
 	echo 'Running text analysis with engine $(engine)' 
+
+# --- lsa regressions
+
+$(outREPath)lsa_$(nProj).txt: lsa_regr $(rfile) 
+	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(nProj) --power_iter 1
+	date >> $@
+
+$(outREPath)lsaq_$(nProj).txt: lsa_regr $(rfile) 
+	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(nProj) --power_iter 0 --quadratic --min_frequency 10
+	date >> $@
+
+dolsa:  $(outREPath)lsaq_$(nProj).txt
+	echo '---- LSA analysis ----' 
+
 
 # --- bigram various decompositions
 

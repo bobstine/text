@@ -7,7 +7,7 @@
 #include "vocabulary.h"
 #include "read_utils.h"
 #include "file_utils.h"
-#include "regex.h"
+#include "timing.h"
 
 #include <iostream>
 #include <fstream>
@@ -48,9 +48,9 @@ int main(int argc, char** argv)
   int    nProjections    (  50   );
   int    randomSeed      ( 77777 );  // used to replicate random projection
   
+  parse_arguments(argc, argv, fileName, minFrequency, nProjections, quadratic, powerIterations, randomSeed, outputPath);
   {
-    parse_arguments(argc, argv, fileName, minFrequency, nProjections, quadratic, powerIterations, randomSeed, outputPath);
-    std::string qStr = quadratic ? "" : " --quadratic";
+    std::string qStr = (quadratic) ? " --quadratic" : "";
     std::clog << "MAIN: regressor --file=" << fileName << " --output_path=" << outputPath << qStr
 	      << " --min_frequency=" << minFrequency << " --n_projections=" << nProjections
 	      << " --power_iter " << powerIterations << " --random_seed=" << randomSeed;
@@ -87,18 +87,15 @@ int main(int argc, char** argv)
     std::clog << "       " << row.head(10).transpose() << "  with sum=" << row.sum() << endl;
   }
 
-  // form random projections of LSA variables after map to column major format
-  Eigen::SparseMatrix<float, Eigen::ColMajor> X = W; 
+  // P holds random projections of LSA variables
   Matrix P(nDocs, nProjections);
-  std::clog << "MAIN: Computing left singular vectors of L by random projection";
-  if (powerIterations) std::clog << " with power iterations.\n" ; else std::clog << "." << endl;
-
-
-  // adapted from Helper::fill_random_projection
-  if (! quadratic)
-  {
+  if (! quadratic)                                                                             // adapted from Helper::fill_random_projection
+  { std::clog << "MAIN: Computing left singular vectors of L by random projection";
+    if (powerIterations) std::clog << " with power iterations.\n" ; else std::clog << ".\n";
+    print_with_time_stamp("Starting base linear random projection", std::clog);
     Matrix R = W * Matrix::Random(W.cols(), P.cols());    
     P = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());  // block does not work; use to get left P.cols()
+    print_with_time_stamp("Completed base linear random projection", std::clog);
     if (powerIterations > 0)
     { Vocabulary::SparseMatrix WWt = W * W.transpose();
       while (powerIterations--)
@@ -106,49 +103,48 @@ int main(int argc, char** argv)
 	P = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());
       }
     }
+    print_with_time_stamp("Completed power iterations of linear projection", std::clog);
     std::clog << "MAIN: Checking norms of leading terms in random projection; 0'0="
 	      << P.col(0).dot(P.col(0)) << "   0'1=" << P.col(0).dot(P.col(1)) << "   1'1=" << P.col(1).dot(P.col(1)) << std::endl;
   }
-
-  /*
-  else             // quadratic
+  else  // quadratic
   { P.setZero();
-    std::clog << messageTag << "Computing random projection of " << (nCols*(nCols+1))/2 << " quadratics (excludes linear)." << std::endl;
-    print_with_time_stamp("Top, with sum over cols", std::clog);
-    for (int j=0; j<nCols; ++j)
-      for (int k=j; k<nCols; ++k)
-      { Vector cp   = X.col(j).array() * X.col(k).array();
-	Vector rand = Vector::Random(nProjections);
-	for (int i=0; i<nProjections; ++i)   // does P += cp * rand.transpose(), but faster this way
+    std::clog << "MAIN: Computing random projection of " << (W.cols()*(W.cols()+1))/2 << " quadratics (excludes linear)." << std::endl;
+    print_with_time_stamp("Starting base projection", std::clog);
+    Eigen::SparseMatrix<float, Eigen::ColMajor> X = W; 
+    for (int j=0; j<W.cols(); ++j)
+      for (int k=j; k<W.cols(); ++k)         // X'X = sum x_i x_i'
+      { Eigen::SparseVector<float>  cp  = X.col(j).cwiseProduct(X.col(k));
+	Vector                     rand = Vector::Random(nProjections);
+	for (int i=0; i<nProjections; ++i)   // same as P += cp * rand.transpose(), but faster this way
 	{ P.col(i) += cp * rand(i);
 	  if (!std::isfinite(P(0,i)))
-	  { std::clog << "Not finite at j=" << j << " k=" << k << " i=" << i << " cp(0)=" << cp(0) << std::endl;
+	  { std::clog << "Not finite at j=" << j << " k=" << k << " i=" << i  << std::endl;
 	    assert(false);
 	  }
 	}
       }
     print_with_time_stamp("Complete base projection", std::clog);
     if (powerIterations)
-    { std::clog << messageTag << "Preparing for " << powerIterations << " quadratic power iterations." << std::endl;
-      Matrix XXt = Matrix::Zero(X.rows(),X.rows());
-      for (int j=0; j<nCols; ++j)
-      {	for (int k=j; k<nCols; ++k)
-	{ Vector cp = X.col(j).array() * X.col(k).array();
-	  for (int i=0; i<cp.size(); ++i)   // string out XXt += cp * cp.transpose() for speed
-	    XXt.col(i) += cp * cp(i);
+    { std::clog << "MAIN: Preparing for " << powerIterations << " quadratic power iterations." << std::endl;
+      Eigen::SparseMatrix<float,Eigen::ColMajor> XXt(X.rows(),X.rows());
+      // XXt.setZero();   // Need this???
+      for (int j=0; j<W.cols(); ++j)
+      {	for (int k=j; k<W.cols(); ++k)
+	{ Eigen::SparseVector<float> cp = X.col(j).cwiseProduct(X.col(k));
+	  for (Eigen::SparseVector<float>::InnerIterator it(cp); it; ++it)
+	    XXt.col(it.index()) += cp * it.value();
 	}
       }
+      print_with_time_stamp("Starting power iterations", std::clog);
       while (powerIterations--)
-      	P = XXt * Eigen::HouseholderQR<Matrix>(P).householderQ();
+      { Matrix Q = Eigen::HouseholderQR<Matrix>(P).householderQ(); 
+      	P = XXt * Q;
+      }
       print_with_time_stamp("Complete power iterations", std::clog);
     }
   }
 
-  */
-  //
-  // ------------  HERE
-  //
-  
   std::clog << "MAIN: Completed LSA projection.  P[" << P.rows() << "x" << P.cols() << "]\n";
   if (false)                                                // compute sequence of regressions for LSA variables
   { std::clog << "MAIN: Fitting regressions on singular vectors.\n";
@@ -173,13 +169,13 @@ int main(int argc, char** argv)
   { // prec, align, col sep, row sep, row pre, row suf, file pre, file suff
     Eigen::IOFormat fmt(Eigen::StreamPrecision,Eigen::DontAlignCols,"\t","\n","","","","");
     {
-      std::ofstream os (outputPath + "unified_y_m.txt");
+      std::ofstream os (outputPath + "lsa_ym.txt");
       os << "Y\tm" << endl;
       os <<  YX.format(fmt) << endl;
     }
     {
       string dim (std::to_string(nProjections));
-      std::ofstream os (outputPath + "unified_svd_" + dim + ".txt");
+      std::ofstream os (outputPath + "lsa_" + dim + ".txt");
       os << "V0";
       for(int i=1; i<P.cols(); ++i) os << "\tV" << i;
       os << endl << P.format(fmt) << endl;
