@@ -29,10 +29,17 @@ typedef Eigen::VectorXf Vector;
 typedef Eigen::MatrixXf Matrix;
 
 
+/*
+  Adjustments to raw frequencies:
+    r = raw counts
+    s = divide by sqrt n_i
+    n = divide by n_i
+*/
+
 void
 parse_arguments(int argc, char** argv,
 		string &fileName,
-		int &minFrequency, int &nProjections, bool &quadratic, int &powerIterations, int &seed,
+		int &minFrequency, int &nProjections, char &adjust, bool &quadratic, int &powerIterations, int &seed,
 		string &outputPath);
   
 int main(int argc, char** argv)
@@ -41,6 +48,7 @@ int main(int argc, char** argv)
   string fileName        (  ""   );  // used to build regression variables from document text (leading y_i)
   int    nSkipInitTokens (   1   );  // regression response at start of line (to isolate y_i from vocab)
   bool   markEndOfLine   ( false );  // avoid end-of-document token
+  char   adjust          (  'r'  );  // use raw counts  (ignored if quadratic space)
   bool   quadratic       ( false );  // use second order token variables
   string outputPath      (  ""   );  // text files for parsed_#, lsa_#, bigram_#
   int    powerIterations (   0   );  // in Tropp algo for SVD
@@ -48,12 +56,12 @@ int main(int argc, char** argv)
   int    nProjections    (  50   );
   int    randomSeed      ( 77777 );  // used to replicate random projection
   
-  parse_arguments(argc, argv, fileName, minFrequency, nProjections, quadratic, powerIterations, randomSeed, outputPath);
+  parse_arguments(argc, argv, fileName, minFrequency, nProjections, adjust, quadratic, powerIterations, randomSeed, outputPath);
   {
     std::string qStr = (quadratic) ? " --quadratic" : "";
     std::clog << "MAIN: regressor --file=" << fileName << " --output_path=" << outputPath << qStr
-	      << " --min_frequency=" << minFrequency << " --n_projections=" << nProjections
-	      << " --power_iter " << powerIterations << " --random_seed=" << randomSeed;
+	      << " --min_frequency=" << minFrequency << " --n_projections=" << nProjections << " ---adjustment=" << adjust
+	      << " --power_iter " << powerIterations << " --random_seed=" << randomSeed << endl;
   }
   
   // global random seed set here (controls random projections)
@@ -76,9 +84,15 @@ int main(int argc, char** argv)
   Vector Y(nDocs), nTokens(nDocs);
   {
     bool sumToOne = false;            // avg of types (row sums to one; used to find centroids)
+    if (adjust == 'n') sumToOne = true;
     std::ifstream is(fileName);
     vocabulary.fill_sparse_regr_design_from_stream(Y, W, nTokens, is, sumToOne);
   }
+  if (adjust == 's')
+  { Vector sr = (W * Vector::Ones(W.cols())).array().sqrt().inverse();
+    W = sr.asDiagonal() * W;
+  }
+  
   std::clog << "MAIN: Number tokens in first docs are "        << nTokens.head(5).transpose() << endl;
   std::clog << "MAIN: Leading block of the LSA matrix: \n" ;
   for(int i=0; i<5; ++i)
@@ -96,52 +110,46 @@ int main(int argc, char** argv)
     Matrix R = W * Matrix::Random(W.cols(), P.cols());    
     P = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());  // block does not work; use to get left P.cols()
     print_with_time_stamp("Completed base linear random projection", std::clog);
-    if (powerIterations > 0)
-    { Vocabulary::SparseMatrix WWt = W * W.transpose();
+    if (powerIterations)
       while (powerIterations--)
-      { R = WWt * P;   // IS THIS RIGHT IF W'W != I???
+      { R = W * W.transpose() * P;   // IS THIS RIGHT IF W'W != I???
 	P = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());
       }
-    }
     print_with_time_stamp("Completed power iterations of linear projection", std::clog);
     std::clog << "MAIN: Checking norms of leading terms in random projection; 0'0="
 	      << P.col(0).dot(P.col(0)) << "   0'1=" << P.col(0).dot(P.col(1)) << "   1'1=" << P.col(1).dot(P.col(1)) << std::endl;
   }
   else  // quadratic
-  { P.setZero();
-    std::clog << "MAIN: Computing random projection of " << (W.cols()*(W.cols()+1))/2 << " quadratics (excludes linear)." << std::endl;
+  { std::clog << "MAIN: Computing random projection of " << (W.cols()*(W.cols()+1))/2 << " quadratics (excludes linear)." << std::endl;
+    if (powerIterations) std::clog << " with power iterations.\n" ; else std::clog << ".\n";
     print_with_time_stamp("Starting base projection", std::clog);
+    Matrix R = Matrix::Zero(nDocs, nProjections);
     Eigen::SparseMatrix<float, Eigen::ColMajor> X = W; 
     for (int j=0; j<W.cols(); ++j)
       for (int k=j; k<W.cols(); ++k)         // X'X = sum x_i x_i'
       { Eigen::SparseVector<float>  cp  = X.col(j).cwiseProduct(X.col(k));
 	Vector                     rand = Vector::Random(nProjections);
 	for (int i=0; i<nProjections; ++i)   // same as P += cp * rand.transpose(), but faster this way
-	{ P.col(i) += cp * rand(i);
-	  if (!std::isfinite(P(0,i)))
-	  { std::clog << "Not finite at j=" << j << " k=" << k << " i=" << i  << std::endl;
-	    assert(false);
-	  }
-	}
+	  R.col(i) += cp * rand(i);
       }
+    P = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());
     print_with_time_stamp("Complete base projection", std::clog);
     if (powerIterations)
-    { std::clog << "MAIN: Preparing for " << powerIterations << " quadratic power iterations." << std::endl;
-      Eigen::SparseMatrix<float,Eigen::ColMajor> XXt(X.rows(),X.rows());
-      // XXt.setZero();   // Need this???
-      for (int j=0; j<W.cols(); ++j)
-      {	for (int k=j; k<W.cols(); ++k)
-	{ Eigen::SparseVector<float> cp = X.col(j).cwiseProduct(X.col(k));
-	  for (Eigen::SparseVector<float>::InnerIterator it(cp); it; ++it)
-	    XXt.col(it.index()) += cp * it.value();
-	}
-      }
-      print_with_time_stamp("Starting power iterations", std::clog);
+    { print_with_time_stamp("Starting power iterations", std::clog);
+      /* Much slower if form XXt and multiply unless have very very few rows in X
+	 Eigen::SparseMatrix<float,Eigen::ColMajor> XXt(X.rows(),X.rows());
+	 XXt.setZero();
+	 for (int j=0; j<W.cols(); ++j)
+	 {	for (int k=j; k<W.cols(); ++k)
+	 { Eigen::SparseVector<float> cp = X.col(j).cwiseProduct(X.col(k));
+	 for (Eigen::SparseVector<float>::InnerIterator it(cp); it; ++it)
+	 XXt.col(it.index()) += cp * it.value();
+	 }	 }  */
       while (powerIterations--)
-      { Matrix Q = Eigen::HouseholderQR<Matrix>(P).householderQ(); 
-      	P = XXt * Q;
+      { R = X * X.transpose() * P;
+	P = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());
       }
-      print_with_time_stamp("Complete power iterations", std::clog);
+      print_with_time_stamp("Complete power iterations of quadratic projection", std::clog);
     }
   }
 
@@ -174,10 +182,23 @@ int main(int argc, char** argv)
       os <<  YX.format(fmt) << endl;
     }
     {
-      string dim (std::to_string(nProjections));
-      std::ofstream os (outputPath + "lsa_" + dim + ".txt");
-      os << "V0";
-      for(int i=1; i<P.cols(); ++i) os << "\tV" << i;
+      string label, adj;
+      char symbol;
+      switch (adjust)
+      {
+      case 'r' : { adj = "raw"  ; break; }
+      case 's' : { adj = "sqrt" ; break; }  
+      case 'n' : { adj = "recip"; break; }
+      default:   { adj = "error"; std::clog << "MAIN: Unrecognized adjustment " << adjust << " given.\n"; }
+      }
+      if (quadratic)
+      { label = "lsaq_" + adj;  symbol = 'Q'; }
+      else
+      { label = "lsa_"  + adj ; symbol = 'L'; }
+      string dim  (std::to_string(nProjections));
+      std::ofstream os (outputPath + label + "_" + dim + ".txt");
+      os << symbol << "0";
+      for(int i=1; i<P.cols(); ++i) os << "\t" << symbol << i;
       os << endl << P.format(fmt) << endl;
     }
   }
@@ -190,11 +211,12 @@ int main(int argc, char** argv)
 void
 parse_arguments(int argc, char** argv,
 		string &fileName,
-		int &oovThreshold, int &nProjections, bool &quadratic, int &powerIterations, int &seed, string &outputPath)
+		int &oovThreshold, int &nProjections, char &adjust, bool &quadratic, int &powerIterations, int &seed, string &outputPath)
 {
   static struct option long_options[] = {
     {"file",          required_argument, 0, 'i'},
     {"min_frequency", required_argument, 0, 'f'},
+    {"adjustment",    required_argument, 0, 'a'},
     {"quadratic",     no_argument,       0, 'q'},
     {"power_iter",    required_argument, 0, 'p'},
     {"n_projections", required_argument, 0, 'r'},
@@ -204,13 +226,14 @@ parse_arguments(int argc, char** argv,
   };
   int key;
   int option_index = 0;
-  while (-1 !=(key = getopt_long (argc, argv, "i:f:qp:r:s:o:", long_options, &option_index))) // colon means has argument
+  while (-1 !=(key = getopt_long (argc, argv, "i:f:a:qp:r:s:o:", long_options, &option_index))) // colon means has argument
   {
     // std::cout << "Option key " << char(key) << " for option " << long_options[option_index].name << ", option_index=" << option_index << std::endl;
     switch (key)
     {
     case 'i' : { fileName       = optarg;                                  break; }
     case 'f' : { oovThreshold   = read_utils::lexical_cast<int>(optarg);   break; }
+    case 'a' : { adjust         = *optarg;                                 break; }
     case 'q' : { quadratic      = true;                                    break; }
     case 'p' : { powerIterations= read_utils::lexical_cast<int>(optarg);   break; }
     case 'r' : { nProjections   = read_utils::lexical_cast<int>(optarg);   break; }

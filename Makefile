@@ -14,7 +14,7 @@ PROJECT_NAME = text
 
 OPT = -O3 -fopenmp -std=c++0x
 
-USES = utils eigen
+USES = eigen utils
 
 EXTERNAL_USES = boost_system boost_thread boost_regex gomp
 
@@ -135,7 +135,7 @@ reSkip = 0
 #			defines random projection
 reSeed = 2763
 #			number of projections for W, and nProj (each side) for bigram	
-nProj  = 250
+nProj  = 1500
 #			allow different files for vocabulary and for regression
 vFile   = $(temppath)$(city).txt 
 rFile   = $(vFile)
@@ -151,17 +151,18 @@ $(outREPath)$(nProj).txt: $(engine) $(vFile) $(rfile)
 dore:  $(outREPath)$(nProj).txt
 	echo 'Running text analysis with engine $(engine)' 
 
-# --- lsa regressions
 
-$(outREPath)lsa_$(nProj).txt: lsa_regr $(rfile) 
-	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(nProj) --power_iter 1
+# --- lsa regressions   (dummy targets used to date stamp for linear/quadratic choice in dolsa)
+
+$(outREPath)L$(nProj).txt: lsa_regr $(rfile) 
+	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(nProj) --power_iter 1 --adjustment 'n'
 	date >> $@
 
-$(outREPath)lsaq_$(nProj).txt: lsa_regr $(rfile) 
-	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(nProj) --power_iter 0 --quadratic --min_frequency 10
+$(outREPath)Q$(nProj).txt: lsa_regr $(rfile) 
+	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(nProj) --power_iter 0 --quadratic --min_frequency 3
 	date >> $@
 
-dolsa:  $(outREPath)lsaq_$(nProj).txt
+dolsa:  $(outREPath)L$(nProj).txt
 	echo '---- LSA analysis ----' 
 
 
