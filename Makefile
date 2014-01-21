@@ -155,7 +155,7 @@ dore:  $(outREPath)$(nProj).txt
 # --- lsa regressions   (dummy targets used to date stamp for linear/quadratic choice in dolsa)
 
 $(outREPath)L$(nProj).txt: lsa_regr $(rfile) 
-	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(nProj) --power_iter 1 --adjustment 'n'
+	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(nProj) --power_iter 1 --adjustment 'c'
 	date >> $@
 
 $(outREPath)Q$(nProj).txt: lsa_regr $(rfile) 
@@ -251,10 +251,12 @@ dosim:  $(temppath)sim_regr.txt
 
 winePath = text_src/wine/
 
+wineSeed = 36293
+
 nWineProj = 1000
 
 vWineFile = $(winePath)RatingsAndNotes.tokens
-outWinePath = $(temppath)/wine/
+outWinePath = $(temppath)wine/
 
 
 $(outWinePath).directory_built: 
@@ -265,7 +267,11 @@ $(temppath)wine_regr.txt: regressor $(vWineFile) $(outWinePath).directory_built
 	./regressor --vocab_file=$(vWineFile) --regr_file=$(vWineFile) --output_path=$(outWinePath)  -s $(seed) --n_projections $(nWineProj) \
             --power_iter 1  --bidirectional  
 
-dowine:  $(temppath)wine_regr.txt
+$(outWinePath)L$(nWineProj).txt: lsa_regr $(vWineFile) 
+	./lsa_regr --file=$(vWineFile) --output_path=$(outWinePath) -s $(wineSeed) --n_projections $(nWineProj) --power_iter 1 --adjustment 'n'
+	date >> $@
+
+dowine:  $(outWinePath)L$(nWineProj).txt
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

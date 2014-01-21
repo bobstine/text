@@ -32,8 +32,10 @@ typedef Eigen::MatrixXf Matrix;
 /*
   Adjustments to raw frequencies:
     r = raw counts
+    t = tf-idf
     s = divide by sqrt n_i
     n = divide by n_i
+    c = CCA adjustment
 */
 
 void
@@ -87,20 +89,33 @@ int main(int argc, char** argv)
     if (adjust == 'n') sumToOne = true;
     std::ifstream is(fileName);
     vocabulary.fill_sparse_regr_design_from_stream(Y, W, nTokens, is, sumToOne);
+    std::clog << "MAIN: Number tokens in first docs are "        << nTokens.head(5).transpose() << endl;
+    std::clog << "MAIN: Leading block of the LSA matrix after tf-idf adjustment: \n" << W.block(0,0,5,10) << endl;
   }
+
+  // adjustments to the elements of the term-document matrix
   if (adjust == 's')
   { Vector sr = (W * Vector::Ones(W.cols())).array().sqrt().inverse();
     W = sr.asDiagonal() * W;
+    std::clog << "MAIN: Leading block of the LSA matrix after sqrt adjustment: \n" << W.block(0,0,5,10) << endl;
   }
-  
-  std::clog << "MAIN: Number tokens in first docs are "        << nTokens.head(5).transpose() << endl;
-  std::clog << "MAIN: Leading block of the LSA matrix: \n" ;
-  for(int i=0; i<5; ++i)
-  { Vector row(W.cols());
-    row = W.row(i);
-    std::clog << "       " << row.head(10).transpose() << "  with sum=" << row.sum() << endl;
+  else if (adjust == 'c')
+  { Vector sr = nTokens.array().sqrt().inverse();
+    Vector st = vocabulary.type_frequency_vector().array().sqrt().inverse();
+    W = sr.asDiagonal() * W * st.asDiagonal();
+    std::clog << "MAIN: Leading block of the LSA matrix after CCA adjustment: \n" << W.block(0,0,5,10) << endl;
+  }     
+  else if (adjust == 't')
+  { Vector termCts = Vector::Zero(W.cols());   // count docs in which terms appear
+    for (int doc=0; doc<W.outerSize(); ++doc)
+      for (Vocabulary::SparseMatrix::InnerIterator it(W,doc); it; ++it)
+	++termCts(it.col());
+    for (int doc=0; doc<W.outerSize(); ++doc)
+      for (Vocabulary::SparseMatrix::InnerIterator it(W,doc); it; ++it)
+	W.coeffRef(doc, it.col()) = it.value() * log(W.rows()/termCts(it.col()));
+    std::clog << "MAIN: Leading block of the LSA matrix after tf-idf adjustment: \n" << W.block(0,0,5,10) << endl;
   }
-
+ 
   // P holds random projections of LSA variables
   Matrix P(nDocs, nProjections);
   if (! quadratic)                                                                             // adapted from Helper::fill_random_projection
@@ -113,6 +128,7 @@ int main(int argc, char** argv)
     if (powerIterations)
       while (powerIterations--)
       { R = W * W.transpose() * P;   // IS THIS RIGHT IF W'W != I???
+	print_with_time_stamp("Preparing Householder step of iterated random projection", std::clog);
 	P = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());
       }
     print_with_time_stamp("Completed power iterations of linear projection", std::clog);
@@ -152,6 +168,10 @@ int main(int argc, char** argv)
       print_with_time_stamp("Complete power iterations of quadratic projection", std::clog);
     }
   }
+  if (adjust == 'c')
+  { Vector sr = nTokens.array().sqrt().inverse();
+    P = sr.asDiagonal() * P;
+  }
 
   std::clog << "MAIN: Completed LSA projection.  P[" << P.rows() << "x" << P.cols() << "]\n";
   if (false)                                                // compute sequence of regressions for LSA variables
@@ -187,8 +207,10 @@ int main(int argc, char** argv)
       switch (adjust)
       {
       case 'r' : { adj = "raw"  ; break; }
+      case 't' : { adj = "tfidf"; break; }
       case 's' : { adj = "sqrt" ; break; }  
       case 'n' : { adj = "recip"; break; }
+      case 'c' : { adj = "cca"  ; break; }
       default:   { adj = "error"; std::clog << "MAIN: Unrecognized adjustment " << adjust << " given.\n"; }
       }
       if (quadratic)
