@@ -6,7 +6,7 @@ source("/Users/bob/C/text/functions.R")
 #		Quadratic not so useful: maybe just too sparse?
 #
 ##################################################################################
-# linear lsa results, real estate
+# linear and quadratic lsa results, real estate
 ##################################################################################
 
 # --- response, weighted
@@ -34,12 +34,12 @@ name <- "Linear, tf-idf"  # conditional prob
 X  <- as.matrix(read.table( paste(path,"lsa_tfidf_1500.txt",sep=""), header=TRUE, as.is=TRUE))
 
 name <- "Quadratic"
-X  <- as.matrix(read.table( paste(path,"lsaq_250.txt",sep=""),     header=TRUE, as.is=TRUE))
+X  <- as.matrix(read.table( paste(path,"lsaq_raw_250_p0.txt",sep=""),     header=TRUE, as.is=TRUE))
 
 
 #																Adjusted R2
-#														words	Raw		Sqrt	1/ni	cca		tfidf	Quad		
-sr <- summary(r <- lm(Y ~ M + lM + X [,1: 250])); sr  #			0.576	0.602	0.573	0.582	0.592	0.385
+#														words	Raw		Sqrt	1/ni	cca		tfidf	quad		
+sr <- summary(r <- lm(Y ~ M + lM + X [,1: 250])); sr  #			0.576	0.602	0.573	0.582	0.592	0.390
 
 sr <- summary(r <- lm(Y ~ M + lM + X [,1: 500])); sr  #	0.581	0.612	0.640	0.628	0.639	0.628
 
