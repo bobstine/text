@@ -34,7 +34,7 @@ name <- "Linear, tf-idf"  # conditional prob
 X  <- as.matrix(read.table( paste(path,"lsa_tfidf_1500.txt",sep=""), header=TRUE, as.is=TRUE))
 
 name <- "Quadratic"
-X  <- as.matrix(read.table( paste(path,"lsaq_raw_250_p0.txt",sep=""),     header=TRUE, as.is=TRUE))
+Xq <- as.matrix(read.table( paste(path,"lsaq_raw_250_p0.txt",sep=""), header=TRUE, as.is=TRUE))
 
 
 #																Adjusted R2
@@ -68,8 +68,9 @@ reset()
 # quadratc lsa comparison
 ##################################################################################
 
-# assume X is linear, Xq is quadratic
-
+#  X is linear, Xq is quadratic (no weights)
+#  Not much better than just 500 linear
+sr <- summary(r <- lm(Y ~ M + lM + X[,1: 250] + Xq[,1:250])); sr     # 0.593
 
 # nearly linear decay
 cca <- cancor(X[,1:ncol(Xq)],Xq)
