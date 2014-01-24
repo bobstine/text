@@ -1,5 +1,5 @@
 
-load("functions.R")
+source("/Users/bob/C/text/functions.R")
 
 ##################################################################################
 #  type counts, zipf
@@ -126,21 +126,24 @@ beds[!beds.obs] <- mean( beds[beds.obs] )
 (n-sum(beds.obs))/n
 
 # --- plots of the parsed explanatory variables and response           parsed.pdf
+show.cor <- function(x,y,X,Y,obs) {
+	c <- round(cor(X,Y),2); c.obs <- round(cor(X[obs],Y[obs]),2)
+	text(x,y,paste("r=",c.obs,"/",c,sep=""),cex=0.7) }
+	
 par(mfrow=c(2,2), mar=c(4,4,1,1), mgp=c(2,1,0))
-	plot(logPrice ~ logTokens, ylab= "Log Price",  xlab="Log Number of Tokens")
-	  text(1.5,6, paste("r =",round(cor(logPrice,logTokens),2)))
-	  # lines(lowess(logTokens, logPrice,f=0.25), col="red")
+	plot(logPrice ~ logTokens, ylab= "Log Price",  xlab="Log Length")
+	  text(1.5,6, paste("r =",round(cor(logPrice,logTokens),2)),cex=0.7)
 	plot(logPrice ~ baths, ylab= "Log Price",
 	  xlab="Number Bathrooms   (74% missing)", col="gray") 
-	  text(5,6, paste("r =",round(cor(logPrice,baths),2)))
+	  show.cor(7,6,baths,logPrice,bath.obs)
 	points(baths[which(1==bath.obs)], logPrice[which(1==bath.obs)])  # overplot gray
+	plot(logPrice ~ I(log(sqft)),  ylab= "Log Price", 
+	  xlab="Log Square Feet  (94% missing)", col="gray")
+	  show.cor(2,6,log(sqft),logPrice,sqft.obs)
+	points(log(sqft)[which(1==sqft.obs)], logPrice[which(1==sqft.obs)])
 	plot(logPrice ~ beds , ylab= "Log Price", 
 	  xlab="Number Bedrooms  (58% missing)"  , col=c("gray","black")[1+beds.obs])   
-	  text(7,6, paste("r =",round(cor(logPrice,beds),2)))
-	plot(logPrice ~ I(log(sqft)),  ylab= "Log Price", 
-	  xlab="Log(Sq Ft)  (94% missing)", col="gray")
-	  text(2,6, paste("r =",round(cor(logPrice,log(sqft)),2)))
-	points(log(sqft)[which(1==sqft.obs)], logPrice[which(1==sqft.obs)])
+	  show.cor(7.5,6,beds,logPrice,beds.obs)
 par(mfrow=c(1,1))
 
 #     corr with sqft and logprice for not missing

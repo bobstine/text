@@ -65,6 +65,17 @@ int main(int argc, char** argv)
 	      << " --min_frequency=" << minFrequency << " --n_projections=" << nProjections << " ---adjustment=" << adjust
 	      << " --power_iter " << powerIterations << " --random_seed=" << randomSeed << endl;
   }
+  string powerTag = "_p" + std::to_string(powerIterations);
+  string wTag;
+  switch (adjust)
+    {
+    case 'r' : { wTag = "raw"  ; break; }
+    case 't' : { wTag = "tfidf"; break; }
+    case 's' : { wTag = "sqrt" ; break; }  
+    case 'n' : { wTag = "recip"; break; }
+    case 'c' : { wTag = "cca"  ; break; }
+    default:   { wTag = "error"; std::clog << "MAIN: Unrecognized adjustment " << adjust << " given.\n"; }
+    }
   
   // global random seed set here (controls random projections)
   srand(randomSeed);
@@ -115,7 +126,12 @@ int main(int argc, char** argv)
 	W.coeffRef(doc, it.col()) = it.value() * log(W.rows()/termCts(it.col()));
     std::clog << "MAIN: Leading block of the LSA matrix after tf-idf adjustment: \n" << W.block(0,0,5,10) << endl;
   }
- 
+  
+  if (true) // compute exact SVD decomposition
+  { std::clog << "MAIN: Computing exact SVD of bigram matrix begins.\n";
+    Helper::write_exact_svd_to_path(W, nProjections, outputPath, wTag);
+  }
+
   // P holds random projections of LSA variables
   Matrix P(nDocs, nProjections);
   if (! quadratic)                                                                             // adapted from Helper::fill_random_projection
@@ -202,21 +218,12 @@ int main(int argc, char** argv)
       os <<  YX.format(fmt) << endl;
     }
     {
-      string label, adj;
-      char symbol;
-      switch (adjust)
-      {
-      case 'r' : { adj = "raw"  ; break; }
-      case 't' : { adj = "tfidf"; break; }
-      case 's' : { adj = "sqrt" ; break; }  
-      case 'n' : { adj = "recip"; break; }
-      case 'c' : { adj = "cca"  ; break; }
-      default:   { adj = "error"; std::clog << "MAIN: Unrecognized adjustment " << adjust << " given.\n"; }
-      }
+      string label;
+      char varSymbol;
       if (quadratic)
-      { label = "lsaq_" + adj;  symbol = 'Q'; }
+      { label = "lsaq_" + wTag + powerTag;  varSymbol = 'Q'; }
       else
-      { label = "lsa_"  + adj ; symbol = 'L'; }
+      { label = "lsa_"  + wTag + powerTag; varSymbol = 'L'; }
       string dim  (std::to_string(nProjections));
       std::ofstream os (outputPath + label + "_" + dim + ".txt");
       os << symbol << "0";
@@ -224,7 +231,6 @@ int main(int argc, char** argv)
       os << endl << P.format(fmt) << endl;
     }
   }
-
   return 0;
 }
 

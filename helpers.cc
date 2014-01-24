@@ -228,9 +228,9 @@ Helper::calculate_sequence_r2 (Eigen::VectorXd const& Y, Eigen::VectorXd tokenCo
 
 
 void
-Helper::write_exact_svd_to_path(Vocabulary::SparseMatrix const& B, int nProjections, std::string path)
+Helper::write_exact_svd_to_path(Vocabulary::SparseMatrix const& B, int nProjections, std::string path, std::string tag)
 {
-  std::ofstream os1 (path + "svd_exact_d.txt");
+  std::ofstream os1 (path + "svd_exact_d_" + tag + ".txt");
   if(!os1)
     std::cerr << "MAIN: Invalid path. Could not open files for reporting exact SVD of bigram; skipping.\n";
   else
@@ -242,10 +242,10 @@ Helper::write_exact_svd_to_path(Vocabulary::SparseMatrix const& B, int nProjecti
     Eigen::IOFormat fmt(Eigen::StreamPrecision,Eigen::DontAlignCols,"\t","\n","","","","");
     os1 << s.transpose() << std::endl;
     os1.close();
-    std::ofstream os2 (path + "svd_exact_u.txt");
+    std::ofstream os2 (path + "svd_exact_u_" + tag + ".txt");
     os2 << U.format(fmt) << std::endl;
     os2.close();
-    std::ofstream os3 (path + "svd_exact_v.txt");
+    std::ofstream os3 (path + "svd_exact_v_" + tag + ".txt");
     os3 << V.format(fmt) << std::endl;
     os3.close();
   }

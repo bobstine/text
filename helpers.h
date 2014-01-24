@@ -40,7 +40,7 @@ namespace Helper
     fill_random_projection(Matrix &P, Vocabulary::SparseMatrix const& B, Vector const& leftWts, Vector const& rightWts, int power);
 
   void
-    write_exact_svd_to_path(Vocabulary::SparseMatrix const& B, int nProjections, std::string path);
+    write_exact_svd_to_path(Vocabulary::SparseMatrix const& B, int nProjections, std::string path, std::string tag);
 
   void
     write_matrix_to_file(Matrix const& A, std::string fileName, std::string columnPrefix);
