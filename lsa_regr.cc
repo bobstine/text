@@ -152,7 +152,7 @@ int main(int argc, char** argv)
 	      << P.col(0).dot(P.col(0)) << "   0'1=" << P.col(0).dot(P.col(1)) << "   1'1=" << P.col(1).dot(P.col(1)) << std::endl;
   }
   else  // quadratic
-  { std::clog << "MAIN: Computing random projection of " << (W.cols()*(W.cols()+1))/2 << " quadratics (excludes linear)." << std::endl;
+  { std::clog << "MAIN: Computing random projection of " << (W.cols()*(W.cols()+1))/2 << " quadratics (excludes linear).";
     if (powerIterations) std::clog << " with power iterations.\n" ; else std::clog << ".\n";
     print_with_time_stamp("Starting base projection", std::clog);
     Matrix R = Matrix::Zero(nDocs, nProjections);

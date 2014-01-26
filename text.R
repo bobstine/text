@@ -69,7 +69,8 @@ reset()
 plot(logPrice ~ logTokens) 
 regr <- lm(logPrice ~ nTokens + logTokens); summary(regr)
 lines(lowess(logTokens, logPrice, f=.3), col="red")
-points(logTokens, fitted.values(regr), col="cyan")
+regr <- lm(logPrice ~ poly(logTokens,3)); summary(regr)
+points(logTokens, fitted.values(regr), col="green")
 }
 
 
@@ -109,7 +110,9 @@ reset()
 
 
 ##################################################################################
+# 
 # Parsed variables
+#
 ##################################################################################
 parsed.analysis <- function() {
 	
@@ -129,18 +132,28 @@ beds[!beds.obs] <- mean( beds[beds.obs] )
 show.cor <- function(x,y,X,Y,obs) {
 	c <- round(cor(X,Y),2); c.obs <- round(cor(X[obs],Y[obs]),2)
 	text(x,y,paste("r=",c.obs,"/",c,sep=""),cex=0.7) }
-	
+add.model <- function(x,y) {
+	mod <- loess(y ~ x, span=0.75)
+	p <- predict(mod); o <- order(x); 
+	lines(x[o], p[o], col="red", lty=1)
+	mod <- lm(y ~ poly(x,5))
+	p <- predict(mod); o <- order(x); 
+	lines(x[o], p[o], col="green", lty=1)
+	p
+	}
+
 par(mfrow=c(2,2), mar=c(4,4,1,1), mgp=c(2,1,0))
 	plot(logPrice ~ logTokens, ylab= "Log Price",  xlab="Log Length")
+	  logPrice.pred <- add.model(logTokens, logPrice)
+	  lines(predict(lm(logPrice,logTokens)))
 	  text(1.5,6, paste("r =",round(cor(logPrice,logTokens),2)),cex=0.7)
-	plot(logPrice ~ baths, ylab= "Log Price",
-	  xlab="Number Bathrooms   (74% missing)", col="gray") 
+	plot(logPrice ~ baths, ylab= "Log Price", xlab="Number Bathrooms (74% missing)", col="gray") 
 	  show.cor(7,6,baths,logPrice,bath.obs)
-	points(baths[which(1==bath.obs)], logPrice[which(1==bath.obs)])  # overplot gray
+	  points(baths[which(1==bath.obs)], logPrice[which(1==bath.obs)])  # overplot gray
 	plot(logPrice ~ I(log(sqft)),  ylab= "Log Price", 
 	  xlab="Log Square Feet  (94% missing)", col="gray")
 	  show.cor(2,6,log(sqft),logPrice,sqft.obs)
-	points(log(sqft)[which(1==sqft.obs)], logPrice[which(1==sqft.obs)])
+	  points(log(sqft)[which(1==sqft.obs)], logPrice[which(1==sqft.obs)])
 	plot(logPrice ~ beds , ylab= "Log Price", 
 	  xlab="Number Bedrooms  (58% missing)"  , col=c("gray","black")[1+beds.obs])   
 	  show.cor(7.5,6,beds,logPrice,beds.obs)
@@ -174,6 +187,24 @@ mse <- show.cv(regr.parsed,5)
 #
 ##################################################################################
 word.regression <- function () {
+	
+	path <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/"
+	YM <- as.matrix(read.table(paste(path,"lsa_ym.txt",sep=""),header=T,as.is=T))
+	W  <- as.matrix(read.table(paste(path,"w5708.txt",sep=""),header=T,as.is=T))
+
+	logPrice  <- YM[,1];
+	nTokens   <- YM[,2];
+	logTokens <- log(YM[,2])
+
+# --- analysis of length effect
+	plot(logTokens, logPrice)
+
+# --- remove the EOL column
+colnames(W)[1:10]
+W <- W[,-7]
+colnames(W)[1:10]
+
+sr <- summary(lm(logPrice ~ nTokens + logTokens + W[,1:10]))
 
 # --- plot cum R2 statistic, AICc  (must patch """ in source file)
 r2.words.for <- read.table("/Users/bob/C/text/text_src/temp/word_regr_fit_with_m_for.txt", 
@@ -252,10 +283,17 @@ plot(wregr)
 
 ##################################################################################
 #
-# SVD variables, W
+# LSA
 #
 ##################################################################################
 lsa.analysis <- function() {
+
+nProj <- 1500
+city  <- "ChicagoOld3/"
+
+file    <- paste("/Users/bob/C/text/text_src/temp/",city,"lsa_raw_", nProj,".txt",sep="")
+lsa    <- as.matrix(read.table(file, header=TRUE)); dim(lsa)
+
 
 # --- LSA analysis from matrix W    adj R2=0.6567 with 1000 and log tokens
 
@@ -296,7 +334,22 @@ br2 <- lm(logPrice ~ . + .*., data = frame); summary(br2)
 anova(br,br2)
 cor(fitted.values(regr.lsa), f <- fitted.values(br2))
 
-# --- exact SVD
+
+##################################################################################
+# Exact SVD for LSA compared to random projection
+##################################################################################
+
+exact <- c(805.262,304.603,223.003,194.768,177.421,166.183, 129.452, 123.934, 111.053,
+			 103.35,98.3166,95.8432,95.1192,89.9562,88.4726,87.1829,84.2737, 82.8868, 78.5008, 73.7923)
+			 
+# get data from sobolev, store locally
+lsa.rp <- read.table("~/C/text/text_src/temp/ChicagoOld3/LSA_1500.txt",       header=TRUE); dim(lsa.rp) # 7384 1500
+
+# plots
+pairs(cbind(lsa.rp[,1:3], lsa.ex[,1:3]))
+
+file <- "~/C/text/text_src/temp/ChicagoOld3/lsa_1500_exact.txt"
+lsa.ex <- read.table(file, header=TRUE); dim(lsa.ex) # 7384 1500
 
 k <- 800; udv <- svd(W[,1:k])
 
@@ -306,7 +359,9 @@ plot(udv$d[1:(k-10)], log="xy", main=paste("Exact Singular Values of W, k=",k),
 
 
 ##################################################################################
+#
 # SVD variables, B
+#
 ##################################################################################
 	
 # --- whole model summaries   adj R2 = 0.6759 with first 1000 of left with log tokens
@@ -375,7 +430,9 @@ plot(ccw$cor, xlab="Index of Vector", ylab="Canonical Correlation")
 
 
 ##################################################################################
+# 
 # Combined SVD variables
+#
 ##################################################################################
 
 #     sweep lsa from bigram variables
@@ -602,19 +659,6 @@ persp(xx,yy,log(mat))
 
 contour(xx,yy,log(mat), nlevels=20, xlab="Number Bigram", ylab="Number LSA")
 
-##################################################################################
-# Exact SVD for LSA compared to random projection
-##################################################################################
-
-exact <- c(805.262,304.603,223.003,194.768,177.421,166.183, 129.452, 123.934, 111.053,
-			 103.35,98.3166,95.8432,95.1192,89.9562,88.4726,87.1829,84.2737, 82.8868, 78.5008, 73.7923)
-			 
-# get data from sobolev, store locally
-lsa.rp <- read.table("~/C/text/text_src/temp/ChicagoOld3/LSA_1500.txt",       header=TRUE); dim(lsa.rp) # 7384 1500
-lsa.ex <- read.table("~/C/text/text_src/temp/ChicagoOld3/LSA_1500_exact.txt", header=TRUE); dim(lsa.ex) # 7384 1500
-
-# plots
-pairs(cbind(lsa.rp[,1:3], lsa.ex[,1:3]))
 
 			 
 ##################################################################################
