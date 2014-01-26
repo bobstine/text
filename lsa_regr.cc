@@ -226,8 +226,8 @@ int main(int argc, char** argv)
       { label = "lsa_"  + wTag + powerTag; varSymbol = 'L'; }
       string dim  (std::to_string(nProjections));
       std::ofstream os (outputPath + label + "_" + dim + ".txt");
-      os << symbol << "0";
-      for(int i=1; i<P.cols(); ++i) os << "\t" << symbol << i;
+      os << varSymbol << "0";
+      for(int i=1; i<P.cols(); ++i) os << "\t" << varSymbol << i;
       os << endl << P.format(fmt) << endl;
     }
   }
