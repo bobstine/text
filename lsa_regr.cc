@@ -127,7 +127,7 @@ int main(int argc, char** argv)
     std::clog << "MAIN: Leading block of the LSA matrix after tf-idf adjustment: \n" << W.block(0,0,5,10) << endl;
   }
   
-  if (true) // compute exact SVD decomposition
+  if (false) // compute exact SVD decomposition
   { std::clog << "MAIN: Computing exact SVD of document-term matrix W begins.\n";
     Helper::write_exact_svd_to_path(W, nProjections, outputPath, wTag);
   }

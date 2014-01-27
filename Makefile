@@ -154,10 +154,10 @@ dore:  $(outREPath)$(nProj).txt
 
 # --- lsa regressions   (dummy targets used to date stamp for linear/quadratic choice in dolsa)
 
-lsaProj = 25
+lsaProj = 1500
 
 $(outREPath)L$(lsaProj).txt: lsa_regr $(rfile) 
-	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(lsaProj) --power_iter 1 --adjustment 's' --min_frequency 3
+	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(lsaProj) --power_iter 1 --adjustment 'r' --min_frequency 3
 	date >> $@
 
 $(outREPath)Q$(lsaProj).txt: lsa_regr $(rfile) 

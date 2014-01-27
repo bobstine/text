@@ -336,27 +336,43 @@ cor(fitted.values(regr.lsa), f <- fitted.values(br2))
 
 
 ##################################################################################
+#
 # Exact SVD for LSA compared to random projection
+#   1500, raw counts
+#
 ##################################################################################
 
-exact <- c(805.262,304.603,223.003,194.768,177.421,166.183, 129.452, 123.934, 111.053,
-			 103.35,98.3166,95.8432,95.1192,89.9562,88.4726,87.1829,84.2737, 82.8868, 78.5008, 73.7923)
+exact <- c(805.262,304.603,223.003,194.768,177.421,166.183, 129.452, 123.934, 111.053,...)
 			 
-# get data from sobolev, store locally
-lsa.rp <- read.table("~/C/text/text_src/temp/ChicagoOld3/LSA_1500.txt",       header=TRUE); dim(lsa.rp) # 7384 1500
+# read data
+exact.d <- scan("~/C/text/text_src/temp/ChicagoOld3/svd_exact_d_raw.txt");
+exact.u <- read.table("~/C/text/text_src/temp/ChicagoOld3/svd_exact_u_raw.txt"); dim(exact.u)  # no headers 
 
-# plots
-pairs(cbind(lsa.rp[,1:3], lsa.ex[,1:3]))
+rp.u <- as.matrix(read.table("~/C/text/text_src/temp/ChicagoOld3/lsa_raw_1500_p1.txt",header=TRUE)); dim(rp.u)
 
-file <- "~/C/text/text_src/temp/ChicagoOld3/lsa_1500_exact.txt"
-lsa.ex <- read.table(file, header=TRUE); dim(lsa.ex) # 7384 1500
+# spectrum is diffuse
+plot(exact.d[1:500], log="y", ylab="Singular Value")
 
-k <- 800; udv <- svd(W[,1:k])
+# relate to U vectors found by random projection (not so correlated)
+pairs(cbind(rp.u[,1:3], exact.u[,1:3]))
 
-# about 10 if k=200
-plot(udv$d[1:(k-10)], log="xy", main=paste("Exact Singular Values of W, k=",k),
-	xlab="Index of Singular Value", ylab="Exact Singular Value") 
+# Because of diffuse spectrum, don't recover the full spaces.
+par(mfrow=c(3,1))
+	k <- 200;
+	cca <- cancor(rp.u[,1:k], exact.u[,1:k])
+	plot(cca$cor, xlab="CCA Component", ylab="Canonical Correlation"); 
+	tau <- sum(cca$cor >= 0.90); cat(k, tau, cca$cor[tau],"\n"); abline(v=tau,col="gray",lty=3);
+	k <- 400
+	cca <- cancor(rp.u[,1:k], exact.u[,1:k])
+	plot(cca$cor, xlab="CCA Component", ylab="Canonical Correlation"); 
+	tau <- sum(cca$cor >= 0.90); cat(k, tau, cca$cor[tau],"\n"); abline(v=tau,col="gray",lty=3);
+	k <- 800
+	cca <- cancor(rp.u[,1:k], exact.u[,1:k])
+	plot(cca$cor, xlab="CCA Component", ylab="Canonical Correlation");
+	tau <- sum(cca$cor >= 0.90); cat(k, tau, cca$cor[tau],"\n"); abline(v=tau,col="gray",lty=3);
+reset()
 
+# 200 0.828271    400 0.8840447   800 0.9381313
 
 ##################################################################################
 #
