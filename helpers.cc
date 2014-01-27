@@ -232,23 +232,23 @@ Helper::write_exact_svd_to_path(Vocabulary::SparseMatrix const& B, int nProjecti
 {
   std::ofstream os1 (path + "svd_exact_d_" + tag + ".txt");
   if(!os1)
-    std::cerr << "MAIN: Invalid path. Could not open files for reporting exact SVD of bigram; skipping.\n";
-  else
-  { Eigen::JacobiSVD<Matrix> svd(B, Eigen::ComputeThinU|Eigen::ComputeThinV);
-    Matrix U = svd.matrixU() * Matrix::Identity(B.rows(), nProjections);
-    Matrix V = svd.matrixV() * Matrix::Identity(B.cols(), nProjections);
-    Vector s = svd.singularValues();
-    std::clog << "MAIN: Leading singular values of bigram are " << s.transpose().head(20) << endl;
-    Eigen::IOFormat fmt(Eigen::StreamPrecision,Eigen::DontAlignCols,"\t","\n","","","","");
-    os1 << s.transpose() << std::endl;
-    os1.close();
-    std::ofstream os2 (path + "svd_exact_u_" + tag + ".txt");
-    os2 << U.format(fmt) << std::endl;
-    os2.close();
-    std::ofstream os3 (path + "svd_exact_v_" + tag + ".txt");
-    os3 << V.format(fmt) << std::endl;
-    os3.close();
+  { std::cerr << "MAIN: Invalid path. Could not open files for reporting exact SVD of bigram; skipping calculation.\n";
+    return;
   }
+  Eigen::JacobiSVD<Matrix> svd(B, Eigen::ComputeThinU|Eigen::ComputeThinV);
+  Matrix U = svd.matrixU() * Matrix::Identity(B.cols(), nProjections);
+  Matrix V = svd.matrixV() * Matrix::Identity(B.cols(), nProjections);
+  Vector s = svd.singularValues();
+  std::clog << "MAIN: Leading singular values of bigram are " << s.transpose().head(20) << endl;
+  Eigen::IOFormat fmt(Eigen::StreamPrecision,Eigen::DontAlignCols,"\t","\n","","","","");
+  os1 << s.transpose() << std::endl;
+  os1.close();
+  std::ofstream os2 (path + "svd_exact_u_" + tag + ".txt");
+  os2 << U.format(fmt) << std::endl;
+  os2.close();
+  std::ofstream os3 (path + "svd_exact_v_" + tag + ".txt");
+  os3 << V.format(fmt) << std::endl;
+  os3.close();
 }
 
 

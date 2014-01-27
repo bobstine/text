@@ -154,15 +154,17 @@ dore:  $(outREPath)$(nProj).txt
 
 # --- lsa regressions   (dummy targets used to date stamp for linear/quadratic choice in dolsa)
 
-$(outREPath)L$(nProj).txt: lsa_regr $(rfile) 
-	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(nProj) --power_iter 1 --adjustment 's'
+lsaProj = 25
+
+$(outREPath)L$(lsaProj).txt: lsa_regr $(rfile) 
+	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(lsaProj) --power_iter 1 --adjustment 's' --min_frequency 3
 	date >> $@
 
-$(outREPath)Q$(nProj).txt: lsa_regr $(rfile) 
-	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(nProj) --power_iter 0 --quadratic --min_frequency 3
+$(outREPath)Q$(lsaProj).txt: lsa_regr $(rfile) 
+	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(lsaProj) --power_iter 0 --quadratic --min_frequency 3
 	date >> $@
 
-dolsa:  $(outREPath)L$(nProj).txt $(temppath)$(city).txt
+dolsa:  $(outREPath)L$(lsaProj).txt $(temppath)$(city).txt
 	echo '---- LSA analysis ----' 
 
 

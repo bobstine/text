@@ -101,7 +101,7 @@ int main(int argc, char** argv)
     std::ifstream is(fileName);
     vocabulary.fill_sparse_regr_design_from_stream(Y, W, nTokens, is, sumToOne);
     std::clog << "MAIN: Number tokens in first docs are "        << nTokens.head(5).transpose() << endl;
-    std::clog << "MAIN: Leading block of the LSA matrix after tf-idf adjustment: \n" << W.block(0,0,5,10) << endl;
+    std::clog << "MAIN: Leading block of the raw LSA matrix W[" << W.rows() << "," << W.cols() << "] \n" << W.block(0,0,5,10) << endl;
   }
 
   // adjustments to the elements of the term-document matrix
@@ -128,7 +128,7 @@ int main(int argc, char** argv)
   }
   
   if (true) // compute exact SVD decomposition
-  { std::clog << "MAIN: Computing exact SVD of bigram matrix begins.\n";
+  { std::clog << "MAIN: Computing exact SVD of document-term matrix W begins.\n";
     Helper::write_exact_svd_to_path(W, nProjections, outputPath, wTag);
   }
 
@@ -221,11 +221,11 @@ int main(int argc, char** argv)
       string label;
       char varSymbol;
       if (quadratic)
-      { label = "lsaq_" + wTag + powerTag;  varSymbol = 'Q'; }
+      { label = "lsaq_" + wTag;  varSymbol = 'Q'; }
       else
-      { label = "lsa_"  + wTag + powerTag; varSymbol = 'L'; }
+      { label = "lsa_"  + wTag; varSymbol = 'L'; }
       string dim  (std::to_string(nProjections));
-      std::ofstream os (outputPath + label + "_" + dim + ".txt");
+      std::ofstream os (outputPath + label + "_" + dim + powerTag + ".txt");
       os << varSymbol << "0";
       for(int i=1; i<P.cols(); ++i) os << "\t" << varSymbol << i;
       os << endl << P.format(fmt) << endl;
