@@ -351,15 +351,16 @@ exact.u <- read.table("~/C/text/text_src/temp/ChicagoOld3/svd_exact_u_raw.txt");
 rp.u <- as.matrix(read.table("~/C/text/text_src/temp/ChicagoOld3/lsa_raw_1500_p1.txt",header=TRUE)); dim(rp.u)
 
 # spectrum is diffuse
-plot(exact.d[1:500], log="y", ylab="Singular Value")
+plot(exact.d[1:5000], log="xy", ylab="Singular Value")
 
 # relate to U vectors found by random projection (not so correlated)
-pairs(cbind(rp.u[,1:3], exact.u[,1:3]))
+pairs(cbind(exact.u[,1:3], rp.u[,1:3]))
+cor(cbind(exact.u[,1],rp.u[,1:5]))[1,]
 
-# Because of diffuse spectrum, don't recover the full spaces.
+# Because of diffuse spectrum, don't recover the full spaces.         approx.pdf
 par(mfrow=c(3,1))
 	k <- 200;
-	cca <- cancor(rp.u[,1:k], exact.u[,1:k])
+	cca <- cancor(rp.u[,1:k], exact.u[,1:k]); cca$cor[1:5]
 	plot(cca$cor, xlab="CCA Component", ylab="Canonical Correlation"); 
 	tau <- sum(cca$cor >= 0.90); cat(k, tau, cca$cor[tau],"\n"); abline(v=tau,col="gray",lty=3);
 	k <- 400
@@ -373,6 +374,36 @@ par(mfrow=c(3,1))
 reset()
 
 # 200 0.828271    400 0.8840447   800 0.9381313
+
+# use R to find SVD based on the output of the random projection
+k <- 400; udv <- svd(rp.u[,1:k])
+cor(cbind(exact.u[,1],(udv$u)[,1:5]))[1,]
+
+# not very close; [1]  1.00000000  0.16393849  0.11072754 -0.15511824 -0.09174562 -0.01180797
+
+
+# --- but does it matter for the regression: ie, better with exact SVD?
+
+p    <- 200
+lsa  <- as.matrix(exact.u[,1:p])
+sr   <- summary(regr.ex <- lm(logPrice ~ poly(logTokens,5) + lsa , x=TRUE, y=TRUE)); sr  
+
+lsa  <- as.matrix(rp.u[,1:p])
+sr   <- summary(regr.rp <- lm(logPrice ~ poly(logTokens,5) + lsa , x=TRUE, y=TRUE)); sr  
+
+	
+par(mfrow=c(1,2))    # regrW.pdf
+	y <- abs(coefficients(sr)[-(1:6),3])
+	x <- 1:length(y)
+	plot(x,y, 
+		xlab="LSA Predictor", ylab="|t|", main="")
+		abline(h=-qnorm(.025/(nProj/2)), col="gray", lty=3)
+		abline(h=sqrt(2/pi), col="cyan")
+		lines(lowess(x,y,f=0.3), col="red")
+	half.normal.plot(y,height=5)
+reset()
+
+
 
 ##################################################################################
 #
