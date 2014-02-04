@@ -15,12 +15,12 @@ reset <- function() {
 
 half.normal.plot <- function(y, height=2) {
 	k <- length(y)          
-	plot(x <- qnorm(.5+(0:(k-1))/(2*k)), y <- sort(y), 
+	plot(x <- qnorm(.5+(0:(k-1))/(2*k)), y <- sort(y), cex=0.5, col="darkgray",
 		xlab="Normal Quantile", ylab="Sorted |t|"); 
-	k <- floor(0.2*k)
+	k <- floor(0.25*k)
 	cat("Using lower 20% of cases (",k,")\n"); 
 	regr <- lm(y[1:k] ~ x[1:k])
-	abline(0,1, col="gray")
+	abline(0,1, col="black", lty=2)
 	abline(regr,col="red")
 	text(0.25,height,paste("b =",round(coefficients(regr)[2],1)), cex=0.7)
 	summary(regr)

@@ -80,7 +80,7 @@ int main(int argc, char** argv)
   
   if (false) // exact decomposition via SVD
   { std::clog << "MAIN: Computing exact SVD of bigram matrix begins.\n";
-    Helper::write_exact_svd_to_path(B, nProjections, outputPath);
+    Helper::write_exact_svd_to_path(B, nProjections, outputPath, "raw");
   }
 
   // form random projections of bigram matrix
@@ -131,21 +131,31 @@ int main(int argc, char** argv)
   }
   
   // optionally track R2 sequence of regression models for words
-  if (false)
+  if (true)
   { const int nColsRegr = 3000;
     Eigen::VectorXd YY(nLines), mm(nLines);                // put into double and take log for regression code
     for(int i=0; i<nLines; ++i)
     { YY(i) = log(Y(i));
-      mm(i) = nTokens(i);
+      mm(i) = log(nTokens(i));
     }
+    mm = mm.array() - mm.sum()/mm.size();                  // center to reduce collinearity
     bool reverse (false);                                  // reverse tests low frequency words first
     std::string fileName (outputPath + "word_regr_fit_");
     if (nTokens.size() > 0) fileName += "with_m";
     else              fileName += "no_m";
     if (reverse) fileName += "_rev.txt";
     else         fileName += "_for.txt";
-    Helper::calculate_sequence_r2 (YY, mm, reverse, W, vocabulary, nColsRegr, fileName);
+    const int degree = 5;
+    Helper::calculate_sequence_r2 (YY, mm, degree, reverse, W, vocabulary, nColsRegr, fileName);
   }
+
+  //
+  //   Using to get only the sequence of R2 stats
+  //
+  return 0;
+  //
+  //
+
   
   // optionally write W to file
   if (false)

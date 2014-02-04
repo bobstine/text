@@ -5,6 +5,8 @@ source("/Users/bob/C/text/functions.R")
 #
 #		Quadratic not so useful: maybe just too sparse?
 #
+
+
 ##################################################################################
 # linear and quadratic lsa results, real estate
 ##################################################################################
@@ -52,20 +54,22 @@ plot(coefficients(sr)[-1,3],coefficients(srw)[-1,3])
 text(coefficients(sr)[ 2,3],coefficients(srw)[ 2,3], "M")
 
 
-par(mfrow=c(1,2))    # regrW.pdf
-	y <- abs(coefficients(sr)[-(1:3),3])
+quartz(width=6.5,height=3); reset()
+par(mfrow=c(1,2))                                   #        regrW.pdf
+	y <- abs(coefficients(sr)[-(1:7),3])
 	x <- 1:length(y)
-	plot(x,y, 
+	plot(x,y, cex=0.25, col="darkgray",
 		xlab=name, ylab="|t|", main="")
-		abline(h=-qnorm(.025/(nProj/2)), col="gray", lty=3)
-		abline(h=sqrt(2/pi), col="cyan")
-		lines(lowess(x,y,f=0.3), col="red")
+		abline(h=-qnorm(.025/length(y)), col="black", lty=4)
+		abline(h=sqrt(2/pi), col="black", lty=2)
+		smth <- loess(y~x,span=0.5)
+		lines(predict(smth), col="red")
 	half.normal.plot(y,height=5)
 reset()
 
 
 ##################################################################################
-# quadratc lsa comparison
+# quadratic lsa comparison
 ##################################################################################
 
 #  X is linear, Xq is quadratic (no weights)
@@ -142,14 +146,15 @@ sr <- summary(r <- lm(Y ~ M + lM + X [,1: 500])); sr  #	0.706	0.708	0.698	0.689	
 sr <- summary(r <- lm(Y ~ M + lM + X [,1:1000])); sr  #	0.733	0.737	0.729	0.712	0.732
 
 
-par(mfrow=c(1,2))    # regrW.pdf
-	y <- abs(coefficients(sr)[-(1:3),3])
+quartz(width=6.5,height=3); reset()
+par(mfrow=c(1,2))                                   #        regrW.pdf
+	y <- abs(coefficients(sr)[-(1:7),3])
 	x <- 1:length(y)
-	plot(x,y, 
+	plot(x,y, cex=0.25, col="darkgray",
 		xlab=name, ylab="|t|", main="")
-		abline(h=-qnorm(.025/(nProj/2)), col="gray", lty=3)
-		abline(h=sqrt(2/pi), col="cyan")
-		lines(lowess(x,y,f=0.3), col="red")
+		abline(h=-qnorm(.025/length(y)), col="black", lty=4)
+		abline(h=sqrt(2/pi), col="black", lty=2)
+		smth <- loess(y~x,span=0.5)
+		lines(predict(smth), col="red")
 	half.normal.plot(y,height=5)
 reset()
-

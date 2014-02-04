@@ -138,22 +138,21 @@ int main(int argc, char** argv)
   { std::clog << "MAIN: Computing left singular vectors of L by random projection";
     if (powerIterations) std::clog << " with power iterations.\n" ; else std::clog << ".\n";
     print_with_time_stamp("Starting base linear random projection", std::clog);
-    Matrix R = W * Matrix::Random(W.cols(), P.cols());    
-    print_with_time_stamp("Completed base linear random projection", std::clog);
+    P = W * Matrix::Random(W.cols(), nProjections);    
     while (powerIterations--)
-      R = W * W.transpose() * R;
-    print_with_time_stamp("Preparing Householder step of iterated random projection", std::clog);
-    P = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());  // block does not work; use to get left P.cols()
-    std::clog << "MAIN: Checking norms after Household orthgonalization in random projection; 0'0="
+    { print_with_time_stamp("Performing W W' multiplication for power iteration", std::clog);
+      Matrix R = W * (W.transpose() * P);
+      print_with_time_stamp("Performing Householder step of iterated random projection", std::clog);
+      P = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());  // block does not work; use to get left P.cols()
+    }
+    std::clog << "MAIN: Check norms after Householder orthgonalization in random projection; 0'0="
 	      << P.col(0).dot(P.col(0)) << "   0'1=" << P.col(0).dot(P.col(1)) << "   1'1=" << P.col(1).dot(P.col(1)) << std::endl;
     Matrix B = P.transpose() * W;
     print_with_time_stamp("Computing SVD of reduced B matrix", std::clog);
     Eigen::JacobiSVD<Matrix> svd(B, Eigen::ComputeThinU|Eigen::ComputeThinV);
     Matrix U = svd.matrixU()  ;   // nProjections x nProjections
-    std::cout << "DEBUG: svd u dim " << U.rows() << "," << U.cols() << "    B dim " << B.rows() << "," << B.cols()
-	      << "      P dims " << P.rows() << "," << P.cols() << " with nProjections = " << nProjections << std::endl;
     P = P * U;
-    print_with_time_stamp("Completed", std::clog);
+    print_with_time_stamp("Completed SVD of random projection", std::clog);
   }
   else  // quadratic
   { std::clog << "MAIN: Computing random projection of " << (W.cols()*(W.cols()+1))/2 << " quadratics (excludes linear).";

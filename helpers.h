@@ -32,7 +32,7 @@ namespace Helper
     calculate_sequence_r2 (Eigen::VectorXd const& Y, Eigen::VectorXd tokenCount, std::string xLabel, Eigen::MatrixXf X, std::string file);
   
   void
-    calculate_sequence_r2 (Eigen::VectorXd const& Y, Eigen::VectorXd tokenCount, bool reverse, Vocabulary::SparseMatrix const& W,
+    calculate_sequence_r2 (Eigen::VectorXd const& Y, Eigen::VectorXd tokenCount, int degree, bool reverse, Vocabulary::SparseMatrix const& W,
 			   Vocabulary const& vocab, int nToFit, std::string file);
 
   
