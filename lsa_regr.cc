@@ -46,6 +46,8 @@ parse_arguments(int argc, char** argv,
   
 int main(int argc, char** argv)
 {
+  std::clog << "MAIN: Eigen will use " << Eigen::nbThreads() << " threads.\n";
+  
   // read input options
   string fileName        (  ""   );  // used to build regression variables from document text (leading y_i)
   int    nSkipInitTokens (   1   );  // regression response at start of line (to isolate y_i from vocab)
