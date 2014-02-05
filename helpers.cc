@@ -194,7 +194,7 @@ Helper::calculate_sequence_r2 (Eigen::VectorXd const& Y, Eigen::VectorXd tokenCo
   std::clog << "MAIN: Top of calculate_sequence_r2 loop; fitting " << nToFit << " word regressors.\n";
   std::ofstream os(file);
   if ((file.size()>0) && (!os)) std::clog << "MAIN: Could not open file " << file << " for writing r2 sequence.\n";
-  if (os)  os << "Type  r2  RSS AICc\n";
+  if (os)  os << "Type  r2 adjR2  RSS q AICc\n";
   LinearRegression regr("log price", Y, 0);
   if (tokenCount.size() > 0)
   { std::clog << "MAIN: Calculate_sequence_r2 adjusted for total word count.\n";
@@ -207,7 +207,7 @@ Helper::calculate_sequence_r2 (Eigen::VectorXd const& Y, Eigen::VectorXd tokenCo
       x = x.cwiseProduct(tokenCount);
     }
     if (os)
-      os << "Tokens " << regr.r_squared() << " " << regr.residual_ss() << " " << regr.aic_c() << endl;
+      os << "Tokens " << regr.r_squared() << " " << regr.adj_r_squared() << " " << regr.residual_ss() << " " << regr.q() << " " << regr.aic_c() << endl;
   }    
   const int k = W.cols();
   Vocabulary::TypeVector tv = vocab.types();
@@ -226,7 +226,7 @@ Helper::calculate_sequence_r2 (Eigen::VectorXd const& Y, Eigen::VectorXd tokenCo
     if(f.f_stat() > 0.00001) regr.add_predictors();
     else std::clog << "MAIN: F = " << f.f_stat() << " for word j=" << index << ", type=" << tv[index] << " is (near) singular in sequence r2 and skipped.\n";
     if (os)
-      os << tv[index] << " " << regr.r_squared() << " " << regr.residual_ss() << " " << regr.aic_c() << endl;
+      os << tv[index] << " " << regr.r_squared() << " " << regr.adj_r_squared() << " " << regr.residual_ss() << " " << regr.q() << " " << regr.aic_c() << endl;
   }
   std::clog << "MAIN: Regression on W completed with results written to " << file << ".\n";
 }

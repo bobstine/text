@@ -165,8 +165,9 @@ word.regression <- function () {
 	colnames(W)[c(1,2,5)] <- c(".period.",".comma.",".exclamation.")
 	colnames(W)[1:10]
 
-# --- check some fits
-	sr <- summary(lm(logPrice ~ poly(logTokens,5) + W[,1:10])); sr
+# --- check some fits; 5th degree from C++ with centering gets diff R2
+	sr <- summary(lm(logPrice ~ poly(logTokens,5)           )); sr
+	sr <- summary(lm(logPrice ~ poly(logTokens,5) + W[, 1:2])); sr
 	sr <- summary(lm(logPrice ~ poly(logTokens,5) + W[,1:20])); sr
 
 # --- sequence of R2 statistics (rest done in C++)
@@ -182,47 +183,78 @@ word.regression <- function () {
 		if(0 == (j%%50)) cat("j=",j,"\n")
 	}
 	
-	plot(c(r2.0,r2))
-	
 	
 # --- plot cum R2 statistic, AICc  (must patch """ in source file)
-r2.words.for <- read.table("/Users/bob/C/text/text_src/temp/word_regr_fit_with_m_for.txt", 
-							header=TRUE, as.is=TRUE)
-nrf <- nrow(r2.words.for);
-r2.words.for[c(1,2,3,4,5,10,100,nrf),]
-r2.words.rev <- read.table("/Users/bob/C/text/text_src/temp/word_regr_fit_with_m_rev.txt", 
-							header=TRUE, as.is=TRUE)
-nrr <- nrow(r2.words.rev);
-r2.words.rev[c(1,2,3,4,5,10,100,nrr),]
+	r2.words.for <- read.table(paste(path,"word_regr_fit_with_m_for.txt",sep=""),header=TRUE, as.is=TRUE)
+	nrf <- nrow(r2.words.for);
+	r2.words.for[c(1,2,3,4,5,10,100,nrf),]
+	r2.words.rev <- read.table(paste(path,"word_regr_fit_with_m_rev.txt",sep=""),header=TRUE, as.is=TRUE)
+	nrr <- nrow(r2.words.rev);
+	r2.words.rev[c(1,2,3,4,5,10,100,nrr),]
 
-i <- c(1,2,3,4,5,10,100,500)
-cbind(r2.words.for[1+i,],r2.words.rev[nrr-i+1,])
-sum(0 == diff(r2.words.for[,"RSS"]))  # how many add nothing
-sum(0 == diff(r2.words.rev[,"RSS"]))  # how many add nothing
+	i <- c(1,2,3,4,5,10,100,500)
+	cbind(r2.words.for[1+i,],r2.words.rev[nrr-i+1,])
+	sum(0 == diff(r2.words.for[,"RSS"]))  # how many add nothing
+	sum(0 == diff(r2.words.rev[,"RSS"]))  # how many add nothing
 
-mx <- r2.words.for[nrf,"r2"]                                           # cum_r2.pdf
-plot (c(0,r2.words.for[,"r2"]), type="l", xlab="Word Index", ylab="Cumulative R2")
-lines(cumsum(c(r2.words.rev[1,"r2"],rev(diff(c(0,r2.words.rev[,"r2"]))[-1]))), col="gray")
-lines(c(0,r2.words.rev[,"r2"]), col="black", lty=4)
+	quartz(height=3.5, width=6); reset()
+	mx <- r2.words.for[nrf,"r2"]                                           [ cumr2.pdf ]
+	plot (c(0,r2.words.for[,"r2"]), type="l", xlab="Word Frequency Rank", ylab="Cumulative R-Squared")
+	lines(cumsum(c(r2.words.rev[1,"r2"],rev(diff(c(0,r2.words.rev[,"r2"]))[-1]))), col="black")
+	lines(c(0,r2.words.rev[,"r2"]), col="black", lty=2)
 
-plot(r2.words.for[,"AICc"], type="l", xlab="Word Index", ylab="AICc")  # aic_words.pdf
-lines( r2.words.rev[,"AICc"] , col="black", lty=4)
-opt.k <- which.min(r2.words.for[,"AICc"])    # 1094
-lines(c(opt.k,opt.k), c(0,4500), col="gray")
+	plot(r2.words.for[,"AICc"], type="l", xlab="Word Frequency Rank", ylab="AICc")  [ aicwords.pdf ]
+	# lines( r2.words.rev[,"AICc"] , col="black", lty=4)
+	opt.k <- which.min(r2.words.for[,"AICc"])    # 1094
+	r2.words.for[opt.k,]
+	lines(c(opt.k,opt.k), c(0,4500), col="gray")
 
-# --- regression with W count matrix  (have to remove """ from type names in source)
-W <- as.matrix(read.table("/Users/bob/C/text/text_src/temp/w5708.txt", header=TRUE)); dim(W)
+# --- explore fit chosen by AICc
+	sr.opt <- summary(regr.opt<-lm(logPrice ~ poly(logTokens,5) + W[,1:opt.k]));
+	plot(regr.opt)
+	plot(fitted.values(regr.opt), abs(residuals(regr.opt)))
 
-# --- compare fits at AIC min to 2000
-#  sr$r.squared  =  0.7667; 0.7708 w log   sr.1200$r.squared = 0.7020
-sr     <- summary(  mwregr  <-lm(logPrice ~ nTokens + W          , x=TRUE,y=TRUE));
-sr.opt <- summary(mwregr.opt<-lm(logPrice ~ nTokens + W[,1:opt.k], x=TRUE,y=TRUE));
+# --- use forward stepwise (it will complain about singularities)
+	p <- 1000
+	logt <- logTokens-mean(logTokens)	
+	X <- cbind(logt, logt^2, logt^3, logt^4, logt^5, W[,1:p])
+	colnames(X) <- c("logToken", "logToken2", "logToken3","logToken4","logToken5",colnames(W[,1:p]))
 
-anova(mwregr.opt,mwregr)  # F=1.93 with p<0.001 and 888,5404 df
-
+	sw <- regsubsets(y=logPrice,x=X, nbest=1, nvmax=150, force.in=1:5, method="forward")
+	ssw<- summary(sw)   # summary is more helpful
+	
+	# example model (which holds boolean for which are in model)
+	xNames <- colnames(X)[ssw$which[2,-1]]; xNames # drop first col for intercept
+	summary(lm(logPrice ~ X[,xNames]))
+	
+	# ferret out names of added variables
+	all.names <- c("Intercept",colnames(X))
+	pick.names<- rep("", length(ssw$rsq))
+	pick.names[1] <- all.names[ssw$which[1,]][7]
+	for(j in 2:length(pick.names)) { pick.names[j] <- all.names[which(1==(ssw$which[j,]-ssw$which[j-1,]))]}
+	
+	# incremental t-stats
+	n <- length(logPrice)
+	k <- length(ssw$rss)
+	e <- residuals(lm(logPrice ~ poly(logTokens,5))); 
+	rss <- c(sum(e*e),ssw$rss)    # start counting from poly model
+	t.stat <- as.vector(sqrt(-diff(rss)/(rss[-1]/(df <- n-6-1:k))))
+	tau <- qt(1-.025/p,  df=2000)
+	plot(t.stat,col=c("black","red")[1+as.numeric(t.stat<tau)], 
+		xlab="Forward Stepwise Step", ylab="t-statistic")
+	text(5+1:length(t.stat), 0.2+t.stat, pick.names, cex=0.5)
+	i.opt <- which(t.stat<tau)[1]
+	abline(h=tau, col="red")
+	
+	# model picked by stepwise (78 variables added, not shown in order picked by stepwise, adj r2 = 0.576)
+	sum(ssw$which[i.opt,-1])
+	xNames <- colnames(X)[ssw$which[i.opt,-1]]; xNames # drop first col for intercept
+	summary(lm(logPrice ~ X[,xNames]))
+	
+	
 # --- cross-validation
-mse     <- show.cv(mwregr,    reps=2,seed=33213); mean(mse$mse)    #  0.7142
-mse.opt <- show.cv(mwregr.opt,reps=2,seed=33213); mean(mse.opt$mse) # 0.6457
+mse     <- show.cv(mwregr,    reps=2,seed=33213); mean(mse$mse)     #  0.7142
+mse.opt <- show.cv(mwregr.opt,reps=2,seed=33213); mean(mse.opt$mse) #  0.6457
 
 show.cv(regr.lsa, mse=save.mse$mse, reps=20, seed=33213)  # use if already computed
 

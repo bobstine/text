@@ -7,6 +7,8 @@
 library(car)
 library(xtable)    # latex tables
 library(MASS)
+library(leaps)
+
 
 reset <- function() {
 	# par(mfrow=c(1,1), mgp=c(3,1,0), mar=c(5,4,4,2)+0.1)      # default
