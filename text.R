@@ -166,14 +166,47 @@ word.regression <- function () {
 	colnames(W)[c(1,2,5)] <- c(".period.",".comma.",".exclamation.")
 	colnames(W)[1:10]
 
+# --- simple composition analysis  
+	short <- which((20<nTokens) & (nTokens<60)); length(short)
+	long  <- which((80<nTokens) & (nTokens<150)); length(long)
+	
+	j <- 11:410
+	p.long <- apply(W[long ,j],2,sum); p.long <- p.long/sum(p.long)
+	p.short<- apply(W[short,j],2,sum); p.short<-p.short/sum(p.short)
+	
+	plot(p.long, p.short, log="xy", sub="400 common word types", pch=NA,
+		xlab="Word Type Proportions, LONG docs",ylab="Word Type Proportions, SHORT docs")
+	abline(a=0,b=1)	
+	text(p.long, p.short,colnames(W)[j],cex=0.8)
+	
+	# transform as in Aitchison 82, but way too many zeros
+	j <- 10:50; n.j <- length(j)
+	W.common <- cbind(W[,j],nTokens-apply(W[,j],1,sum))
+	W.common <- W.common/matrix(nTokens,nrow=nrow(W.common), ncol=n.j+1, byrow=FALSE)
+	
+	trans <- function(freq) { freq <- pmax(freq,0.0001); log(freq/freq[n.j+1]) }
+	for(r in 1:nrow(W.common)) {
+		W.common[r,] <- trans(W.common[r,]) }	
+	j <- 4;
+	d.short <- density(W.common[short,j])
+	d.long  <- density(W.common[ long,j])
+	plot(d.short, type="l"); lines(d.long)
+	
 # --- check some fits; 5th degree from C++ with centering gets diff R2
 	sr <- summary(lm(logPrice ~ poly(logTokens,5)           )); sr
 	sr <- summary(lm(logPrice ~ poly(logTokens,5) + W[, 1:2])); sr
 	sr <- summary(lm(logPrice ~ poly(logTokens,5) + W[,1:20])); sr
-
+	
+# --- see how well words describe length (duh)... only interesting for PCs
+	sr <- summary(regr <- lm(nTokens ~ W[,1:100])); sr
+	plot(regr)
+	sr <- summary(lm(logPrice ~ poly(logTokens,1)           )); sr
+	sr <- summary(lm(logPrice ~ poly(logTokens,5)           )); sr
+	
 # --- sequence of R2 statistics (rest done in C++)
 	W.scaled <- W / matrix(nTokens,nrow=nrow(W), ncol=ncol(W), byrow=FALSE)  # rows sum to 1
-	df <- as.data.frame(cbind(logPrice,logTokens,W.scaled))
+	
+	df <- as.data.frame(cbind(logPrice,logTokens,W))
 	
 	k <- 100;
 	r2.len <- rep(0,k);
@@ -193,6 +226,15 @@ word.regression <- function () {
 	
 	plot(r2.len, xlim=c(0,100)); points(r2.none,col="red")
 	plot((r2.len - r2.none)[1:100], ylim=c(0,0.20), ylab="Increase in R2 with Length", xlab="Num Words")
+	
+	# calibrate the model with none
+	summary(regr.none)$r.squared
+	yhat <- fitted.values(regr.none)
+	plot(logPrice ~ yhat)
+	abline(a=0,b=1,col="blue") 
+	regr <- lm(logPrice ~ poly(yhat,5)); summary(regr)
+	o <- order(yhat);
+	lines(yhat[o],fitted.values(regr)[o],col="red")
 	
 # --- plot cum R2 statistic, AICc  (must patch """ in source file)
 	r2.words.for <- read.table(paste(path,"word_regr_fit_with_m_for.txt",sep=""),header=TRUE, as.is=TRUE)
@@ -953,81 +995,76 @@ eigens <- ewords[,2:30]
 
 
 ##################################################################################
-#
-# Simulate data from topic model
-#
+# Analysis of text regressors for wine
 ##################################################################################
-                                                      topic.model <- function() { }
+											wine.model <- function() {}
+nProj <- 500
 
-# --- functions
+file  <- paste("/Users/bob/C/text/text_src/temp/wine_regr.txt",sep="")
 
-rdirichlet <- function(a) {
-    y <- rgamma(length(a), a, 1)
-    return(y / sum(y))
-}
+Data <- read.table(file, header=TRUE); dim(Data)
 
-word.indices <- function(topics, P) { 
-	# generate word by sampling distribution of topics
-	M <- ncol(P); m<-length(topics) 
-	z<-rep(0,m); 
-	for(t in 1:m) z[t]<-sample(M,1,prob=P[topics[t],])
-	z
-}
+n <- nrow(Data)
+rating    <- Data[,"Y"]
+nTokens   <- Data[,"m"]
 
-# --- constants
+hist(rating)  ; mean(rating)   # ≈87, more bell-shaped
+hist(nTokens) ; mean(nTokens)  # ≈42
 
-beta <- c(1, 1, 1, 2, 2, 2, 3, 3,-2,-3) 	# topic weights
-K    <- length(beta)		# number of topics
+# --- regression data
+kw <- 250
+x.lsa.    <- as.matrix(Data[,paste("D",0:(kw-1), sep="")]); 
+dim(x.lsa.)
 
-M <- 2000					# word types in vocabulary
-n <- 6000					# num of documents
+kb <- 250
+x.bigram. <- as.matrix(cbind(	Data[,paste("BL",0:(kb-1), sep="")],
+									Data[,paste("BR",0:(kb-1), sep="")]  ))
+dim(x.bigram.)
 
-# --- topic distributions over words in K x M matrix P
-P <- matrix(0, nrow=K, ncol=M)
-                                              # generate words shared by topics
-n.common <-     0                             # number shared words 
-common <- c(rdirichlet( rep(2,n.common) ), rep(0,M-n.common) ) 
-alpha <- rep(.05, M)			                  # dirichlet parms, small alpha are spiky
-for(k in 1:K) P[k,] <- (common + rdirichlet(alpha))/2
-if(n.common==0) P <- 2 * P
-round(P[1:10,1:12],3); apply(P,1,sum)         # prob dist so sum to 1
+#    LSA regression
+regr <- lm(rating ~ x.lsa.)
+s <- summary(regr); s
 
-#     check dependence/correlation among distributions
-udv <- svd(P); plot(udv$d); 
-#     common words along diagonal
-round(cor(t(P)),2);  plot(jitter(P[1,]),jitter(P[2,]), main="Scatter of Two Dist")
-round(udv$u[,1],4); 
-plot(udv$v[,1])    # common words are the leading n.col values
+par(mfrow=c(1,2))    # LSA
+	y <- abs(coefficients(s)[-1,3])[1:(nProj/2)]                                
+	plot( 
+		x <- rep(1:length(y)), y, 
+		xlab="Wine Regr, LSA variables", ylab="|t|", main="")
+		abline(h=-qnorm(.025/length(y)), col="gray", lty=3)
+		lines(lowess(x,y), col="red")
+	half.normal.plot(y, height=5)
+reset()
+
+#    CCA of bigram variables
+left  <-   1        : (nProj/2)
+right <- (nProj/2+1):  nProj
+ccw <- cancor(x.bigram.[,left], x.bigram.[,right]); 
+plot(ccw$cor, xlab="Canonical Variable", ylab="Canonical Correlation")           # simccab.pdf
+
+cl <- x.bigram.[, left] %*% ccw$xcoef		# canonical vars
+cr <- x.bigram.[,right] %*% ccw$ycoef
+
+regr.cl <- lm(rating ~ cl)
+s.cl <- summary(regr.cl); s.cl
+
+par(mfrow=c(1,2))    # Left bigram, after CCA
+	y <- abs(coefficients(s.cl)[-1,3])[1:(nProj/2)]                                
+	plot( 
+		x <- rep(1:length(y)), y, 
+		xlab="Wine Regr, Bigram variables (left, after CCA)", ylab="|t|", main="")
+		abline(h=-qnorm(.025/length(y)), col="gray", lty=3)
+		lines(lowess(x,y), col="red")
+	half.normal.plot(y, height=5)
+reset()
+
+regr <- lm(rating ~ cl + cr)
+s <- summary(regr); s
 
 
-# --- Z[i,] is distribution of topics in document i (random Dirichlet)
-Z <- matrix(0, nrow=n, ncol=K);
-for(i in 1:n) Z[i,] <- rdirichlet( rep(1/10,K) )
-
-#     Y is the response
-Y <- Z %*% beta + rnorm(n,sd=0.5)
-
-#     check "true" model; sum of the X's = 1 so no intercept, R2 around 90%
-summary(regr <- lm(Y ~ Z - 1))
 
 
-# --- simulate documents; lengths of the documents (neg bin)
-vocab <- paste("w",1:M,sep="")
-m <- rpois(n,lambda=rgamma(n,30,1))
 
-# words in doc assigned to topic, then pick word for that topic
-docs <- rep("",n)
-n.topics <- rep(0,n)
-for(i in 1:n) {
-	topics <- sample(K, m[i], replace=TRUE, prob=Z[i,]); 
-	n.topics[i] <- length(unique(topics))
-	docs[i] <- paste(round(Y[i],3), paste(vocab[word.indices(topics,P)], collapse=" "), sep=" ")
-	}
-# count avg number unique topics
-hist(n.topics); mean(n.topics)
-	
-# write words to file with response
-write(docs,"/Users/bob/C/text/text_src/sim/sim.txt")
+
 
 
 # --- Analysis of C++ results
@@ -1160,79 +1197,6 @@ par(mfrow=c(1,2))    # noise plots
 		lines(lowess(x,y), col="red")
 	half.normal.plot(y, height=5)
 reset()
-
-
-
-##################################################################################
-# Analysis of text regressors for wine
-##################################################################################
-											wine.model <- function() {}
-nProj <- 500
-
-file  <- paste("/Users/bob/C/text/text_src/temp/wine_regr.txt",sep="")
-
-Data <- read.table(file, header=TRUE); dim(Data)
-
-n <- nrow(Data)
-rating    <- Data[,"Y"]
-nTokens   <- Data[,"m"]
-
-hist(rating)  ; mean(rating)   # ≈87, more bell-shaped
-hist(nTokens) ; mean(nTokens)  # ≈42
-
-# --- regression data
-kw <- 250
-x.lsa.    <- as.matrix(Data[,paste("D",0:(kw-1), sep="")]); 
-dim(x.lsa.)
-
-kb <- 250
-x.bigram. <- as.matrix(cbind(	Data[,paste("BL",0:(kb-1), sep="")],
-									Data[,paste("BR",0:(kb-1), sep="")]  ))
-dim(x.bigram.)
-
-#    LSA regression
-regr <- lm(rating ~ x.lsa.)
-s <- summary(regr); s
-
-par(mfrow=c(1,2))    # LSA
-	y <- abs(coefficients(s)[-1,3])[1:(nProj/2)]                                
-	plot( 
-		x <- rep(1:length(y)), y, 
-		xlab="Wine Regr, LSA variables", ylab="|t|", main="")
-		abline(h=-qnorm(.025/length(y)), col="gray", lty=3)
-		lines(lowess(x,y), col="red")
-	half.normal.plot(y, height=5)
-reset()
-
-#    CCA of bigram variables
-left  <-   1        : (nProj/2)
-right <- (nProj/2+1):  nProj
-ccw <- cancor(x.bigram.[,left], x.bigram.[,right]); 
-plot(ccw$cor, xlab="Canonical Variable", ylab="Canonical Correlation")           # simccab.pdf
-
-cl <- x.bigram.[, left] %*% ccw$xcoef		# canonical vars
-cr <- x.bigram.[,right] %*% ccw$ycoef
-
-regr.cl <- lm(rating ~ cl)
-s.cl <- summary(regr.cl); s.cl
-
-par(mfrow=c(1,2))    # Left bigram, after CCA
-	y <- abs(coefficients(s.cl)[-1,3])[1:(nProj/2)]                                
-	plot( 
-		x <- rep(1:length(y)), y, 
-		xlab="Wine Regr, Bigram variables (left, after CCA)", ylab="|t|", main="")
-		abline(h=-qnorm(.025/length(y)), col="gray", lty=3)
-		lines(lowess(x,y), col="red")
-	half.normal.plot(y, height=5)
-reset()
-
-regr <- lm(rating ~ cl + cr)
-s <- summary(regr); s
-
-
-
-
-
 
 
 
