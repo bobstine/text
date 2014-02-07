@@ -23,7 +23,9 @@ lines(x,y,col="red")
 }
 
 ##################################################################################
-# Analysis of text regressors for real estate
+#
+# Response and document lengths
+#
 ##################################################################################
 import.data <- function() { 
 
@@ -159,8 +161,7 @@ word.regression <- function () {
 	nTokens   <- YM[,2];
 	logTokens <- log(YM[,2])
 
-# --- remove the EOL column, relabel others
-	colnames(W)[1:10]
+	colnames(W)[1:10]         	# remove the EOL column, relabel others
 	W <- W[,-7]
 	colnames(W)[c(1,2,5)] <- c(".period.",".comma.",".exclamation.")
 	colnames(W)[1:10]
@@ -171,18 +172,27 @@ word.regression <- function () {
 	sr <- summary(lm(logPrice ~ poly(logTokens,5) + W[,1:20])); sr
 
 # --- sequence of R2 statistics (rest done in C++)
-	df <- as.data.frame(cbind(logPrice,logTokens,W))
+	W.scaled <- W / matrix(nTokens,nrow=nrow(W), ncol=ncol(W), byrow=FALSE)  # rows sum to 1
+	df <- as.data.frame(cbind(logPrice,logTokens,W.scaled))
 	
-	k <- 50;
-	r2 <- rep(0,k);
-	regr <- lm(logPrice ~ poly(logTokens,5), data=df); r2.0 <- summary(regr)$r.squared
+	k <- 100;
+	r2.len <- rep(0,k);
+	regr.len <- lm(logPrice ~ poly(logTokens,5), data=df); r2.poly <- summary(regr.len)$r.squared
+	r2.none<- rep(0,k);
+	regr.none<- lm(logPrice ~ 1, data=df)
 	for(j in 1:k) {
 		f <- paste(". ~ . + ",colnames(W)[j])
-		regr <- update(regr,f,data=df);
-		r2[j] <- summary(regr)$r.squared;
-		if(0 == (j%%50)) cat("j=",j,"\n")
+		regr.len  <- update(regr.len, f,data=df);
+		r2.len[j] <- summary(regr.len)$r.squared;
+		regr.none <- update(regr.none,f,data=df);
+		r2.none[j]<- summary(regr.none)$r.squared;
+		if(0 == (j%%10)) cat("j=",j,"\n")
 	}
+	r2.len  <- c(r2.poly,r2.len)
+	r2.none <- c(  0    ,r2.none)
 	
+	plot(r2.len, xlim=c(0,100)); points(r2.none,col="red")
+	plot((r2.len - r2.none)[1:100], ylim=c(0,0.20), ylab="Increase in R2 with Length", xlab="Num Words")
 	
 # --- plot cum R2 statistic, AICc  (must patch """ in source file)
 	r2.words.for <- read.table(paste(path,"word_regr_fit_with_m_for.txt",sep=""),header=TRUE, as.is=TRUE)
@@ -252,6 +262,44 @@ word.regression <- function () {
 	summary(lm(logPrice ~ X[,xNames]))
 	
 	
+# --- effects of rank-1 update on PCA of W
+#     raw counts     : centering has larger effect than I prefer, but mostly on first component
+#     1/nTokens      :  much larger effect (ie, center the proportions, kinda dumb)
+#     1/sqrt(nTokens):  much larger effect
+
+
+	www <- W[,1:k]
+	
+	udv  <- svd(www)
+	# compare to R's principle components
+	pca  <- princomp(www)
+
+	# center
+	www.c <- www - matrix(apply(www,2,mean), nrow=nrow(www), ncol=k, byrow=TRUE)
+	udvc <- svd(www.c)
+	
+	# check that SVD agrees with PCA if centered 
+	par(mfrow=c(1,2))   
+		j <- 1; 
+		plot(udvc$u[,j],pca$scores[,j], main="Centered")
+		j <- 2; 
+		plot(udvc$u[,j],pca$scores[,j], main="Centered")
+	reset()
+	
+	# compare centered to uncentered
+	par(mfrow=c(2,2))   # effect of centering larger than I would prefer
+		plot(udv$u[,1],udvc$u[,1], ylab="centered #1")
+		plot(udv$u[,2],udvc$u[,2], ylab="centered #2")
+		plot(udv$u[,3],udvc$u[,3], ylab="centered #3")
+		plot(udv$d, udvc$d, xlab="singular values", ylab="centered singular values")
+		abline(a=0,b=1)
+	reset()
+	
+	# repeat, but after rescaled
+	www <- www / matrix(sqrt(nTokens),nrow=nrow(www),ncol=ncol(www), byrow=FALSE)
+	
+	cancor(udv$u[,1:3],udvc$u[,1:3], xcenter=FALSE, ycenter=FALSE)
+	
 # --- cross-validation
 mse     <- show.cv(mwregr,    reps=2,seed=33213); mean(mse$mse)     #  0.7142
 mse.opt <- show.cv(mwregr.opt,reps=2,seed=33213); mean(mse.opt$mse) #  0.6457
@@ -300,20 +348,43 @@ plot(wregr)
 
 lsa.analysis <- function() {
 
-nProj   <- 500
-weights <- "raw"
-city    <- "ChicagoOld3/"
+	nProj   <- 500
+	weights <- "raw"
+	city    <- "ChicagoOld3/"
 
-file    <- paste("/Users/bob/C/text/text_src/temp/",city,"lsa_",weights,"_", nProj,"_p4.txt",sep="")
-LSA     <- as.matrix(read.table(file, header=TRUE)); dim(LSA)
+	file    <- paste("/Users/bob/C/text/text_src/temp/",city,"lsa_",weights,"_", nProj,"_p4.txt",sep="")
+	LSA     <- as.matrix(read.table(file, header=TRUE)); dim(LSA)
 
 
 # --- LSA analysis from matrix W    adj R2=0.6567 with 1000 and log tokens
 
-p    <- 500
-lsa  <- as.matrix(LSA[,1:p])
-sr   <- summary(regr.lsa <- lm(logPrice ~ logTokens + poly(nTokens,5) + lsa , x=TRUE, y=TRUE)); sr  
+	p    <- 500
+	lsa  <- as.matrix(LSA[,1:p])
+	sr   <- summary(regr.lsa <- lm(logPrice ~ logTokens + poly(nTokens,5) + lsa , x=TRUE, y=TRUE)); sr  
 	
+# --- sequence of R2 statistics
+	df <- as.data.frame(cbind(logPrice,logTokens,LSA))
+	
+	k <- 100;
+	r2.len <- rep(0,k);
+	regr.len <- lm(logPrice ~ poly(logTokens,5), data=df); r2.poly <- summary(regr.len)$r.squared
+	r2.none<- rep(0,k);
+	regr.none<- lm(logPrice ~ 1, data=df)
+	for(j in 1:k) {
+		f <- paste(". ~ . + ",colnames(LSA)[j])
+		regr.len  <- update(regr.len, f,data=df);
+		r2.len[j] <- summary(regr.len)$r.squared;
+		regr.none <- update(regr.none,f,data=df);
+		r2.none[j]<- summary(regr.none)$r.squared;
+		if(0 == (j%%10)) cat("j=",j,"\n")
+	}
+	r2.len  <- c(r2.poly,r2.len)
+	r2.none <- c(  0    ,r2.none)
+	
+	plot(r2.len, xlim=c(0,100)); points(r2.none,col="red")
+	plot((r2.len - r2.none)[1:100], ylim=c(0,0.20), ylab="Increase in R2 with Length", xlab="Num LSA Terms")
+
+
 correctly.ordered(logPrice, fitted.values(regr.lsa), 1000)
 
 xtable(regr.lsa)
