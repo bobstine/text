@@ -1,4 +1,5 @@
 
+source("/Users/bob/C/text/functions.R")
 
 rdirichlet <- function(a) {
     y <- rgamma(length(a), a, 1)
@@ -8,74 +9,106 @@ rdirichlet <- function(a) {
 
 ##################################################################################
 #
-# Simulate data from topic model, original version
+# Simulate data from topic model, Poisson version
 #
-#    simulated response is lognormal 
+#    simulated response is lognormal (eg, log price)
 #
 ##################################################################################
 poisson.topic.model <- function() { 
 	
-	K      <-  100				#	number attributes
+	n.doc  <- 2500				#	number observed documents/listings  
 
-	n.doc  <- 2500				#	number documents/listings  
+	K      <-  100				#	number possible attributes of varying expected values
 	
+								#	value of attributes, lognormal
+	mean.value<- rnorm(K,mean=0.5,sd=2)
+	value  <- matrix(rnorm(n.doc*K,mean=mean.value,sd=0.3),nrow=n.doc,ncol=K,byrow=T)
+	hist(exp(mean.value), main="Simulated Contributions to Prices", breaks=50)
 	                       
-								#	Z is binary matrix that identifies the attributes in each doc
-								#	prob controls number of topics in a document (affects mean length)
-	Z       <- matrix( rbinom(n.doc * K, size=1, prob=0.3), nrow=n.doc, ncol=K)
-
-	beta    <- rnorm(K)			#	intercept is zero
-	sigma   <- 1
-	y       <- Z %*% beta + rnorm(n.doc,sd=sigma) 
-	summary(regr <- lm(y ~ Z))	#	check "true" model; R2 around 90%
-
-
+								#	Z is binary matrix that identifies attributes in each doc
+								#   number attributes in each document is neg binomial
+	Z.sum   <- 1+rpois(rep(1,n.doc), 2.5*rgamma(n.doc,shape=2))
+	hist(Z.sum); mean(Z.sum)	#	average number of attributes
 	
-	lambda  <- 1+exp(beta)		# say more about positive attributes; scale to get mean length right
+	Z       <- matrix(0, nrow=n.doc, ncol=K)
+	for(i in 1:n.doc) {			#	randomly position
+		Z[i,sample(1:K,Z.sum[i],replace=F)] <- 1
+	}
+
+	sigma <- 1
+	Y     <- apply(Z*value,1,sum) + rnorm(n.doc,sd=sigma) 
+	summary(regr <- lm(y ~ Z))	#	check "true" model; R2 around 90%; next plot is too good?
+	plot(Y ~ Z.sum, xlab="Number Latent Attributes", ylab="Log Price")
 	
+								# generate words
+	lambda <- 7					# expected words per attribute
 	
-	n.vocab <- 500				# size of vocabulary
+	n.vocab <- 1000				# size of vocabulary
 								
 								# matrix with distributions over vocab for each attribute
 	P       <- matrix(0, nrow=K, ncol=n.vocab)
-	n.common <-     100 					# number words shared over attributes
-	common <- c(rdirichlet( rep(2,n.common) ), rep(0,n.vocab-n.common) ) 
-	alpha <- rep(.05, n.vocab)				# dirichlet parm, small alpha makes spiky
-	for(k in 1:K) P[k,] <- (common + rdirichlet(alpha))/2
+	n.common<-     50 						# number words shared over attributes (first in vocab)
+	common  <- rdirichlet( rep(.2,n.common) )
+	alpha <- rep(.005, n.vocab-n.common)	# dirichlet parm, small alpha makes spiky
+	for(k in 1:K) P[k,] <- c(common,rdirichlet(alpha))/2
 	if(n.common==0) P <- 2 * P
 	round(P[1:3,1:15],3); 					# take a peek at three attribute vocabularies
-	# apply(P,1,sum)						# prob dist so sum to 1
-
+	apply(P,1,sum)[1:4]						# prob dist so sum to 1
+	plot(P[1,],P[2,])
 
 	W <- matrix(0, nrow=n.doc, ncol=n.vocab)	# word frequencies
 	one <- rep(1,n.vocab)
 	for(i in 1:n.doc) {
 		indx <- which(Z[i,] == 1)
-		W[i,] <- rpois(one,lambda[indx] %*% P[indx,])
+		if(1 == length(indx)) mu<-lambda*P[indx,] else mu<-lambda*apply(P[indx,],2,sum)
+		W[i,] <- rpois(one,mu)
 	}
 	
 	# check overall lengths
 	doc.len <- apply(W,1,sum)
 	mean(doc.len); hist(doc.len, breaks=30)
 	
-	# plots of y on length
-	plot(y ~ doc.len); cor(y, doc.len)  		# correlated
-	fit <-loess(y ~ doc.len, span=0.3)    # nothing nonlinear
-	lines(predict(fit)[order(doc.len)],col="red")   # nothing nonlinear
-
-	lines(lowess(doc.len,y, f=0.3),col="blue")
+	# plot log price on length
+	plot(Y ~ doc.len, xlab="Doc Length", ylab="Log Price"); cor(Y, doc.len) 
+	fit <-loess(Y ~ doc.len, span=0.3)    			# nothing nonlinear
+	o <- order(doc.len)
+	lines(doc.len[o], predict(fit)[o],col="red")	# nothing nonlinear
+	r <- lm(Y ~ doc.len)
+	lines(doc.len[o], predict(r)[o], col="blue")
 	
 	# check vocab for Zipf distribution ... needs much more skew, more very rare types
 	freq <- apply(W,2,sum)
-	hist(freq)
+	sort.freq <- sort(freq[freq>0],decreasing=TRUE) 
+	lf <- log(sort.freq); lr <- log(1:length(sort.freq))
+	plot(lf ~ lr, xlab="log rank",ylab="log frequency")		# want slope -1
+	lf <- lf[1:400]; lr <- lr[1:400]
+	regr <- lm(lf ~ lr); summary(regr); lines(lr, predict(regr), col="red")
+	cat(n.vocab-length(freq)," unused words\n");
+		
+	# word regressions (lsa style, with word types in order of overall frequency)
+	W.ordered <- W[,order(freq,decreasing=TRUE)]
+	sr <- summary(regr <- lm(Y ~ W.ordered[,1:100])); sr
 	
-	o <- order(freq,decreasing=TRUE)	
-	W.ordered <- W[,o]
-	plot(log(freq[o]) ~ log(1:n.vocab))			# want slope -1
+	# plot regression coefs
+	par(mfrow=c(1,2))  
+		y <- abs(sr$coefficients[-1,3])
+		x <- 1:length(y)        # some may be singular
+		threshold <- -qnorm(.025/length(y))
+		plot(x,y,	xlab="Word Column in W", ylab="|t|", main="")
+		abline(h=threshold, col="gray", lty=4)
+		abline(h=sqrt(2/pi), col="cyan")
+		lines(lowess(x,y,f=0.3), col="red")
+		half.normal.plot(y)
+	reset()
 	
-	# word regressions (lsa style, with word types in order of overall frequency
-	sr <- summary(regr <- lm(y ~ W.ordered[,1:100])); sr
+# LSA analysis
+
+	udv <- svd(W[,freq>0])
+	U <- udv$u
 	
+	sr <- summary(regr <- lm(Y ~ U[,1:100])); sr
+	
+
 	
 }
 
