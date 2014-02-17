@@ -16,41 +16,62 @@ rdirichlet <- function(a) {
 ##################################################################################
 poisson.topic.model <- function() { 
 	
-	n.doc  <- 2500					#	number observed documents/listings  
-	K      <-   50					#	number possible attributes of varying expected values
-									
-	x <- sort(rexp(K))				#	value of attributes, lognormal, increasing mu
-	mu <- x^2			
-	hist(mu, main="Simulated Contributions to Log Prices", breaks=50)		
+	n.doc  <- 2500						#	number observed documents/listings  
+	K      <-   50						#	number attributes
 	
-									#   number attributes in each document is 1 + neg binomial
-	A.sum   <- 1 + rpois(rep(1,n.doc), 4*rgamma(n.doc,shape=2))
-	hist(A.sum); mean(A.sum)		#	average number of attributes
-									#	A identifies attributes in each doc	
-	A <- matrix(0, nrow=n.doc, ncol=K)
-	for(i in 1:n.doc) A[i,] <- rmultinom(1, A.sum[i], rep(1,K))
-
-	Y <- A %*% mu					#	perfect true model
-	hist(Y, main="Dist of Log Price")
+	mu <- rgamma(K, shape=2, scale=1/2)	#	'true' value of attributes
+	hist(mu, main="Simulated True Contributions to Log Prices", breaks=50)		
+	
+	Y <- rnorm(n.doc, mean=5.5, sd=0.7)	
+	hist(Y, main="Log Price", breaks=30)
+	
+	A <-matrix(0,nrow=n.doc,ncol=K)	#	A identifies attributes in each doc, fuzzed
+	b <- rbinom(n.doc,1,0.5)  			# coin tosses
+	for(i in 1:nrow(A)) {
+		permute <- sample(1:K,K,replace=FALSE)
+		nk <- (which(Y[i] <= cumsum(mu[permute])))[1]
+		if((nk > 1) & (b[i]==1)) nk <- nk-1
+		A[i,permute[1:nk]]<-1
+	}
+	A.sum <- apply(A,1,sum)
+	hist(A.sum); mean(A.sum); fivenum(A.sum)					
 	plot(Y ~ A.sum, xlab="Number Latent Attributes", ylab="Log Price"); cor(Y,A.sum)^2
+
 
 	n.vocab <- 1500					# matrix with distributions over vocab for each attribute
 	P       <- matrix(0, nrow=K, ncol=n.vocab)
-	for(k in 1:K) P[k,] <- rdirichlet(rep(.1, n.vocab))
+	
+	n.common <- 50
+	p.common <- 1/(1:n.common); p.common <- p.common/sum(p.common)
+	p.c <- 0.5
+	for(k in 1:K) P[k,] <- c(p.c * p.common, (1-p.c)*rdirichlet(rep(0.008,n.vocab-n.common)))
 	round(P[1:3,1:15],3); 			# take a peek at three attribute vocabularies
 	apply(P,1,sum)[1:4]				# prob dist so sum to 1
-	plot(P[1,],P[2,])
+	plot(P[1,]); points(P[2,],col="red")
+	c <- c(rep("gray",n.common), rep("red",n.vocab-n.common))
+	par(mfrow=c(2,2)); 
+		plot(P[1,],P[2,],col=c); plot(P[3,],P[4,],col=c); 
+		plot(P[5,],P[6,],col=c); plot(P[7,],P[8,],col=c); 
+	reset()
 
 	# --- generate doc/word matrix
 	W <- matrix(0, nrow=n.doc, ncol=n.vocab)	#	word frequencies
-	lambda <- 6									#	overall expected words per attribute; random effect
+	lambda <- 10									#	overall expected words per attribute; random effect
 	one <- rep(1,n.vocab)
 	m <- A %*% P;
-	for(i in 1:n.doc) { W[i,] <- rpois(one,rgamma(n.vocab, lambda/5, scale=5)*m[i,]) }
+	for(i in 1:n.doc) { W[i,] <- rpois(one,lambda*m[i,]) }
 	cat("Max word frequencies in first 5 docs", apply(W,1,max)[1:5])
 	doc.len <- apply(W,1,sum)					# check document lengths
 	mean(doc.len); hist(doc.len, breaks=30)
 	
+	# --- regress log price on length
+	plot(Y ~ doc.len, xlab="Doc Length", ylab="Log Price");  
+	fit <-loess(Y ~ doc.len, span=0.3)    			# nothing nonlinear
+	o <- order(doc.len)
+	lines(doc.len[o], predict(fit)[o],col="red")	# nothing nonlinear
+	r <- lm(Y ~ doc.len); cor(Y, doc.len)^2
+	lines(doc.len[o], predict(r)[o], col="blue")
+
 	# --- check vocab for Zipf distribution
 	freq <- apply(W,2,sum)
 	sort.freq <- sort(freq[freq>0],decreasing=TRUE) 
@@ -60,13 +81,6 @@ poisson.topic.model <- function() {
 	regr <- lm(lf ~ lr); summary(regr); lines(lr, predict(regr), col="red")
 	cat(sum(freq==0)," unused words\n");
 	
-	# --- regress log price on length
-	plot(Y ~ doc.len, xlab="Doc Length", ylab="Log Price");  
-	fit <-loess(Y ~ doc.len, span=0.3)    			# nothing nonlinear
-	o <- order(doc.len)
-	lines(doc.len[o], predict(fit)[o],col="red")	# nothing nonlinear
-	r <- lm(Y ~ doc.len); cor(Y, doc.len)^2
-	lines(doc.len[o], predict(r)[o], col="blue")
 	
 		
 	# word regressions (word types in order of overall frequency)
@@ -111,7 +125,35 @@ poisson.topic.model <- function() {
 }
 
 
+##################################################################################
+#
+#	Generate attributes randomly rather than from value
+#
+##################################################################################
 
+	A.sum   <- 1 + rpois(rep(1,n.doc), rgamma(n.doc,shape=5,scale=1.5))
+	hist(A.sum); mean(A.sum); max(A.sum)						
+	A <-matrix(0,nrow=n.doc,ncol=K)	#	A identifies attributes in each doc, fuzzed
+	for(i in 1:n.doc) A[i,sample(1:K,A.sum[i])] <- rnorm(A.sum[i],mean=1,sd=0.2)
+	Y <- A %*% mu	#  rnorm(n.doc,mean=0,sd=0)		#	perfect true model
+	hist(Y, main="Dist of Log Price")
+
+##################################################################################
+#
+#	Correlation between sum and count for several RVs; more skew, less corr
+#
+##################################################################################
+
+	#	rnorm(k[i],mean=100,sd=10)
+	
+	s <-rep(0,300)
+	
+	k <- rpois(length(s),3)
+	for(i in 1:length(s)) s[i] <- sum(rgamma(k[i],shape=0.01,scale=5))
+	
+	plot(k,s); cor(k,s)
+	
+	hist(s)
 
 ##################################################################################
 #
