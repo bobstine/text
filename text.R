@@ -6,19 +6,19 @@ source("/Users/bob/C/text/functions.R")
 ##################################################################################
 zipf.plot <- function() { 
 
-# --- look at type frequencies, zipf plot   (zipf.pdf)
-type.cts <- sort(scan("/Users/bob/C/text/text_src/temp/type_freq.txt"), decreasing=TRUE)
+	# --- look at type frequencies, zipf plot   (zipf.pdf)
+	type.cts <- sort(scan("/Users/bob/C/text/text_src/temp/ChicagoOld3/type_freq.txt"), decreasing=TRUE)
 
-x<-1:length(type.cts); y<-type.cts
-zipf.data <- data.frame(list(x=x,y=y,lx=log(x),ly=log(y)))
+	x<-1:length(type.cts); y<-type.cts
+	zipf.data <- data.frame(list(x=x,y=y,lx=log(x),ly=log(y)))
 
-plot(y~x, xlab="rank", ylab="frequency", log="xy", data=zipf.data)
-common.words <- c(".", ",", "and", "-", "in")
-text(0.9*x[1:5],0.7*y[1:5],common.words,cex=c(1,1,0.5,1,0.5))
+	plot(y~x, xlab="rank", ylab="frequency", log="xy", data=zipf.data)
+	common.words <- c(".", ",", "and", "-", "in")
+	text(0.9*x[1:5],0.7*y[1:5],common.words,cex=c(1,1,0.5,1,0.5))
 
-regr<-lm(ly~lx, data=zipf.data[1:500,]); coefficients(regr)
-lx <- log(x<-c(1,5000)); y <- exp(predict(regr, data.frame(lx=lx)))
-lines(x,y,col="red")
+	regr<-lm(ly~lx, data=zipf.data[1:500,]); coefficients(regr)
+	lx <- log(x<-c(1,5000)); y <- exp(predict(regr, data.frame(lx=lx)))
+	lines(x,y,col="red")
 
 }
 
@@ -110,7 +110,6 @@ parsed.analysis <- function() {
 	par(mfrow=c(2,2), mar=c(4,4,1,1), mgp=c(2,1,0))
 		plot(logPrice ~ logTokens, ylab= "Log Price",  xlab="Log Length")
 			logPrice.pred <- add.model(logTokens, logPrice)
-	  		lines(predict(lm(logPrice,logTokens)))
 	  		text(1.5,6, paste("r =",round(cor(logPrice,logTokens),2)),cex=0.7)
 		plot(logPrice ~ baths, ylab= "Log Price", xlab="Number Bathrooms (74% missing)", col="gray") 
 	  	  show.cor(7,6,baths,logPrice,bath.obs)
@@ -402,8 +401,21 @@ lsa.analysis <- function() {
 
 	p    <- 500
 	lsa  <- as.matrix(LSA[,1:p])
-	sr   <- summary(regr.lsa <- lm(logPrice ~ logTokens + poly(nTokens,5) + lsa , x=TRUE, y=TRUE)); sr  
+	sr   <- summary(regr.lsa <- lm(logPrice ~ poly(nTokens,5) + lsa , x=TRUE, y=TRUE)); sr  
 	
+	quartz(width=6.5,height=3); reset()
+	par(mfrow=c(1,2))                                   #        regrW.pdf
+		y <- abs(coefficients(sr)[-(1:7),3])
+		x <- 1:length(y)
+		plot(x,y, cex=0.25, col="darkgray",
+			xlab="LSA Predictor", ylab="|t|", main="")
+			abline(h=-qnorm(.025/length(y)), col="black", lty=4)
+			abline(h=sqrt(2/pi), col="black", lty=2)
+			smth <- loess(y~x,span=0.5)
+			lines(predict(smth), col="red")
+		half.normal.plot(y,height=5)
+	reset()
+
 # --- sequence of R2 statistics
 	df <- as.data.frame(cbind(logPrice,logTokens,LSA))
 	
@@ -431,18 +443,6 @@ correctly.ordered(logPrice, fitted.values(regr.lsa), 1000)
 
 xtable(regr.lsa)
 
-quartz(width=6.5,height=3); reset()
-par(mfrow=c(1,2))                                   #        regrW.pdf
-	y <- abs(coefficients(sr)[-(1:7),3])
-	x <- 1:length(y)
-	plot(x,y, cex=0.25, col="darkgray",
-		xlab="LSA Predictor", ylab="|t|", main="")
-		abline(h=-qnorm(.025/length(y)), col="black", lty=4)
-		abline(h=sqrt(2/pi), col="black", lty=2)
-		smth <- loess(y~x,span=0.5)
-		lines(predict(smth), col="red")
-	half.normal.plot(y,height=5)
-reset()
 
 # --- residuals only hint at heteroscedasticity
 plot(regr.lsa)

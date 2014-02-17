@@ -16,85 +16,69 @@ rdirichlet <- function(a) {
 ##################################################################################
 poisson.topic.model <- function() { 
 	
-	n.doc  <- 2500				#	number observed documents/listings  
+	n.doc  <- 2500					#	number observed documents/listings  
+	K      <-   50					#	number possible attributes of varying expected values
+									
+	x <- sort(rexp(K))				#	value of attributes, lognormal, increasing mu
+	mu <- x^2			
+	hist(mu, main="Simulated Contributions to Log Prices", breaks=50)		
+	
+									#   number attributes in each document is 1 + neg binomial
+	A.sum   <- 1 + rpois(rep(1,n.doc), 4*rgamma(n.doc,shape=2))
+	hist(A.sum); mean(A.sum)		#	average number of attributes
+									#	A identifies attributes in each doc	
+	A <- matrix(0, nrow=n.doc, ncol=K)
+	for(i in 1:n.doc) A[i,] <- rmultinom(1, A.sum[i], rep(1,K))
 
-	K      <-  100				#	number possible attributes of varying expected values
-	
-								#	value of attributes, lognormal
-	mean.value<- rnorm(K,mean=0.5,sd=2)
-	value  <- matrix(rnorm(n.doc*K,mean=mean.value,sd=0.3),nrow=n.doc,ncol=K,byrow=T)
-	hist(exp(mean.value), main="Simulated Contributions to Prices", breaks=50)
-	                       
-								#	Z is binary matrix that identifies attributes in each doc
-								#   number attributes in each document is neg binomial
-	Z.sum   <- 1+rpois(rep(1,n.doc), 2.5*rgamma(n.doc,shape=2))
-	hist(Z.sum); mean(Z.sum)	#	average number of attributes
-	
-	Z       <- matrix(0, nrow=n.doc, ncol=K)
-	for(i in 1:n.doc) {			#	randomly position
-		Z[i,sample(1:K,Z.sum[i],replace=F)] <- 1
-	}
+	Y <- A %*% mu					#	perfect true model
+	hist(Y, main="Dist of Log Price")
+	plot(Y ~ A.sum, xlab="Number Latent Attributes", ylab="Log Price"); cor(Y,A.sum)^2
 
-	sigma <- 1
-	Y     <- apply(Z*value,1,sum) + rnorm(n.doc,sd=sigma) 
-	summary(regr <- lm(y ~ Z))	#	check "true" model; R2 around 90%; next plot is too good?
-	plot(Y ~ Z.sum, xlab="Number Latent Attributes", ylab="Log Price")
-	
-								# generate words
-	lambda <- 7					# expected words per attribute
-	
-	n.vocab <- 1000				# size of vocabulary
-								
-								# matrix with distributions over vocab for each attribute
+	n.vocab <- 1500					# matrix with distributions over vocab for each attribute
 	P       <- matrix(0, nrow=K, ncol=n.vocab)
-	n.common<-     50 						# number words shared over attributes (first in vocab)
-	common  <- rdirichlet( rep(.2,n.common) )
-	alpha <- rep(.005, n.vocab-n.common)	# dirichlet parm, small alpha makes spiky
-	for(k in 1:K) P[k,] <- c(common,rdirichlet(alpha))/2
-	if(n.common==0) P <- 2 * P
-	round(P[1:3,1:15],3); 					# take a peek at three attribute vocabularies
-	apply(P,1,sum)[1:4]						# prob dist so sum to 1
+	for(k in 1:K) P[k,] <- rdirichlet(rep(.1, n.vocab))
+	round(P[1:3,1:15],3); 			# take a peek at three attribute vocabularies
+	apply(P,1,sum)[1:4]				# prob dist so sum to 1
 	plot(P[1,],P[2,])
 
-	W <- matrix(0, nrow=n.doc, ncol=n.vocab)	# word frequencies
+	# --- generate doc/word matrix
+	W <- matrix(0, nrow=n.doc, ncol=n.vocab)	#	word frequencies
+	lambda <- 6									#	overall expected words per attribute; random effect
 	one <- rep(1,n.vocab)
-	for(i in 1:n.doc) {
-		indx <- which(Z[i,] == 1)
-		if(1 == length(indx)) mu<-lambda*P[indx,] else mu<-lambda*apply(P[indx,],2,sum)
-		W[i,] <- rpois(one,mu)
-	}
-	
-	# check overall lengths
-	doc.len <- apply(W,1,sum)
+	m <- A %*% P;
+	for(i in 1:n.doc) { W[i,] <- rpois(one,rgamma(n.vocab, lambda/5, scale=5)*m[i,]) }
+	cat("Max word frequencies in first 5 docs", apply(W,1,max)[1:5])
+	doc.len <- apply(W,1,sum)					# check document lengths
 	mean(doc.len); hist(doc.len, breaks=30)
 	
-	# plot log price on length
-	plot(Y ~ doc.len, xlab="Doc Length", ylab="Log Price"); cor(Y, doc.len) 
-	fit <-loess(Y ~ doc.len, span=0.3)    			# nothing nonlinear
-	o <- order(doc.len)
-	lines(doc.len[o], predict(fit)[o],col="red")	# nothing nonlinear
-	r <- lm(Y ~ doc.len)
-	lines(doc.len[o], predict(r)[o], col="blue")
-	
-	# check vocab for Zipf distribution ... needs much more skew, more very rare types
+	# --- check vocab for Zipf distribution
 	freq <- apply(W,2,sum)
 	sort.freq <- sort(freq[freq>0],decreasing=TRUE) 
 	lf <- log(sort.freq); lr <- log(1:length(sort.freq))
 	plot(lf ~ lr, xlab="log rank",ylab="log frequency")		# want slope -1
-	lf <- lf[1:400]; lr <- lr[1:400]
+	lf <- lf[1:300]; lr <- lr[1:300]
 	regr <- lm(lf ~ lr); summary(regr); lines(lr, predict(regr), col="red")
-	cat(n.vocab-length(freq)," unused words\n");
+	cat(sum(freq==0)," unused words\n");
+	
+	# --- regress log price on length
+	plot(Y ~ doc.len, xlab="Doc Length", ylab="Log Price");  
+	fit <-loess(Y ~ doc.len, span=0.3)    			# nothing nonlinear
+	o <- order(doc.len)
+	lines(doc.len[o], predict(fit)[o],col="red")	# nothing nonlinear
+	r <- lm(Y ~ doc.len); cor(Y, doc.len)^2
+	lines(doc.len[o], predict(r)[o], col="blue")
+	
 		
-	# word regressions (lsa style, with word types in order of overall frequency)
+	# word regressions (word types in order of overall frequency)
 	W.ordered <- W[,order(freq,decreasing=TRUE)]
-	sr <- summary(regr <- lm(Y ~ W.ordered[,1:100])); sr
+	sr <- summary(regr <- lm(Y ~ W.ordered[,1:100]));  sr
 	
 	# plot regression coefs
 	par(mfrow=c(1,2))  
 		y <- abs(sr$coefficients[-1,3])
 		x <- 1:length(y)        # some may be singular
 		threshold <- -qnorm(.025/length(y))
-		plot(x,y,	xlab="Word Column in W", ylab="|t|", main="")
+		plot(x,y,	xlab= "Columns of W", ylab="|t|", main="")
 		abline(h=threshold, col="gray", lty=4)
 		abline(h=sqrt(2/pi), col="cyan")
 		lines(lowess(x,y,f=0.3), col="red")
@@ -106,7 +90,21 @@ poisson.topic.model <- function() {
 	udv <- svd(W[,freq>0])
 	U <- udv$u
 	
-	sr <- summary(regr <- lm(Y ~ U[,1:100])); sr
+	plot(udv$d[1:300], log="y")
+	
+	lsa.sr <- summary(regr <- lm(Y ~ U[,1:100])); lsa.sr
+	
+	# plot regression coefs
+	par(mfrow=c(1,2))  
+		y <- abs(lsa.sr$coefficients[-(1:2),3])
+		x <- 1:length(y)        # some may be singular
+		threshold <- -qnorm(.025/length(y))
+		plot(x,y,	xlab= "LSA Variables", ylab="|t|", main="")
+		abline(h=threshold, col="gray", lty=4)
+		abline(h=sqrt(2/pi), col="cyan")
+		lines(lowess(x,y,f=0.3), col="red")
+		half.normal.plot(y)
+	reset()
 	
 
 	
