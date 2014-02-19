@@ -1,11 +1,6 @@
 
 source("/Users/bob/C/text/functions.R")
 
-rdirichlet <- function(a) {
-    y <- rgamma(length(a), a, 1)
-    return(y / sum(y))
-}
-
 
 ##################################################################################
 #
@@ -16,60 +11,73 @@ rdirichlet <- function(a) {
 ##################################################################################
 poisson.topic.model <- function() { 
 	
-	n.doc  <- 2500						#	number observed documents/listings  
-	K      <-   50						#	number attributes
+	n.doc  <- 3000						#	number observed documents/listings  
+	K      <-   25						#	number attributes
 	
-	mu <- rgamma(K, shape=2, scale=1/2)	#	'true' value of attributes
-	hist(mu, main="Simulated True Contributions to Log Prices", breaks=50)		
+	mu <- rgamma(K, shape=1, scale=1)	#	'true' value of attributes
+	hist(mu, main="Simulated True Contributions to Log Prices", breaks=20)		
 	
-	Y <- rnorm(n.doc, mean=5.5, sd=0.7)	
-	hist(Y, main="Log Price", breaks=30)
+	Y <- rnorm(n.doc, mean=6, sd=0.7)	#	initial seed log price (revised below)
 	
-	A <-matrix(0,nrow=n.doc,ncol=K)	#	A identifies attributes in each doc, fuzzed
-	b <- rbinom(n.doc,1,0.5)  			# coin tosses
+	A <-matrix(0,nrow=n.doc,ncol=K)		#	A identifies attributes in each doc, fuzzed
+	b <- rbinom(n.doc,1,0.5)  			#	coin tosses
 	for(i in 1:nrow(A)) {
 		permute <- sample(1:K,K,replace=FALSE)
-		nk <- (which(Y[i] <= cumsum(mu[permute])))[1]
+		cs <- cumsum(mu[permute])
+		nk <- which(Y[i] <= cs)[1]
 		if((nk > 1) & (b[i]==1)) nk <- nk-1
-		A[i,permute[1:nk]]<-1
+		A[i,permute[1:nk]]<-1; Y[i] <- cs[nk]
 	}
 	A.sum <- apply(A,1,sum)
-	hist(A.sum); mean(A.sum); fivenum(A.sum)					
-	plot(Y ~ A.sum, xlab="Number Latent Attributes", ylab="Log Price"); cor(Y,A.sum)^2
+	hist(A.sum); mean(A.sum); fivenum(A.sum)
+	
+	# --- model fits perfectly if regress Y on columns of A, so add noise
+	pct.noise <- 0.25
+	Y.obs <- Y + sqrt(var(Y)*pct.noise/(1-pct.noise)) * rnorm(length(Y))
+	summary(lm( Y.obs ~ A ))
+	hist(Y.obs, main="Log Price", breaks=30)
+	plot(Y.obs ~ A.sum, xlab="Number Latent Attributes", ylab="Log Price"); 
+	cat("Squared attribute corr: ", cor(Y,A.sum)^2, ", logged ", cor(Y, log(A.sum))^2,"\n")
 
 
 	n.vocab <- 1500					# matrix with distributions over vocab for each attribute
 	P       <- matrix(0, nrow=K, ncol=n.vocab)
-	
-	n.common <- 50
-	p.common <- 1/(1:n.common); p.common <- p.common/sum(p.common)
-	p.c <- 0.5
-	for(k in 1:K) P[k,] <- c(p.c * p.common, (1-p.c)*rdirichlet(rep(0.008,n.vocab-n.common)))
-	round(P[1:3,1:15],3); 			# take a peek at three attribute vocabularies
+	# this baked in style makes the common words totally useless
+	# for(k in 1:K) P[k,] <- c(p.c * p.common, (1-p.c)*rdirichlet(rep(0.01,n.vocab-n.common)))
+	n.common <- 25
+	zipf <- 1/(1:n.common); zipf <- zipf/sum(zipf)
+	p.c <- 0.25
+	for(k in 1:K) {   														
+		P[k,] <- c(  p.c  *(0.6*rdirichlet(rep(0.20, n.common)) + 0.4*zipf), 
+				   (1-p.c)*rdirichlet(rep(0.02, n.vocab-n.common))  )
+	}
 	apply(P,1,sum)[1:4]				# prob dist so sum to 1
-	plot(P[1,]); points(P[2,],col="red")
-	c <- c(rep("gray",n.common), rep("red",n.vocab-n.common))
+	plot(P[1,1:100]); points(P[2,1:100],col="red")
 	par(mfrow=c(2,2)); 
+		c <- c(rep("gray",n.common), rep("red",n.vocab-n.common))
 		plot(P[1,],P[2,],col=c); plot(P[3,],P[4,],col=c); 
 		plot(P[5,],P[6,],col=c); plot(P[7,],P[8,],col=c); 
 	reset()
 
 	# --- generate doc/word matrix
-	W <- matrix(0, nrow=n.doc, ncol=n.vocab)	#	word frequencies
-	lambda <- 10									#	overall expected words per attribute; random effect
+	W <- matrix(0, nrow=n.doc, ncol=n.vocab)		#	word frequencies
+	lambda <- 12									#	expected words per attribute
 	one <- rep(1,n.vocab)
 	m <- A %*% P;
 	for(i in 1:n.doc) { W[i,] <- rpois(one,lambda*m[i,]) }
 	cat("Max word frequencies in first 5 docs", apply(W,1,max)[1:5])
-	doc.len <- apply(W,1,sum)					# check document lengths
-	mean(doc.len); hist(doc.len, breaks=30)
+	doc.len <- apply(W,1,sum)						# check document lengths
+	mean(doc.len); hist(doc.len, breaks=25)
+	
+	qqplot(doc.len,nTokens); abline(0,1,col="red")	# great match but for long tail
 	
 	# --- regress log price on length
 	plot(Y ~ doc.len, xlab="Doc Length", ylab="Log Price");  
 	fit <-loess(Y ~ doc.len, span=0.3)    			# nothing nonlinear
 	o <- order(doc.len)
 	lines(doc.len[o], predict(fit)[o],col="red")	# nothing nonlinear
-	r <- lm(Y ~ doc.len); cor(Y, doc.len)^2
+	r <- lm(Y ~ doc.len); 
+	cat("Squared corr with doc length:", cor(Y, doc.len)^2, "  log ", cor(Y, log(doc.len))^2,"\n")
 	lines(doc.len[o], predict(r)[o], col="blue")
 
 	# --- check vocab for Zipf distribution
@@ -78,50 +86,51 @@ poisson.topic.model <- function() {
 	lf <- log(sort.freq); lr <- log(1:length(sort.freq))
 	plot(lf ~ lr, xlab="log rank",ylab="log frequency")		# want slope -1
 	lf <- lf[1:300]; lr <- lr[1:300]
-	regr <- lm(lf ~ lr); summary(regr); lines(lr, predict(regr), col="red")
+	regr <- lm(lf ~ lr); coefficients(summary(regr)); 
+	lines(lr, predict(regr), col="red")
 	cat(sum(freq==0)," unused words\n");
 	
 	
 		
-	# word regressions (word types in order of overall frequency)
-	W.ordered <- W[,order(freq,decreasing=TRUE)]
-	sr <- summary(regr <- lm(Y ~ W.ordered[,1:100]));  sr
+	# --- word regressions (word types in order of overall frequency, dropping 0)
+	o <- order(freq,decreasing=TRUE); cat("Most common words: ", o[1:20], "\n");
+	o <- o[freq[o]>0]
+	W.ordered <- W[,o]
 	
-	# plot regression coefs
-	par(mfrow=c(1,2))  
-		y <- abs(sr$coefficients[-1,3])
-		x <- 1:length(y)        # some may be singular
-		threshold <- -qnorm(.025/length(y))
-		plot(x,y,	xlab= "Columns of W", ylab="|t|", main="")
-		abline(h=threshold, col="gray", lty=4)
-		abline(h=sqrt(2/pi), col="cyan")
-		lines(lowess(x,y,f=0.3), col="red")
-		half.normal.plot(y)
-	reset()
+	# saturated model to get max possible R2 with words + len (about 71% with noise)
+	sr <- summary(regr <- lm(Y.obs ~ doc.len + W.ordered));  sr
 	
-# LSA analysis
+	# most common 250 words
+	sr <- summary(regr <- lm(Y.obs ~ doc.len + W.ordered[,1:250]));  sr
+	coef.summary.plot(sr, "Word Frequencies", omit=1:2)
 
-	udv <- svd(W[,freq>0])
-	U <- udv$u
 	
+	# --- LSA analysis, raw counts
+	udv <- svd(W.ordered)
+	U <- udv$u	
 	plot(udv$d[1:300], log="y")
 	
-	lsa.sr <- summary(regr <- lm(Y ~ U[,1:100])); lsa.sr
+	lsa.sr <- summary(lm(Y.obs ~ doc.len + U[,1:250])); lsa.sr
+	coef.summary.plot(lsa.sr, "LSA Variables", omit=1:2)
 	
-	# plot regression coefs
-	par(mfrow=c(1,2))  
-		y <- abs(lsa.sr$coefficients[-(1:2),3])
-		x <- 1:length(y)        # some may be singular
-		threshold <- -qnorm(.025/length(y))
-		plot(x,y,	xlab= "LSA Variables", ylab="|t|", main="")
-		abline(h=threshold, col="gray", lty=4)
-		abline(h=sqrt(2/pi), col="cyan")
-		lines(lowess(x,y,f=0.3), col="red")
-		half.normal.plot(y)
-	reset()
+	# --- LSA analysis, transformed word matrix
+	W.scaled <- diag(1/sqrt(doc.len)) %*% W.ordered
+	udv.scaled <- svd(W.scaled)
+	U.scaled <- udv.scaled$u	
+	plot(udv.scaled$d[1:300], log="y")
 	
+	plot(udv$d[1:100], udv.scaled$d[1:100], log="xy")
+	pairs(U[,1:3],U.scaled[,1:3])
+	
+	lsa.scaled.sr <- summary(lm(Y.obs ~ doc.len + U.scaled[,1:250])); lsa.scaled.sr
+	coef.summary.plot(lsa.scaled.sr, "Scaled LSA Variables", omit=1:2)
 
-	
+	# --- CCA with columns of A
+	cca			<- cancor(A, U[,1:200], xcenter=F, ycenter=F)
+	cca.scaled	<- cancor(A, U.scaled[,1:200], xcenter=F, ycenter=F)
+
+	plot(cca$cor, cca.scaled$cor); abline(0,1)
+
 }
 
 
