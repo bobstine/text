@@ -44,12 +44,12 @@ poisson.topic.model <- function() {
 	P       <- matrix(0, nrow=K, ncol=n.vocab)
 	# this baked in style makes the common words totally useless
 	# for(k in 1:K) P[k,] <- c(p.c * p.common, (1-p.c)*rdirichlet(rep(0.01,n.vocab-n.common)))
-	n.common <- 25
+	n.common <- 50
 	zipf <- 1/(1:n.common); zipf <- zipf/sum(zipf)
-	p.c <- 0.25
+	p.c <- 0.33
 	for(k in 1:K) {   														
-		P[k,] <- c(  p.c  *(0.6*rdirichlet(rep(0.20, n.common)) + 0.4*zipf), 
-				   (1-p.c)*rdirichlet(rep(0.02, n.vocab-n.common))  )
+		P[k,] <- c(  p.c  *(0.5*rdirichlet(rep(0.2, n.common)) + 0.5*zipf), 
+		 		   (1-p.c)*rdirichlet(rep(0.02, n.vocab-n.common))  )
 	}
 	apply(P,1,sum)[1:4]				# prob dist so sum to 1
 	plot(P[1,1:100]); points(P[2,1:100],col="red")
@@ -69,7 +69,7 @@ poisson.topic.model <- function() {
 	doc.len <- apply(W,1,sum)						# check document lengths
 	mean(doc.len); hist(doc.len, breaks=25)
 	
-	qqplot(doc.len,nTokens); abline(0,1,col="red")	# great match but for long tail
+	# qqplot(doc.len,nTokens); abline(0,1,col="red")	# great match but for long tail
 	
 	# --- regress log price on length
 	plot(Y ~ doc.len, xlab="Doc Length", ylab="Log Price");  
@@ -85,7 +85,7 @@ poisson.topic.model <- function() {
 	sort.freq <- sort(freq[freq>0],decreasing=TRUE) 
 	lf <- log(sort.freq); lr <- log(1:length(sort.freq))
 	plot(lf ~ lr, xlab="log rank",ylab="log frequency")		# want slope -1
-	lf <- lf[1:300]; lr <- lr[1:300]
+	lf <- lf[1:500]; lr <- lr[1:500]
 	regr <- lm(lf ~ lr); coefficients(summary(regr)); 
 	lines(lr, predict(regr), col="red")
 	cat(sum(freq==0)," unused words\n");
@@ -107,7 +107,7 @@ poisson.topic.model <- function() {
 	# --- LSA analysis, raw counts
 	udv <- svd(W.ordered)
 	U <- udv$u	
-	plot(udv$d[1:300], log="y")
+	plot(udv$d[1:200], log="y")
 	
 	lsa.sr <- summary(lm(Y.obs ~ doc.len + U[,1:250])); lsa.sr
 	coef.summary.plot(lsa.sr, "LSA Variables", omit=1:2)
@@ -119,7 +119,7 @@ poisson.topic.model <- function() {
 	
 	udv.scaled <- svd(W.scaled)
 	U.scaled <- udv.scaled$u	
-	plot(udv.scaled$d[1:300], log="y")
+	plot(udv.scaled$d[1:200], log="y")
 		
 	lsa.scaled.sr <- summary(lm(Y.obs ~ doc.len + U.scaled[,1:250])); lsa.scaled.sr
 	coef.summary.plot(lsa.scaled.sr, "Scaled LSA Variables", omit=1:2)
