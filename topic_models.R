@@ -11,7 +11,7 @@ source("/Users/bob/C/text/functions.R")
 ##################################################################################
 poisson.topic.model <- function() { 
 	
-	n.doc  <- 3000						#	number observed documents/listings  
+	n.doc  <- 5000						#	number observed documents/listings  
 	K      <-   25						#	number attributes
 	
 	mu <- rgamma(K, shape=1, scale=1)	#	'true' value of attributes
@@ -77,7 +77,7 @@ poisson.topic.model <- function() {
 	o <- order(doc.len)
 	lines(doc.len[o], predict(fit)[o],col="red")	# nothing nonlinear
 	r <- lm(Y ~ doc.len); 
-	cat("Squared corr with doc length:", cor(Y, doc.len)^2, "  log ", cor(Y, log(doc.len))^2,"\n")
+	cat("Squared corr with doc length:",cor(Y, doc.len)^2,"  log ",cor(Y, log(doc.len))^2,"\n")
 	lines(doc.len[o], predict(r)[o], col="blue")
 
 	# --- check vocab for Zipf distribution
@@ -89,10 +89,9 @@ poisson.topic.model <- function() {
 	regr <- lm(lf ~ lr); coefficients(summary(regr)); 
 	lines(lr, predict(regr), col="red")
 	cat(sum(freq==0)," unused words\n");
-	
-	
 		
 	# --- word regressions (word types in order of overall frequency, dropping 0)
+	freq <- apply(W,2,sum)
 	o <- order(freq,decreasing=TRUE); cat("Most common words: ", o[1:20], "\n");
 	o <- o[freq[o]>0]
 	W.ordered <- W[,o]
@@ -114,18 +113,23 @@ poisson.topic.model <- function() {
 	coef.summary.plot(lsa.sr, "LSA Variables", omit=1:2)
 	
 	# --- LSA analysis, transformed word matrix
-	W.scaled <- diag(1/sqrt(doc.len)) %*% W.ordered
+	W.scaled <- (1/sqrt(doc.len)) * W.ordered
+	w.freq <- apply(W.ordered,2,sum)
+	W.scaled <- t( (1/sqrt(w.freq)) * t(W.scaled))
+	
 	udv.scaled <- svd(W.scaled)
 	U.scaled <- udv.scaled$u	
 	plot(udv.scaled$d[1:300], log="y")
-	
-	plot(udv$d[1:100], udv.scaled$d[1:100], log="xy")
-	pairs(U[,1:3],U.scaled[,1:3])
-	
+		
 	lsa.scaled.sr <- summary(lm(Y.obs ~ doc.len + U.scaled[,1:250])); lsa.scaled.sr
 	coef.summary.plot(lsa.scaled.sr, "Scaled LSA Variables", omit=1:2)
 
-	# --- CCA with columns of A
+	# --- comparison of models
+	mm <- range(udv$d[1:150])
+	plot(udv$d[1:150], log="y", xlab="Component", ylab="Singular Values")
+	d <- udv.scaled$d[1:150]
+	points( mm[1] + diff(mm)*(d-min(d))/(max(d)-min(d)), col="red")
+		
 	cca			<- cancor(A, U[,1:200], xcenter=F, ycenter=F)
 	cca.scaled	<- cancor(A, U.scaled[,1:200], xcenter=F, ycenter=F)
 
