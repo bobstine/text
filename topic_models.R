@@ -11,7 +11,7 @@ source("/Users/bob/C/text/functions.R")
 ##################################################################################
 poisson.topic.model <- function() { 
 	
-	n.doc  <- 25000						#	number observed documents/listings  
+	n.doc  <- 5000						#	number observed documents/listings  
 	K      <-   25						#	number attributes
 	
 	mu <- rgamma(K, shape=1, scale=1)	#	'true' value of attributes
@@ -44,12 +44,12 @@ poisson.topic.model <- function() {
 	P       <- matrix(0, nrow=K, ncol=n.vocab)
 	# this baked in style makes the common words totally useless
 	# for(k in 1:K) P[k,] <- c(p.c * p.common, (1-p.c)*rdirichlet(rep(0.01,n.vocab-n.common)))
-	n.common <- 25
+	n.common <- 50
 	zipf <- 1/(1:n.common); zipf <- zipf/sum(zipf)
-	p.c <- 0.25
+	p.c <- 0.33
 	for(k in 1:K) {   														
-		P[k,] <- c(  p.c  *(0.6*rdirichlet(rep(0.20, n.common)) + 0.4*zipf), 
-				   (1-p.c)*rdirichlet(rep(0.02, n.vocab-n.common))  )
+		P[k,] <- c(  p.c  *(0.5*rdirichlet(rep(0.2, n.common)) + 0.5*zipf), 
+		 		   (1-p.c)*rdirichlet(rep(0.02, n.vocab-n.common))  )
 	}
 	apply(P,1,sum)[1:4]				# prob dist so sum to 1
 	plot(P[1,1:100]); points(P[2,1:100],col="red")
@@ -77,7 +77,7 @@ poisson.topic.model <- function() {
 	o <- order(doc.len)
 	lines(doc.len[o], predict(fit)[o],col="red")	# nothing nonlinear
 	r <- lm(Y ~ doc.len); 
-	cat("Squared corr with doc length:", cor(Y, doc.len)^2, "  log ", cor(Y, log(doc.len))^2,"\n")
+	cat("Squared corr with doc length:",cor(Y, doc.len)^2,"  log ",cor(Y, log(doc.len))^2,"\n")
 	lines(doc.len[o], predict(r)[o], col="blue")
 
 	# --- check vocab for Zipf distribution
@@ -85,13 +85,12 @@ poisson.topic.model <- function() {
 	sort.freq <- sort(freq[freq>0],decreasing=TRUE) 
 	lf <- log(sort.freq); lr <- log(1:length(sort.freq))
 	plot(lf ~ lr, xlab="log rank",ylab="log frequency")		# want slope -1
-	lf <- lf[1:300]; lr <- lr[1:300]
+	lf <- lf[1:500]; lr <- lr[1:500]
 	regr <- lm(lf ~ lr); coefficients(summary(regr)); 
 	lines(lr, predict(regr), col="red")
 	cat(sum(freq==0)," unused words\n");
 
-
-
+		
 	# --- word regressions (word types in order of overall frequency, dropping 0)
 	freq <- apply(W,2,sum)
 	o <- order(freq,decreasing=TRUE); cat("Most common words: ", o[1:20], "\n");
@@ -109,7 +108,7 @@ poisson.topic.model <- function() {
 	# --- LSA analysis, raw counts
 	udv <- svd(W.ordered)
 	U <- udv$u	
-	plot(udv$d[1:300], log="y")
+	plot(udv$d[1:200], log="y")
 	
 	lsa.sr <- summary(lm(Y.obs ~ doc.len + U[,1:250])); lsa.sr
 	coef.summary.plot(lsa.sr, "LSA Variables", omit=1:2)
@@ -121,17 +120,23 @@ poisson.topic.model <- function() {
 	
 	udv.scaled <- svd(W.scaled)
 	U.scaled <- udv.scaled$u	
-	plot(udv.scaled$d[1:300], log="y")
-	
-	plot(udv$d[1:100], udv.scaled$d[1:100], log="xy")
-	pairs(U[,1:3],U.scaled[,1:3])
-	
+	plot(udv.scaled$d[1:200], log="y")
+		
 	lsa.scaled.sr <- summary(lm(Y.obs ~ doc.len + U.scaled[,1:250])); lsa.scaled.sr
 	coef.summary.plot(lsa.scaled.sr, "Scaled LSA Variables", omit=1:2)
 
 	# --- CCA with columns of A
 	cca			<- cancor(A, U[,1:250], xcenter=F, ycenter=F)
 	cca.scaled	<- cancor(A, U.scaled[,1:250], xcenter=F, ycenter=F)
+
+	# --- comparison of models
+	mm <- range(udv$d[1:150])
+	plot(udv$d[1:150], log="y", xlab="Component", ylab="Singular Values")
+	d <- udv.scaled$d[1:150]
+	points( mm[1] + diff(mm)*(d-min(d))/(max(d)-min(d)), col="red")
+		
+	cca			<- cancor(A, U[,1:200], xcenter=F, ycenter=F)
+	cca.scaled	<- cancor(A, U.scaled[,1:200], xcenter=F, ycenter=F)
 
 	plot(cca$cor, cca.scaled$cor); abline(0,1)
 
