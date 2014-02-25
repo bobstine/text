@@ -46,9 +46,9 @@ poisson.topic.model <- function() {
 	# for(k in 1:K) P[k,] <- c(p.c * p.common, (1-p.c)*rdirichlet(rep(0.01,n.vocab-n.common)))
 	n.common <- 50
 	zipf <- 1/(1:n.common); zipf <- zipf/sum(zipf)
-	p.c <- 0.33
+	p.c <- 0.4
 	for(k in 1:K) {   														
-		P[k,] <- c(  p.c  *(0.5*rdirichlet(rep(0.2, n.common)) + 0.5*zipf), 
+		P[k,] <- c(  p.c  *(0.5*rdirichlet(rep(0.1, n.common)) + 0.5*zipf), 
 		 		   (1-p.c)*rdirichlet(rep(0.02, n.vocab-n.common))  )
 	}
 	apply(P,1,sum)[1:4]				# prob dist so sum to 1
@@ -61,10 +61,11 @@ poisson.topic.model <- function() {
 
 	# --- generate doc/word matrix
 	W <- matrix(0, nrow=n.doc, ncol=n.vocab)		#	word frequencies
-	lambda <- 12									#	expected words per attribute
+	# lambda <- rep(12,n.doc)						#	expected words per attribute
+	lambda <- rgamma(n.doc, shape=6, scale=2)
 	one <- rep(1,n.vocab)
 	m <- A %*% P;
-	for(i in 1:n.doc) { W[i,] <- rpois(one,lambda*m[i,]) }
+	for(i in 1:n.doc) { W[i,] <- rpois(one,lambda[i]*m[i,]) }
 	cat("Max word frequencies in first 5 docs", apply(W,1,max)[1:5])
 	doc.len <- apply(W,1,sum)						# check document lengths
 	mean(doc.len); hist(doc.len, breaks=25)
@@ -113,23 +114,46 @@ poisson.topic.model <- function() {
 	lsa.sr <- summary(lm(Y.obs ~ doc.len + U[,1:250])); lsa.sr
 	coef.summary.plot(lsa.sr, "LSA Variables", omit=1:2)
 	
-	# --- LSA analysis, transformed word matrix
-	W.scaled <- (1/sqrt(doc.len)) * W.ordered
+	# --- LSA analysis, partially scaled (cols)
 	w.freq <- apply(W.ordered,2,sum)
-	W.scaled <- t( (1/sqrt(w.freq)) * t(W.scaled))
+	W.cols <- t( (1/sqrt(w.freq)) * t(W.ordered))
+	udv.cols <- svd(W.cols)
+	plot(udv.cols$d[1:200], log="y")
+	U.cols <- udv.cols$u
 	
-	udv.scaled <- svd(W.scaled)
-	U.scaled <- udv.scaled$u	
-	plot(udv.scaled$d[1:200], log="y")
+	lsa.cols.sr <- summary(lm(Y.obs ~ doc.len + U.cols[,1:250])); lsa.cols.sr
+	coef.summary.plot(lsa.cols.sr, "Column-scaled LSA Variables", omit=1:2)
+
+	# --- LSA analysis, partially scaled (rows)
+	W.rows <- (1/sqrt(doc.len)) * W.ordered
+	udv.rows <- svd(W.rows)
+	plot(udv.rows$d[1:200], log="y")
+
+	# --- LSA analysis, CCA scaled
+	W.cca <- (1/sqrt(doc.len)) * W.ordered
+	w.freq <- apply(W.ordered,2,sum)
+	W.cca <- t( (1/sqrt(w.freq)) * t(W.scaled))
+	udv.cca <- svd(W.cca)
+	U.cca <- udv.cca$u	
+	plot(udv.cca$d[1:200], log="y")
 		
-	lsa.scaled.sr <- summary(lm(Y.obs ~ doc.len + U.scaled[,1:250])); lsa.scaled.sr
-	coef.summary.plot(lsa.scaled.sr, "Scaled LSA Variables", omit=1:2)
+	lsa.cca.sr <- summary(lm(Y.obs ~ doc.len + U.cca[,1:250])); lsa.cca.sr
+	coef.summary.plot(lsa.cca.sr, "Scaled LSA Variables", omit=1:2)
 
 	# --- CCA with columns of A
 	cca			<- cancor(A, U[,1:250], xcenter=F, ycenter=F)
 	cca.scaled	<- cancor(A, U.scaled[,1:250], xcenter=F, ycenter=F)
 
 	# --- comparison of models
+	scale <- function(x) (x-min(x))/diff(range(x))
+	par(mfrow=c(2,2))
+		plot(scale(     udv$d[1:100]), log="y", main="Raw Frequencies")
+		plot(scale(udv.rows$d[1:100]), log="y", main="Scaled Rows")
+		plot(scale(udv.cols$d[1:100]), log="y", main="Scaled Columns")
+		plot(scale(udv.cca$d[1:100]), log="y", main="CCA Scaling (both)")
+	reset()
+	
+	
 	mm <- range(udv$d[1:150])
 	plot(udv$d[1:150], log="y", xlab="Component", ylab="Singular Values")
 	d <- udv.scaled$d[1:150]
