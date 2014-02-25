@@ -11,7 +11,7 @@ source("/Users/bob/C/text/functions.R")
 ##################################################################################
 poisson.topic.model <- function() { 
 	
-	n.doc  <- 3000						#	number observed documents/listings  
+	n.doc  <- 25000						#	number observed documents/listings  
 	K      <-   25						#	number attributes
 	
 	mu <- rgamma(K, shape=1, scale=1)	#	'true' value of attributes
@@ -69,7 +69,7 @@ poisson.topic.model <- function() {
 	doc.len <- apply(W,1,sum)						# check document lengths
 	mean(doc.len); hist(doc.len, breaks=25)
 	
-	qqplot(doc.len,nTokens); abline(0,1,col="red")	# great match but for long tail
+	qqplot(doc.len,nTokens); abline(0,1,col="red")	# great match but for long tail [need data]
 	
 	# --- regress log price on length
 	plot(Y ~ doc.len, xlab="Doc Length", ylab="Log Price");  
@@ -89,10 +89,11 @@ poisson.topic.model <- function() {
 	regr <- lm(lf ~ lr); coefficients(summary(regr)); 
 	lines(lr, predict(regr), col="red")
 	cat(sum(freq==0)," unused words\n");
-	
-	
-		
+
+
+
 	# --- word regressions (word types in order of overall frequency, dropping 0)
+	freq <- apply(W,2,sum)
 	o <- order(freq,decreasing=TRUE); cat("Most common words: ", o[1:20], "\n");
 	o <- o[freq[o]>0]
 	W.ordered <- W[,o]
@@ -114,7 +115,10 @@ poisson.topic.model <- function() {
 	coef.summary.plot(lsa.sr, "LSA Variables", omit=1:2)
 	
 	# --- LSA analysis, transformed word matrix
-	W.scaled <- diag(1/sqrt(doc.len)) %*% W.ordered
+	W.scaled <- (1/sqrt(doc.len)) * W.ordered
+	w.freq <- apply(W.ordered,2,sum)
+	W.scaled <- t( (1/sqrt(w.freq)) * t(W.scaled))
+	
 	udv.scaled <- svd(W.scaled)
 	U.scaled <- udv.scaled$u	
 	plot(udv.scaled$d[1:300], log="y")
@@ -126,8 +130,8 @@ poisson.topic.model <- function() {
 	coef.summary.plot(lsa.scaled.sr, "Scaled LSA Variables", omit=1:2)
 
 	# --- CCA with columns of A
-	cca			<- cancor(A, U[,1:200], xcenter=F, ycenter=F)
-	cca.scaled	<- cancor(A, U.scaled[,1:200], xcenter=F, ycenter=F)
+	cca			<- cancor(A, U[,1:250], xcenter=F, ycenter=F)
+	cca.scaled	<- cancor(A, U.scaled[,1:250], xcenter=F, ycenter=F)
 
 	plot(cca$cor, cca.scaled$cor); abline(0,1)
 
@@ -140,7 +144,7 @@ poisson.topic.model <- function() {
 #
 ##################################################################################
 
-	A.sum   <- 1 + rpois(rep(1,n.doc), rgamma(n.doc,shape=5,scale=1.5))
+	A.sum   <- 1 + rpois(rep(1,n.doc), 6)
 	hist(A.sum); mean(A.sum); max(A.sum)						
 	A <-matrix(0,nrow=n.doc,ncol=K)	#	A identifies attributes in each doc, fuzzed
 	for(i in 1:n.doc) A[i,sample(1:K,A.sum[i])] <- rnorm(A.sum[i],mean=1,sd=0.2)
@@ -172,11 +176,6 @@ poisson.topic.model <- function() {
 original.topic.model <- function() { 
 
 # --- functions
-
-rdirichlet <- function(a) {
-    y <- rgamma(length(a), a, 1)
-    return(y / sum(y))
-}
 
 word.indices <- function(topics, P) { 
 	# generate word by sampling distribution of topics
