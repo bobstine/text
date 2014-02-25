@@ -54,6 +54,9 @@ fit_models(int  n, std::istream &yStream,
 
 int main(int argc, char** argv)
 {
+  // prepare eigen for multiple threads
+  Eigen::initParallel();
+
   // read input options
   int    n         ( 0  );
   int    ni        ( 0  );       // number X's used to initialize the model 

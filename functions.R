@@ -7,23 +7,44 @@
 library(car)
 library(xtable)    # latex tables
 library(MASS)
+library(leaps)
+
+
+rdirichlet <- function(a) {
+    y <- rgamma(length(a), a, 1)
+    return(y / sum(y))
+}
 
 reset <- function() {
 	# par(mfrow=c(1,1), mgp=c(3,1,0), mar=c(5,4,4,2)+0.1)      # default
 	par(mfrow=c(1,1), mgp=c(1.5,0.5,0), mar=c(3,2.5,2,1)+0.1)  # bottom left top right
 	}
 
+coef.summary.plot <- function(sr, xlab, omit=1) { 				# omit intercept
+	par(mfrow=c(1,2))  
+		y <- abs(sr$coefficients[-omit,3])
+		x <- 1:length(y)     
+		threshold <- -qnorm(.025/length(y))
+		plot(x,y, xlab=xlab, ylab="|t|", main="", col="darkgray", cex=0.5)
+		abline(h=threshold, col="black", lty=4)
+		abline(h=sqrt(2/pi), col="black")
+		lines(lowess(x,y,f=0.3), col="red")
+		half.normal.plot(y)
+	reset()
+	}
+
+
 half.normal.plot <- function(y, height=2) {
 	k <- length(y)          
-	plot(x <- qnorm(.5+(0:(k-1))/(2*k)), y <- sort(y), 
+	plot(x <- qnorm(.5+(0:(k-1))/(2*k)), y <- sort(y), cex=0.5, col="darkgray",
 		xlab="Normal Quantile", ylab="Sorted |t|"); 
-	k <- floor(0.2*k)
+	k <- floor(0.25*k)
 	cat("Using lower 20% of cases (",k,")\n"); 
 	regr <- lm(y[1:k] ~ x[1:k])
-	abline(0,1, col="gray")
+	abline(0,1, col="black", lty=2)
 	abline(regr,col="red")
 	text(0.25,height,paste("b =",round(coefficients(regr)[2],1)), cex=0.7)
-	summary(regr)
+	# summary(regr)
 	}
 	
 jitter <- function(x) { x + 0.05 * sd(x) * rnorm(length(x)) }

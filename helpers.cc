@@ -188,21 +188,26 @@ Helper::calculate_sequence_r2 (Eigen::VectorXd const& Y, Eigen::VectorXd tokenCo
 
 
 void
-Helper::calculate_sequence_r2 (Eigen::VectorXd const& Y, Eigen::VectorXd tokenCount, bool reverse, Vocabulary::SparseMatrix const& W,
+Helper::calculate_sequence_r2 (Eigen::VectorXd const& Y, Eigen::VectorXd tokenCount, int degree, bool reverse, Vocabulary::SparseMatrix const& W,
 		       Vocabulary const& vocab, int nToFit, string file)
 {
   std::clog << "MAIN: Top of calculate_sequence_r2 loop; fitting " << nToFit << " word regressors.\n";
   std::ofstream os(file);
   if ((file.size()>0) && (!os)) std::clog << "MAIN: Could not open file " << file << " for writing r2 sequence.\n";
-  if (os)  os << "Type  r2  RSS AICc\n";
+  if (os)  os << "Type  r2 adjR2  RSS q AICc\n";
   LinearRegression regr("log price", Y, 0);
   if (tokenCount.size() > 0)
   { std::clog << "MAIN: Calculate_sequence_r2 adjusted for total word count.\n";
-    FStatistic f = regr.f_test_predictor("m",tokenCount);
-    std::clog << "MAIN: F stat for adding token lengths is " << f.f_stat() << endl;
-    if(f.f_stat() > 0.0001) regr.add_predictors();
+    Eigen::VectorXd x = tokenCount;
+    for(int d=1; d<=degree; ++d)
+    { std::string name = "length^" + std::to_string(d);
+      FStatistic f = regr.f_test_predictor(name,x);
+      std::clog << "MAIN: F stat for adding " << name << " is " << f.f_stat() << endl;
+      if(f.f_stat() > 0.000001) regr.add_predictors();
+      x = x.cwiseProduct(tokenCount);
+    }
     if (os)
-      os << "nTokens " << regr.r_squared() << " " << regr.residual_ss() << " " << regr.aic_c() << endl;
+      os << "Tokens " << regr.r_squared() << " " << regr.adj_r_squared() << " " << regr.residual_ss() << " " << regr.q() << " " << regr.aic_c() << endl;
   }    
   const int k = W.cols();
   Vocabulary::TypeVector tv = vocab.types();
@@ -218,10 +223,10 @@ Helper::calculate_sequence_r2 (Eigen::VectorXd const& Y, Eigen::VectorXd tokenCo
     Eigen::VectorXd X(x.size(),1);    // transfer to double
     for(int i=0; i<x.size(); ++i) X(i) = x(i);
     FStatistic f=regr.f_test_predictor("xx", X);
-    if(f.f_stat() > 0.0001) regr.add_predictors();
+    if(f.f_stat() > 0.00001) regr.add_predictors();
     else std::clog << "MAIN: F = " << f.f_stat() << " for word j=" << index << ", type=" << tv[index] << " is (near) singular in sequence r2 and skipped.\n";
     if (os)
-      os << tv[index] << " " << regr.r_squared() << " " << regr.residual_ss() << " " << regr.aic_c() << endl;
+      os << tv[index] << " " << regr.r_squared() << " " << regr.adj_r_squared() << " " << regr.residual_ss() << " " << regr.q() << " " << regr.aic_c() << endl;
   }
   std::clog << "MAIN: Regression on W completed with results written to " << file << ".\n";
 }
@@ -239,7 +244,7 @@ Helper::write_exact_svd_to_path(Vocabulary::SparseMatrix const& B, int nProjecti
   Matrix U = svd.matrixU() * Matrix::Identity(B.cols(), nProjections);
   Matrix V = svd.matrixV() * Matrix::Identity(B.cols(), nProjections);
   Vector s = svd.singularValues();
-  std::clog << "MAIN: Leading singular values of bigram are " << s.transpose().head(20) << endl;
+  std::clog << "MAIN: Leading singular values are " << s.transpose().head(20) << endl;
   Eigen::IOFormat fmt(Eigen::StreamPrecision,Eigen::DontAlignCols,"\t","\n","","","","");
   os1 << s.transpose() << std::endl;
   os1.close();

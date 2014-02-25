@@ -135,14 +135,14 @@ reSkip = 0
 #			defines random projection
 reSeed = 2763
 #			number of projections for W, and nProj (each side) for bigram	
-nProj  = 1500
+nProj  = 500
 #			allow different files for vocabulary and for regression
 vFile   = $(temppath)$(city).txt 
 rFile   = $(vFile)
 outREPath = $(temppath)$(city)/
 
 
-engine = unified_regressor
+engine = regressor
 
 $(outREPath)$(nProj).txt: $(engine) $(vFile) $(rfile) 
 	./$(engine) --vocab_file=$(vFile) --regr_file=$(rFile) --output_path=$(outREPath) -s $(reSeed) -k $(reSkip) --n_projections $(nProj) --power_iter 1
@@ -157,7 +157,7 @@ dore:  $(outREPath)$(nProj).txt
 lsaProj = 1500
 
 $(outREPath)L$(lsaProj).txt: lsa_regr $(rfile) 
-	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(lsaProj) --power_iter 1 --adjustment 'r' --min_frequency 3
+	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(lsaProj) --power_iter 4  --adjustment 'r' --min_frequency 3
 	date >> $@
 
 $(outREPath)Q$(lsaProj).txt: lsa_regr $(rfile) 

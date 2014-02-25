@@ -46,6 +46,8 @@ parse_arguments(int argc, char** argv,
   
 int main(int argc, char** argv)
 {
+  std::clog << "MAIN: Eigen will use " << Eigen::nbThreads() << " threads.\n";
+  
   // read input options
   string fileName        (  ""   );  // used to build regression variables from document text (leading y_i)
   int    nSkipInitTokens (   1   );  // regression response at start of line (to isolate y_i from vocab)
@@ -132,24 +134,27 @@ int main(int argc, char** argv)
     Helper::write_exact_svd_to_path(W, nProjections, outputPath, wTag);
   }
 
-  // P holds random projections of LSA variables
+  // P holds random projections version of SVD of LSA variables
   Matrix P(nDocs, nProjections);
   if (! quadratic)                                                                             // adapted from Helper::fill_random_projection
   { std::clog << "MAIN: Computing left singular vectors of L by random projection";
     if (powerIterations) std::clog << " with power iterations.\n" ; else std::clog << ".\n";
     print_with_time_stamp("Starting base linear random projection", std::clog);
-    Matrix R = W * Matrix::Random(W.cols(), P.cols());    
-    P = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());  // block does not work; use to get left P.cols()
-    print_with_time_stamp("Completed base linear random projection", std::clog);
-    if (powerIterations)
-      while (powerIterations--)
-      { R = W * W.transpose() * P;   // IS THIS RIGHT IF W'W != I???
-	print_with_time_stamp("Preparing Householder step of iterated random projection", std::clog);
-	P = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());
-      }
-    print_with_time_stamp("Completed power iterations of linear projection", std::clog);
-    std::clog << "MAIN: Checking norms of leading terms in random projection; 0'0="
+    P = W * Matrix::Random(W.cols(), nProjections);    
+    while (powerIterations--)
+    { print_with_time_stamp("Performing W W' multiplication for power iteration", std::clog);
+      Matrix R = W * (W.transpose() * P);
+      print_with_time_stamp("Performing Householder step of iterated random projection", std::clog);
+      P = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());  // block does not work; use to get left P.cols()
+    }
+    std::clog << "MAIN: Check norms after Householder orthgonalization in random projection; 0'0="
 	      << P.col(0).dot(P.col(0)) << "   0'1=" << P.col(0).dot(P.col(1)) << "   1'1=" << P.col(1).dot(P.col(1)) << std::endl;
+    Matrix B = P.transpose() * W;
+    print_with_time_stamp("Computing SVD of reduced B matrix", std::clog);
+    Eigen::JacobiSVD<Matrix> svd(B, Eigen::ComputeThinU|Eigen::ComputeThinV);
+    Matrix U = svd.matrixU()  ;   // nProjections x nProjections
+    P = P * U;
+    print_with_time_stamp("Completed SVD of random projection", std::clog);
   }
   else  // quadratic
   { std::clog << "MAIN: Computing random projection of " << (W.cols()*(W.cols()+1))/2 << " quadratics (excludes linear).";
