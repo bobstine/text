@@ -20,7 +20,7 @@ EXTERNAL_USES = boost_system boost_thread boost_regex gomp
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-level_1 = k_means.o token_manager.o confusion_matrix.o porter.o vocabulary.o eigenword_dictionary.o regex.o
+level_1 = k_means.o token_manager.o confusion_matrix.o porter.o vocabulary.o eigenword_dictionary.o 
 level_2 = helpers.o
 level_3 = classifier.o regressor.o bigram.o unified_regressor.o  lsa_regr.o
 level_4 = cluster.o
@@ -154,14 +154,14 @@ dore:  $(outREPath)$(nProj).txt
 
 # --- lsa regressions   (dummy targets used to date stamp for linear/quadratic choice in dolsa)
 
-lsaProj = 25
+lsaProj = 1500
 
 $(outREPath)L$(lsaProj).txt: lsa_regr $(rfile) 
-	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(lsaProj) --power_iter 1 --adjustment 's' --min_frequency 3
+	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(lsaProj) --power_iter 1 --adjustment 'r' --min_frequency 3
 	date >> $@
 
 $(outREPath)Q$(lsaProj).txt: lsa_regr $(rfile) 
-	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(lsaProj) --power_iter 0 --quadratic --min_frequency 3
+	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(lsaProj) --power_iter 1 --adjustment 's' --min_frequency 3 --quadratic 
 	date >> $@
 
 dolsa:  $(outREPath)L$(lsaProj).txt $(temppath)$(city).txt
