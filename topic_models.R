@@ -60,12 +60,13 @@ poisson.topic.model <- function() {
 	reset()
 
 	# --- generate doc/word matrix
-	W <- matrix(0, nrow=n.doc, ncol=n.vocab)		#	word frequencies
-	# lambda <- rep(12,n.doc)						#	expected words per attribute
-	lambda <- rgamma(n.doc, shape=6, scale=2)
-	one <- rep(1,n.vocab)
-	m <- A %*% P;
-	for(i in 1:n.doc) { W[i,] <- rpois(one,lambda[i]*m[i,]) }
+	W <- matrix(0, nrow=n.doc, ncol=n.vocab)
+	# lambda <- rgamma(n.doc, shape=6, scale=2) * A %*% P;	#	expected frequencies
+	lambda <- 12 * A %*% P;
+	# for(i in 1:n.doc) {W[i,]<-rnorm(n.vocab, mean=lambda[i],sd=0.25)}
+	# for(i in 1:n.doc) {W[i,]<-rnorm(n.vocab,mean=lambda[i],sd=0.5*sqrt(lambda[i]*m[i,]))}
+	for(i in 1:n.doc) {W[i,]<-rnorm(n.vocab,mean=lambda[i],sd=0.5*0.15)}
+	# for(i in 1:n.doc) { W[i,] <- rpois(n.vocab,lambda[i]) }
 	cat("Max word frequencies in first 5 docs", apply(W,1,max)[1:5])
 	doc.len <- apply(W,1,sum)						# check document lengths
 	mean(doc.len); hist(doc.len, breaks=25)
@@ -141,8 +142,8 @@ poisson.topic.model <- function() {
 	coef.summary.plot(lsa.cca.sr, "Scaled LSA Variables", omit=1:2)
 
 	# --- CCA with columns of A
-	cca			<- cancor(A, U[,1:250], xcenter=F, ycenter=F)
-	cca.scaled	<- cancor(A, U.scaled[,1:250], xcenter=F, ycenter=F)
+	# cca			<- cancor(A, U[,1:250], xcenter=F, ycenter=F)
+	# cca.scaled	<- cancor(A, U.scaled[,1:250], xcenter=F, ycenter=F)
 
 	# --- comparison of models
 	scale <- function(x) (x-min(x))/diff(range(x))
@@ -150,7 +151,7 @@ poisson.topic.model <- function() {
 		plot(scale(     udv$d[1:100]), log="y", main="Raw Frequencies")
 		plot(scale(udv.rows$d[1:100]), log="y", main="Scaled Rows")
 		plot(scale(udv.cols$d[1:100]), log="y", main="Scaled Columns")
-		plot(scale(udv.cca$d[1:100]), log="y", main="CCA Scaling (both)")
+		plot(scale( udv.cca$d[1:100]), log="y", main="CCA Scaling (both)")
 	reset()
 	
 	
@@ -165,6 +166,39 @@ poisson.topic.model <- function() {
 	plot(cca$cor, cca.scaled$cor); abline(0,1)
 
 }
+
+##################################################################################
+#
+#	My version of Dean's code
+#
+##################################################################################
+
+# lambda <- matrix(rexp(n*k), nrow=n, ncol=k) %*% matrix(rexp(k*m), nrow=k, ncol=m)
+
+rdrl <- function(n,a) {
+    y <- rgamma(n, shape=a, scale=1)
+    return(y / sum(y))
+}
+
+	n <- 10; 				# rows in doc-term 
+	k <- 5;					# attributes
+	m <- 10;				# size of vocab
+	my <- 1e-8				# plots
+
+	A <- matrix(rbinom(n*k,size=1,prob=1/k),nrow=n,ncol=k)
+	P <- matrix(0,nrow=k,ncol=m); for(i in 1:k) P[i,]<-rdrl(m,0.2)
+	lambda<-A %*% P
+
+	d <- svd(lambda)$d
+	plot(d, log="y", ylim=c(my,max(d)), pch=20)
+	
+	poisson<-matrix(0,nrow=n,ncol=m); 
+	for(i in 1:n) poisson[i,]<- rpois(m,lambda[i,]) 
+	points(pmax(my,svd(poisson)$d), col="blue", pch=20, cex=0.5)
+	
+	normal<-matrix(0,nrow=n,ncol=m); 
+	for(i in 1:n) normal[i,] <- rnorm(m, lambda[i,], sd=sqrt(lambda[i,]))
+	points(pmax(my,svd(normal)$d), col="red")
 
 
 ##################################################################################

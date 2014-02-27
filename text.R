@@ -476,8 +476,8 @@ k<-400; plot(lsa.p2[,k],lsa.p4[,k]); cor(lsa.p2[,k],lsa.p4[,k]);  # down to 0.4 
 exact <- c(805.262,304.603,223.003,194.768,177.421,166.183, 129.452, 123.934, 111.053,...)
 			 
 # read data
-exact.d <-       scan("~/C/text/text_src/temp/ChicagoOld3/svd_exact_d_raw.txt");
-exact.u <- read.table("~/C/text/text_src/temp/ChicagoOld3/svd_exact_u_raw.txt"); dim(exact.u)  # no headers 
+exact.d <-       scan("~/C/text/text_src/temp/ChicagoOld3/svd_exact_d_cca.txt");
+exact.u <- read.table("~/C/text/text_src/temp/ChicagoOld3/svd_exact_u_cca.txt"); dim(exact.u)  # no headers 
 
 # spectrum is diffuse                                                 [ spectrum.pdf ] 
 quartz(height=3.5,width=5); reset()
@@ -487,7 +487,7 @@ plot(exact.d[1:500], log="y", ylab="Singular Value")
 pairs(cbind(exact.u[,1:3], lsa[,1:3]))
 cor(cbind(exact.u[,1],rp.u[,1:5]))[1,]
 
-# Because of diffuse spectrum, don't recover the full spaces.         approx.pdf
+# Because of diffuse spectrum, don't recover the full spaces.         [ approx.pdf ]
 par(mfrow=c(3,1))
 	k <- 200;
 	cca <- cancor(lsa[,1:k], exact.u[,1:k]); cca$cor[1:5]
@@ -514,9 +514,10 @@ cor(cbind(exact.u[,1],(udv$u)[,1:5]))[1,]
 
 # --- but does it matter for the regression: ie, better with exact SVD?
 
-p    <- 200
+p    <- 250
 lsa  <- as.matrix(exact.u[,1:p])
-sr   <- summary(regr.ex <- lm(logPrice ~ poly(logTokens,5) + lsa , x=TRUE, y=TRUE)); sr  
+sr   <- summary(regr.ex <- lm(logPrice ~ nTokens + lsa)); sr  
+coef.summary.plot(sr, "Exact LSA Variables", omit=1:2)
 
 lsa  <- as.matrix(rp.u[,1:p])
 sr   <- summary(regr.rp <- lm(logPrice ~ poly(logTokens,5) + lsa , x=TRUE, y=TRUE)); sr  
@@ -534,7 +535,9 @@ par(mfrow=c(1,2))    # regrW.pdf
 	half.normal.plot(y,height=5)
 reset()
 
-
+# --- save data
+data <- data.frame(logPrice=logPrice,nTokens=nTokens,exact.u = exact.u)
+write.table(data, "~/Desktop/monotone_data.txt", row.names=FALSE)
 
 ##################################################################################
 #
