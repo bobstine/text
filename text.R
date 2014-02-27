@@ -516,7 +516,7 @@ cor(cbind(exact.u[,1],(udv$u)[,1:5]))[1,]
 
 p    <- 250
 lsa  <- as.matrix(exact.u[,1:p])
-sr   <- summary(regr.ex <- lm(logPrice ~ nTokens + lsa)); sr  
+sr   <- summary(regr.ex <- lm(logPrice ~ lsa)); sr  
 coef.summary.plot(sr, "Exact LSA Variables", omit=1:2)
 
 lsa  <- as.matrix(rp.u[,1:p])
