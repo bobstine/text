@@ -22,7 +22,7 @@ reset <- function() {
 
 coef.summary.plot <- function(sr, xlab, omit=1) { 				# omit intercept
 	par(mfrow=c(1,2))  
-		y <- abs(sr$coefficients[-omit,3])
+		y <- abs(sr$coefficients[-(1:omit),3])
 		x <- 1:length(y)     
 		threshold <- -qnorm(.025/length(y))
 		plot(x,y, xlab=xlab, ylab="|t|", main="", col="darkgray", cex=0.5)

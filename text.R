@@ -106,7 +106,7 @@ parsed.analysis <- function() {
 		p
 		}
 
-	quartz(width=6, height=5)                                              [ parsed.pdf ]   
+	quartz(width=6, height=5)                                              # [ parsed.pdf ]   
 	par(mfrow=c(2,2), mar=c(4,4,1,1), mgp=c(2,1,0))
 		plot(logPrice ~ logTokens, ylab= "Log Price",  xlab="Log Length")
 			logPrice.pred <- add.model(logTokens, logPrice)
@@ -193,8 +193,9 @@ word.regression <- function () {
 	
 # --- check some fits; 5th degree from C++ with centering gets diff R2
 	sr <- summary(lm(logPrice ~ poly(logTokens,5)           )); sr
-	sr <- summary(lm(logPrice ~ poly(logTokens,5) + W[, 1:2])); sr
-	sr <- summary(lm(logPrice ~ poly(logTokens,5) + W[,1:20])); sr
+	sr <- summary(lm(logPrice ~ poly(logTokens,5) + W[,   1:2])); sr
+	sr <- summary(lm(logPrice ~ poly(logTokens,5) + W[,  1:20])); sr
+	sr <- summary(lm(logPrice ~ poly(logTokens,5) + W[,1:3000])); sr
 	
 # --- see how well words describe length (duh)... only interesting for PCs
 	sr <- summary(regr <- lm(nTokens ~ W[,1:100])); sr
@@ -256,14 +257,19 @@ word.regression <- function () {
 
 	plot(r2.words.for[,"AICc"], type="l", xlab="Word Frequency Rank", ylab="AICc")  [ aicwords.pdf ]
 	# lines( r2.words.rev[,"AICc"] , col="black", lty=4)
-	opt.k <- which.min(r2.words.for[,"AICc"])    # 1094
-	r2.words.for[opt.k,]
+	opt.k <- which.min(r2.words.for[,"AICc"])    # 1094 slopes, including poly (due to singularity)
+	r2.words.for[opt.k,]                         # 'outstanding' is last word
 	lines(c(opt.k,opt.k), c(0,4500), col="gray")
 
 # --- explore fit chosen by AICc
-	sr.opt <- summary(regr.opt<-lm(logPrice ~ poly(logTokens,5) + W[,1:opt.k]));
+	opt.k <- 1092    # so outstanding is last, two of these are singular, leaving 1090
+	sr.opt <- summary(regr.opt<-lm(logPrice ~ poly(logTokens,5) + W[,1:opt.k])); 
 	plot(regr.opt)
 	plot(fitted.values(regr.opt), abs(residuals(regr.opt)))
+	
+	# pick off big t's and summarize model
+	coef.summary.plot(sr.opt, "Word", omit=5)
+	
 
 # --- use forward stepwise (it will complain about singularities)
 	p <- 1000
