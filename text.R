@@ -535,9 +535,39 @@ par(mfrow=c(1,2))    # regrW.pdf
 	half.normal.plot(y,height=5)
 reset()
 
-# --- save data
-data <- data.frame(logPrice=logPrice,nTokens=nTokens,exact.u = exact.u)
-write.table(data, "~/Desktop/monotone_data.txt", row.names=FALSE)
+# --- save data for Zhuang
+data <- data.frame(logPrice=logPrice,exact.u = exact.u)
+write.table(data, "~/Desktop/monotone_data_orthog.txt", row.names=FALSE)
+
+# --- revisit data sent to Zhuang
+
+# not centered
+data  <- read.table("~/C/text/text_src/temp/ChicagoOld3/monotone_data.txt", header=TRUE); 
+data <- as.matrix(data); dim(data)
+y <- data[,1]
+x <- as.matrix(data[,3:252])
+sr   <- summary(regr <- lm(y ~ x)); sr  
+coef.summary.plot(sr, "Uncentered Exact SVD Variables", omit=1:2)
+
+# centered
+data.c <-read.table("~/C/text/text_src/temp/ChicagoOld3/monotone_data_orthog.txt", header=TRUE) 
+data.c <- as.matrix(data.c); dim(data.c)
+y.c <- data.c[,1]
+x.c <- as.matrix(data.c[,2:251])
+sr.c   <- summary(regr.c <- lm(y.c ~ x.c)); sr.c  
+coef.summary.plot(sr.c, "Uncentered Exact SVD Variables", omit=1:2)
+
+
+# almost the same
+udv   <- svd(  x[,1:50]); plot(  udv$d)
+udv.c <- svd(x.c[,1:50]); plot(udv.c$d)
+
+# but basis vectors are quite different
+pairs(udv$u[,1:3], udv.c$u[,1:3])
+# span eventually matches
+cancor(udv$u[,1:20], udv.c$u[,1:20])$cor
+
+plot(fitted.values(regr), fitted.values(regr.c))
 
 ##################################################################################
 #

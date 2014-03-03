@@ -227,6 +227,50 @@ d2 <- svd(m %*% diag(c(1,1,10,10,10)))$d
 plot(d1, d2)
 
 
+
+##################################################################################
+#
+#	SVD Experiments
+#
+##################################################################################
+
+n <- 6; m <- 3
+x <- round( matrix(rnorm(n*m),nrow=n), 1 )
+
+udv   <- svd(x)
+
+udv.r <- svd(  diag(1:n) %*% x  )
+
+udv.c <- svd(  x %*% diag(1:m)  )
+
+udv$d
+udv.r$d
+udv.c$d
+
+# multiply rows by diagonal changes range (norm for range) for larger dim
+cancor(udv$u, udv.r$u, xcenter=F, ycenter=F)$cor
+cancor(udv$u, udv.c$u, xcenter=F, ycenter=F)$cor
+
+# these match up since must span R^3
+cancor(udv$v, udv.r$v, xcenter=F, ycenter=F)$cor
+cancor(udv$v, udv.c$v, xcenter=F, ycenter=F)$cor
+
+
+# --- orthogonal matrix
+
+n <- 6; m <- 3
+x <- round( matrix(rnorm(n*m),nrow=n), 1 )
+
+o <- qr.Q(qr(x))
+round(o,3)
+t(o) %*% o
+
+udv <- svd(o)
+round(udv$d,3)
+# just permutes columns due to rounding
+round(cbind(o,0,udv$u),3)
+round(udv$v,3)
+
 ##################################################################################
 #
 #	Generate attributes randomly rather than from value
