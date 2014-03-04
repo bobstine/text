@@ -73,9 +73,10 @@ int main(int argc, char** argv)
     {
     case 'r' : { wTag = "raw"  ; break; }
     case 't' : { wTag = "tfidf"; break; }
-    case 's' : { wTag = "sqrt" ; break; }  
+    case 's' : { wTag = "row"  ; break; }  // was sqrt
+    case 'c' : { wTag = "col"  ; break; }
     case 'n' : { wTag = "recip"; break; }
-    case 'c' : { wTag = "cca"  ; break; }
+    case 'a' : { wTag = "cca"  ; break; }
     default:   { wTag = "error"; std::clog << "MAIN: Unrecognized adjustment " << adjust << " given.\n"; }
     }
   
@@ -110,14 +111,19 @@ int main(int argc, char** argv)
   if (adjust == 's')
   { Vector sr = (W * Vector::Ones(W.cols())).array().sqrt().inverse();
     W = sr.asDiagonal() * W;
-    std::clog << "MAIN: Leading block of the LSA matrix after sqrt adjustment: \n" << W.block(0,0,5,10) << endl;
+    std::clog << "MAIN: Leading block of the LSA matrix after ROW sqrt adjustment: \n" << W.block(0,0,5,10) << endl;
   }
   else if (adjust == 'c')
-  { Vector sr = nTokens.array().sqrt().inverse();
-    Vector st = vocabulary.type_frequency_vector().array().sqrt().inverse();
-    W = sr.asDiagonal() * W * st.asDiagonal();
-    std::clog << "MAIN: Leading block of the LSA matrix after CCA adjustment: \n" << W.block(0,0,5,10) << endl;
+  { Vector st = vocabulary.type_frequency_vector().array().sqrt().inverse();
+    W = W * st.asDiagonal();
+    std::clog << "MAIN: Leading block of the LSA matrix after COL sqrt adjustment: \n" << W.block(0,0,5,10) << endl;
   }     
+  else if (adjust == 'a')
+  { Vector sr = nTokens.array().sqrt().inverse();
+    Vector sc = vocabulary.type_frequency_vector().array().sqrt().inverse();
+    W = sr.asDiagonal() * W * sc.asDiagonal();
+    std::clog << "MAIN: Leading block of the LSA matrix after CCA adjustment: \n" << W.block(0,0,5,10) << endl;
+  }
   else if (adjust == 't')
   { Vector termCts = Vector::Zero(W.cols());   // count docs in which terms appear
     for (int doc=0; doc<W.outerSize(); ++doc)
@@ -188,10 +194,6 @@ int main(int argc, char** argv)
       }
       print_with_time_stamp("Complete power iterations of quadratic projection", std::clog);
     }
-  }
-  if (adjust == 'c')
-  { Vector sr = nTokens.array().sqrt().inverse();
-    P = sr.asDiagonal() * P;
   }
 
   std::clog << "MAIN: Completed LSA projection.  P[" << P.rows() << "x" << P.cols() << "]\n";

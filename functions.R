@@ -25,6 +25,7 @@ coef.summary.plot <- function(sr, xlab, omit=1) { 				# omit intercept
 		y <- abs(sr$coefficients[-(1:omit),3])
 		x <- 1:length(y)     
 		threshold <- -qnorm(.025/length(y))
+		cat("Bonferroni at ",threshold,"\n");
 		plot(x,y, xlab=xlab, ylab="|t|", main="", col="darkgray", cex=0.5)
 		abline(h=threshold, col="black", lty=4)
 		abline(h=sqrt(2/pi), col="black")
@@ -44,7 +45,7 @@ half.normal.plot <- function(y, height=2) {
 	abline(0,1, col="black", lty=2)
 	abline(regr,col="red")
 	text(0.25,height,paste("b =",round(coefficients(regr)[2],1)), cex=0.7)
-	# summary(regr)
+	cat("t-stat and p-value are ", coefficients(summary(regr))[2,],"\n")
 	}
 	
 jitter <- function(x) { x + 0.05 * sd(x) * rnorm(length(x)) }
