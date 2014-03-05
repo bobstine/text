@@ -427,7 +427,7 @@ lsa.analysis <- function() {
 	
 # --- plot of spectrum                                      # [ spectrum.pdf ]
 	sv <- scan(paste(path,"svd_exact_d_col.txt",sep=""))
-    plot(sv[1:1500], xlab="Component", ylab="Singular Value", log="y")                   
+    plot(sv[1:4000], xlab="Component", ylab="Singular Value", log="xy")                   
 
 # --- sequence of R2 statistics, in C++
 	word.fit<- read.table(paste(path,"word_regr_fit_with_m_for.txt",sep=""),header=T)
