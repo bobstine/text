@@ -195,11 +195,6 @@ int main(int argc, char** argv)
     Eigen::VectorXd YY(nDocs), mm(nDocs);                  // convert into double and take log for regression code
     YY = Y.cast<double>().array().log();
     mm = nTokens.cast<double>().array().log();
-    /*for(int i=0; i<nLines; ++i)
-    { YY(i) = log(Y(i));
-      mm(i) = log(nTokens(i));
-    }
-    */
     mm = mm.array() - mm.sum()/mm.size();                  // center to reduce collinearity
     bool reverse (false);                                  // reverse tests low frequency words first
     std::string fileName (outputPath + "lsa_regr_fit_");
@@ -208,7 +203,7 @@ int main(int argc, char** argv)
     if (reverse) fileName += "_rev.txt";
     else         fileName += "_for.txt";
     const int degree = 5;
-    Helper::calculate_sequence_r2 (YY, mm, degree, reverse, P, vocabulary, P.cols(), fileName);
+    Helper::calculate_sequence_r2 (YY, mm, degree, reverse, P, vocabulary, P.cols(), fileName);  // need to have strings, not words
   }
 
 

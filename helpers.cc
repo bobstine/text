@@ -151,43 +151,6 @@ Helper::write_matrix_to_file(Matrix const& m, std::string fileName, std::string 
 }
 
 
-
-/*
-void
-Helper::calculate_sequence_r2 (Eigen::VectorXd const& Y, Eigen::VectorXd tokenCount, string xLabel, Eigen::MatrixXf X, string file)
-{
-  const int k = X.cols();
-  std::clog << "MAIN: Top of calculate_sequence_r2 loop; fitting " << k << " regressors labeled " << xLabel << endl;
-  std::ofstream os(file);
-  if ((file.size()>0) && (!os)) std::clog << "MAIN: Could not open file " << file << " for writing r2 sequence.\n";
-  if (os)  os << "Type  r2  RSS AICc\n";
-  LinearRegression regr("log price", Y, 0);
-  if (tokenCount.size() > 0)
-  { std::clog << "MAIN: Calculate_sequence_r2 adjusted for total word count.\n";
-    FStatistic f = regr.f_test_predictor("m",tokenCount);
-    std::clog << "MAIN: F stat for adding token lengths is " << f.f_stat() << endl;
-    if(f.f_stat() > 0.0001) regr.add_predictors();
-    if (os)
-      os << "nTokens " << regr.r_squared() << " " << regr.residual_ss() << " " << regr.aic_c() << endl;
-  }    
-  Eigen::VectorXf ind = Eigen::VectorXf::Zero(k);
-  for (int j=0; j<k; ++j)
-  { std::stringstream ss;
-    ss << j;
-    string name = xLabel + ss.str();
-    Eigen::VectorXd xj(X.rows(),1);                 // transfer to double
-    for(int i=0; i<xj.size(); ++i) xj(i) = X.coeff(i,j);
-    FStatistic f=regr.f_test_predictor(name, xj);
-    if(f.f_stat() > 0.0001) regr.add_predictors();
-    else std::clog << "MAIN: F = " << f.f_stat() << " for " << name << " is (near) singular in sequence r2 and skipped.\n";
-    if (os)
-      os << name << " " << regr.r_squared() << " " << regr.residual_ss() << " " << regr.aic_c() << endl;
-  }
-  std::clog << "MAIN: Regression on W completed with results written to " << file << ".\n";
-}
-
-*/
-
 void
 Helper::write_exact_svd_to_path(Vocabulary::SparseMatrix const& B, int nProjections, std::string path, std::string tag)
 {
