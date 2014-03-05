@@ -411,21 +411,41 @@ lsa.analysis <- function() {
 	nProj   <- 1500
 	weights <- "col"
 	city    <- "ChicagoOld3/"
-	path    <- "/Users/bob/C/text/text_src/temp/"
-	file <- paste(path,city,"lsa_",weights,"_", nProj,"_p4.txt",sep="")
+	path    <- paste("/Users/bob/C/text/text_src/temp/",city,sep="")
+	file    <- paste(path,city,"lsa_",weights,"_", nProj,"_p4.txt",sep="")
 	LSA     <- as.matrix(read.table(file, header=TRUE)); dim(LSA)
 
 
 # --- LSA analysis from matrix W    adj R2=0.6567 with 1000 and log tokens
 
-	p      <- 1500
+	p      <- 1000
 	lsa    <- as.matrix(LSA[,1:p])
 	sr.lsa <- summary(regr.lsa <- lm(logPrice ~ poly(nTokens,5) + lsa , x=TRUE, y=TRUE)); sr.lsa
 	
 	# quartz(width=6.5,height=3); reset()
-	coef.summary.plot(sr.lsa, "LSA Component", omit=6)		# [ lsatstats.pdf ]                                   
+	coef.summary.plot(sr.lsa, "LSA Component", omit=6)		# [ lsatstats.pdf ]  
+	
+# --- plot of spectrum                                      # [ spectrum.pdf ]
+	sv <- scan(paste(path,"svd_exact_d_col.txt",sep=""))
+    plot(sv[1:1500], xlab="Component", ylab="Singular Value", log="y")                   
 
-# --- sequence of R2 statistics
+# --- sequence of R2 statistics, in C++
+	word.fit<- read.table(paste(path,"word_regr_fit_with_m_for.txt",sep=""),header=T)
+	lsa.fit <- read.table(paste(path,"lsa_regr_fit_with_m_for.txt",sep=""), header=T)
+	# change names (legacy C++ labels with types)
+	rownames(lsa.fit) <- c("tokens",paste("lsa",1:(nrow(lsa.fit)-1), sep=""))  # allow for nTokens
+	
+	quartz(height=3.5, width=6); reset()
+	plot(word.fit[,"AICc"], type="l", xlab="Features", ylab="AICc",    # [ aic.pdf ]
+			lty=3, ylim=range(lsa.fit[,"AICc"]))
+	lines(c(opt.k,opt.k), c(0,4300), col="gray")
+	lines(lsa.fit[,"AICc"]) 
+	lsa.fit[k <- which.min(lsa.fit[,"AICc"]),]; k
+	lines(c(k,k), c(0,3250), col="gray")
+
+	
+	
+# --- sequence of R2 statistics, in R
 	df <- as.data.frame(cbind(logPrice,logTokens,LSA))
 	
 	k <- 100;
