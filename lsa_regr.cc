@@ -3,7 +3,7 @@
   optionally with quadratic expansion of the type space.
 */
 
-#include "helpers.h"
+#include "helpers.Template.h"
 #include "vocabulary.h"
 #include "read_utils.h"
 #include "file_utils.h"
@@ -135,7 +135,7 @@ int main(int argc, char** argv)
     std::clog << "MAIN: Leading block of the LSA matrix after tf-idf adjustment: \n" << W.block(0,0,5,10) << endl;
   }
   
-  if (true) // compute exact SVD decomposition
+  if (false) // compute exact SVD decomposition
   { std::clog << "MAIN: Computing exact SVD of document-term matrix W begins.\n";
     Helper::write_exact_svd_to_path(W, nProjections, outputPath, wTag);
   }
@@ -179,15 +179,6 @@ int main(int argc, char** argv)
     print_with_time_stamp("Complete base projection", std::clog);
     if (powerIterations)
     { print_with_time_stamp("Starting power iterations", std::clog);
-      /* Much slower if form XXt and multiply unless have very very few rows in X
-	 Eigen::SparseMatrix<float,Eigen::ColMajor> XXt(X.rows(),X.rows());
-	 XXt.setZero();
-	 for (int j=0; j<W.cols(); ++j)
-	 {	for (int k=j; k<W.cols(); ++k)
-	 { Eigen::SparseVector<float> cp = X.col(j).cwiseProduct(X.col(k));
-	 for (Eigen::SparseVector<float>::InnerIterator it(cp); it; ++it)
-	 XXt.col(it.index()) += cp * it.value();
-	 }	 }  */
       while (powerIterations--)
       { R = X * X.transpose() * P;
 	P = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());
@@ -195,31 +186,40 @@ int main(int argc, char** argv)
       print_with_time_stamp("Complete power iterations of quadratic projection", std::clog);
     }
   }
-
   std::clog << "MAIN: Completed LSA projection.  P[" << P.rows() << "x" << P.cols() << "]\n";
-  if (false)                                                // compute sequence of regressions for LSA variables
+
+  
+  // optionally compute R2 sequence of regression models
+  if (true)
   { std::clog << "MAIN: Fitting regressions on singular vectors.\n";
-    Eigen::VectorXd YY(nDocs), mm(nDocs);                // copy into double and take log for regression code
-    for(int i=0; i<nDocs; ++i)
-    { YY(i) = log (Y(i));
-      mm(i) = nTokens(i);
+    Eigen::VectorXd YY(nDocs), mm(nDocs);                  // convert into double and take log for regression code
+    YY = Y.cast<double>().array().log();
+    mm = nTokens.cast<double>().array().log();
+    /*for(int i=0; i<nLines; ++i)
+    { YY(i) = log(Y(i));
+      mm(i) = log(nTokens(i));
     }
+    */
+    mm = mm.array() - mm.sum()/mm.size();                  // center to reduce collinearity
+    bool reverse (false);                                  // reverse tests low frequency words first
     std::string fileName (outputPath + "lsa_regr_fit_");
     if (nTokens.size() > 0) fileName += "with_m";
     else              fileName += "no_m";
-    Helper::calculate_sequence_r2 (YY, mm, "LSA_", P, fileName+".txt");
+    if (reverse) fileName += "_rev.txt";
+    else         fileName += "_for.txt";
+    const int degree = 5;
+    Helper::calculate_sequence_r2 (YY, mm, degree, reverse, P, vocabulary, P.cols(), fileName);
   }
 
-  // compute dense projection coefficients for common words
-  Matrix YX (W.rows(), 2);                         // y , m_i
-  YX.col(0) = Y.array().log();                     // stuff log Y into first column for output
-  YX.col(1) = nTokens;
 
   // write to tab delimited output files if path assigned
   if (outputPath.size() > 0)
   { // prec, align, col sep, row sep, row pre, row suf, file pre, file suff
     Eigen::IOFormat fmt(Eigen::StreamPrecision,Eigen::DontAlignCols,"\t","\n","","","","");
     {
+      Matrix YX (W.rows(), 2);                         // y , m_i
+      YX.col(0) = Y.array().log();                     // stuff log Y into first column for output
+      YX.col(1) = nTokens;
       std::ofstream os (outputPath + "lsa_ym.txt");
       os << "Y\tm" << endl;
       os <<  YX.format(fmt) << endl;

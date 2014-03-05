@@ -192,10 +192,12 @@ word.regression <- function () {
 	plot(d.short, type="l"); lines(d.long)
 	
 # --- check some fits; 5th degree from C++ with centering gets diff R2
-	sr <- summary(lm(logPrice ~ poly(logTokens,5)           )); sr
-	sr <- summary(lm(logPrice ~ poly(logTokens,5) + W[,   1:2])); sr
-	sr <- summary(lm(logPrice ~ poly(logTokens,5) + W[,  1:20])); sr
-	sr <- summary(lm(logPrice ~ poly(logTokens,5) + W[,1:3000])); sr
+	sr.0    <- summary(r.0<-lm(logPrice ~ poly(logTokens,5)           )); sr.0
+	sr      <- summary(lm(logPrice ~ poly(logTokens,5) + W[,   1:2])); sr
+	sr      <- summary(lm(logPrice ~ poly(logTokens,5) + W[,  1:20])); sr
+	sr.3000 <- summary(r.3000<-lm(logPrice ~ poly(logTokens,5) + W[,1:3000])); sr.3000
+	
+	anova(r.0, r.3000)
 	
 # --- see how well words describe length (duh)... only interesting for PCs
 	sr <- summary(regr <- lm(nTokens ~ W[,1:100])); sr
@@ -210,7 +212,7 @@ word.regression <- function () {
 	
 	k <- 100;
 	r2.len <- rep(0,k);
-	regr.len <- lm(logPrice ~ poly(logTokens,5), data=df); r2.poly <- summary(regr.len)$r.squared
+	regr.len <- lm(logPrice ~ poly(logTokens,5), data=df); r2.poly<-summary(regr.len)$r.squared
 	r2.none<- rep(0,k);
 	regr.none<- lm(logPrice ~ 1, data=df)
 	for(j in 1:k) {
@@ -250,7 +252,7 @@ word.regression <- function () {
 	sum(0 == diff(r2.words.rev[,"RSS"]))  # how many add nothing
 
 	quartz(height=3.5, width=6); reset()
-	mx <- r2.words.for[nrf,"r2"]                                           [ cumr2.pdf ]
+	mx <- r2.words.for[nrf,"r2"]						# [ cumr2.pdf ]
 	plot (c(0,r2.words.for[,"r2"]), type="l", xlab="Word Frequency Rank", ylab="Cumulative R-Squared")
 	lines(cumsum(c(r2.words.rev[1,"r2"],rev(diff(c(0,r2.words.rev[,"r2"]))[-1]))), col="black")
 	lines(c(0,r2.words.rev[,"r2"]), col="black", lty=2)
@@ -262,15 +264,26 @@ word.regression <- function () {
 	lines(c(opt.k,opt.k), c(0,4500), col="gray")
 
 # --- explore fit chosen by AICc
-	opt.k <- 1092    # so outstanding is last, two of these are singular, leaving 1090
-	sr.opt <- summary(regr.opt<-lm(logPrice ~ poly(logTokens,5) + W[,1:opt.k])); 
+#           outstanding is last word and two intermediate are singular, leaving 1089
+	opt.k <- 1092
+	wopt <- W[,1:opt.k] 
+	sr.opt <- summary(regr.opt<-lm(logPrice ~ poly(logTokens,5) + wopt)); 
 	plot(regr.opt)
 	plot(fitted.values(regr.opt), abs(residuals(regr.opt)))
 	
 	# pick off big t's and summarize model
-	coef.summary.plot(sr.opt, "Word", omit=5)
+	quartz(width=6.5,height=3); reset();
+	coef.summary.plot(sr.opt, "Word Rank", omit=6)				# [ aictstats.pdf ]
 	
-
+	# find those less than bonferroni
+	pv <- coefficients(sr.opt)[,4] 
+	length(j <- which(pv < .05/1089))
+	coefficients(sr.opt)[j,]
+	# regression on just these (tricky to get correct colmns since some dropped)
+	vars <- sub("wopt","",names(j[-1]))
+	m <- W[,vars]
+	summary(	lm(logPrice ~ m)	)
+	
 # --- use forward stepwise (it will complain about singularities)
 	p <- 1000
 	logt <- logTokens-mean(logTokens)	
@@ -303,7 +316,7 @@ word.regression <- function () {
 	i.opt <- which(t.stat<tau)[1]
 	abline(h=tau, col="red")
 	
-	# model picked by stepwise (78 variables added, not shown in order picked by stepwise, adj r2 = 0.576)
+	# model picked by stepwise (78 variables added, not shown in order by stepwise, adj r2 = 0.576)
 	sum(ssw$which[i.opt,-1])
 	xNames <- colnames(X)[ssw$which[i.opt,-1]]; xNames # drop first col for intercept
 	summary(lm(logPrice ~ X[,xNames]))
@@ -395,32 +408,22 @@ plot(wregr)
 
 lsa.analysis <- function() {
 
-	nProj   <- 500
-	weights <- "raw"
+	nProj   <- 1500
+	weights <- "col"
 	city    <- "ChicagoOld3/"
-
-	file    <- paste("/Users/bob/C/text/text_src/temp/",city,"lsa_",weights,"_", nProj,"_p4.txt",sep="")
+	path    <- "/Users/bob/C/text/text_src/temp/"
+	file <- paste(path,city,"lsa_",weights,"_", nProj,"_p4.txt",sep="")
 	LSA     <- as.matrix(read.table(file, header=TRUE)); dim(LSA)
 
 
 # --- LSA analysis from matrix W    adj R2=0.6567 with 1000 and log tokens
 
-	p    <- 500
-	lsa  <- as.matrix(LSA[,1:p])
-	sr   <- summary(regr.lsa <- lm(logPrice ~ poly(nTokens,5) + lsa , x=TRUE, y=TRUE)); sr  
+	p      <- 1500
+	lsa    <- as.matrix(LSA[,1:p])
+	sr.lsa <- summary(regr.lsa <- lm(logPrice ~ poly(nTokens,5) + lsa , x=TRUE, y=TRUE)); sr.lsa
 	
-	quartz(width=6.5,height=3); reset()
-	par(mfrow=c(1,2))                                   #        regrW.pdf
-		y <- abs(coefficients(sr)[-(1:7),3])
-		x <- 1:length(y)
-		plot(x,y, cex=0.25, col="darkgray",
-			xlab="LSA Predictor", ylab="|t|", main="")
-			abline(h=-qnorm(.025/length(y)), col="black", lty=4)
-			abline(h=sqrt(2/pi), col="black", lty=2)
-			smth <- loess(y~x,span=0.5)
-			lines(predict(smth), col="red")
-		half.normal.plot(y,height=5)
-	reset()
+	# quartz(width=6.5,height=3); reset()
+	coef.summary.plot(sr.lsa, "LSA Component", omit=6)		# [ lsatstats.pdf ]                                   
 
 # --- sequence of R2 statistics
 	df <- as.data.frame(cbind(logPrice,logTokens,LSA))
@@ -442,7 +445,8 @@ lsa.analysis <- function() {
 	r2.none <- c(  0    ,r2.none)
 	
 	plot(r2.len, xlim=c(0,100)); points(r2.none,col="red")
-	plot((r2.len - r2.none)[1:100], ylim=c(0,0.20), ylab="Increase in R2 with Length", xlab="Num LSA Terms")
+	plot((r2.len - r2.none)[1:100], ylim=c(0,0.20), 
+				ylab="Increase in R2 with Length", xlab="Num LSA Terms")
 
 
 correctly.ordered(logPrice, fitted.values(regr.lsa), 1000)

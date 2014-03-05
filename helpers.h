@@ -27,14 +27,10 @@ namespace Helper
   void
     write_word_counts_to_file(std::string fileName, Vocabulary::SparseMatrix const& W, int nCols, Vocabulary const& vocab);
   
-
-  void
-    calculate_sequence_r2 (Eigen::VectorXd const& Y, Eigen::VectorXd tokenCount, std::string xLabel, Eigen::MatrixXf X, std::string file);
-  
-  void
-    calculate_sequence_r2 (Eigen::VectorXd const& Y, Eigen::VectorXd tokenCount, int degree, bool reverse, Vocabulary::SparseMatrix const& W,
-			   Vocabulary const& vocab, int nToFit, std::string file);
-
+  template <class Mat>
+    void
+    calculate_sequence_r2 (Eigen::VectorXd const& Y, Eigen::VectorXd tokenCount, int degree, bool reverse, Mat const& W,
+				   Vocabulary const& vocab, int nToFit, string file);
   
   void
     fill_random_projection(Matrix &P, Vocabulary::SparseMatrix const& B, Vector const& leftWts, Vector const& rightWts, int power);
@@ -49,5 +45,7 @@ namespace Helper
     fill_left_SVD(Matrix &P, Vocabulary::SparseMatrix const& M);
 }
 
+
+  
 #endif
   
