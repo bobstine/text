@@ -9,11 +9,20 @@ library(xtable)    # latex tables
 library(MASS)
 library(leaps)
 
-
+predictive.r2 <- function(regr) {  # returns all three
+	n <- length(regr$residuals)
+	aov <- anova(regr)
+	ss <- aov$"Sum Sq"; 
+	rss <- ss[length(ss)]; regr.ss <- sum(ss[-length(ss)]); tss <- regr.ss + rss
+	k <- n - regr$df.residual  # k includes constant
+	c(1-rss/tss,  1 - (rss/(n - k))/(tss/(n-1)), 1 - (rss/(n - 2*k))/(tss/(n-1)))
+	}
+	
+	
 rdirichlet <- function(a) {
     y <- rgamma(length(a), a, 1)
     return(y / sum(y))
-}
+	}
 
 reset <- function() {
 	# par(mfrow=c(1,1), mgp=c(3,1,0), mar=c(5,4,4,2)+0.1)      # default
