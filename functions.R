@@ -59,9 +59,28 @@ half.normal.plot <- function(y, height=2) {
 	
 jitter <- function(x) { x + 0.05 * sd(x) * rnorm(length(x)) }
 
-cross.validate.mse <- function(regr, n.folds=10,seed=23479,n.reps=1) { 	
-	yx <- data.frame(y=regr$y, regr$x[,-1]) # remove intercept
-	n <- nrow(yx);
+correctly.ordered <- function(y, y.hat, n) { # percentage of random pairs correctly ordered.
+	ii <- sample(1:length(y),n,replace=FALSE)
+	jj <- sample(1:length(y),n,replace=FALSE)
+	dy <- y[ii]-y[jj]
+	df <- y.hat[ii]-y.hat[jj]
+	plot(df,dy,xlab="Difference in Predicted Values", ylab="Difference in Actual Y");
+	abline(a=0,b=1,col="red")
+	abline(h=0, col="gray"); abline(v=0, col="gray")
+	sum((dy*df)>0)
+	}
+	
+
+################################################################
+#
+#   Cross validation variations
+#
+################################################################
+
+
+cross.validate.mse <- function(y, X, n.folds=10,seed=23479,n.reps=1) { 	
+	yx <- data.frame(y=y, X=X)
+	n <- length(y);
 	i <- rep(1:n.folds,ceiling(n/n.folds))
 	if (length(i) != n) cat("Note: n is not multiple of # folds.\n");
 	i <- i[1:n]
@@ -71,9 +90,9 @@ cross.validate.mse <- function(regr, n.folds=10,seed=23479,n.reps=1) {
 		ii <- sample(i, n)   # permute fold indices
 		for(fold in 1:n.folds) {
 			cat(fold," ");
-			train <- which(fold != ii)
+			train <- (fold != ii)
 			r <- lm(y ~ ., data=yx[train,])
-			test  <- which(fold == ii)
+			test  <- (fold == ii)
 			err <- yx$y[test] - predict(r, newdata=yx[test,]);
 			mse[fold+(kk-1)*n.folds] <- sum(err^2)/length(test)
 		}}
@@ -91,18 +110,6 @@ show.cv <- function(regr, mse=NULL, reps=1, seed=2382) {
 	rect(ci[1],0,ci[2],0.25,col="lightblue",border=NA)
 	list(fit=red, cv=blue, mse=mse)
 	}
-	
-correctly.ordered <- function(y, y.hat, n) { # percentage of random pairs correctly ordered.
-	ii <- sample(1:length(y),n,replace=FALSE)
-	jj <- sample(1:length(y),n,replace=FALSE)
-	dy <- y[ii]-y[jj]
-	df <- y.hat[ii]-y.hat[jj]
-	plot(df,dy,xlab="Difference in Predicted Values", ylab="Difference in Actual Y");
-	abline(a=0,b=1,col="red")
-	abline(h=0, col="gray"); abline(v=0, col="gray")
-	sum((dy*df)>0)
-	}
-	
 	
 	
 # --- run the following to initialize
