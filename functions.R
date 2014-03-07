@@ -78,9 +78,8 @@ correctly.ordered <- function(y, y.hat, n) { # percentage of random pairs correc
 ################################################################
 
 
-cross.validate.mse <- function(y, X, n.folds=10,seed=23479,n.reps=1) { 	
-	yx <- data.frame(y=y, X=X)
-	n <- length(y);
+cross.validate.mse <- function(data, n.folds=10,seed=23479,n.reps=1) { 	
+	n <- length(data$y);
 	i <- rep(1:n.folds,ceiling(n/n.folds))
 	if (length(i) != n) cat("Note: n is not multiple of # folds.\n");
 	i <- i[1:n]
@@ -89,12 +88,12 @@ cross.validate.mse <- function(y, X, n.folds=10,seed=23479,n.reps=1) {
 	for(kk in 1:n.reps) {
 		ii <- sample(i, n)   # permute fold indices
 		for(fold in 1:n.folds) {
-			cat(fold," ");
+			cat(fold,"\n");
 			train <- (fold != ii)
-			r <- lm(y ~ ., data=yx[train,])
+			r <- lm(y ~ ., data=data[train,])
 			test  <- (fold == ii)
-			err <- yx$y[test] - predict(r, newdata=yx[test,]);
-			mse[fold+(kk-1)*n.folds] <- sum(err^2)/length(test)
+			err <- data$y[test] - predict(r, newdata=data[test,]);
+			mse[fold+(kk-1)*n.folds] <- sum(err^2)/sum(test)
 		}}
 	mse
 	}
