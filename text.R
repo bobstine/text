@@ -196,6 +196,7 @@ word.regression <- function () {
 	sr      <- summary(lm(logPrice ~ poly(logTokens,5) + W[,   1:2])); sr
 	sr      <- summary(lm(logPrice ~ poly(logTokens,5) + W[,  1:20])); sr
 	sr.3000 <- summary(r.3000<-lm(logPrice ~ poly(logTokens,5) + W[,1:3000])); sr.3000
+	predictive.r2(r.3000)
 	
 	anova(r.0, r.3000)
 	
@@ -267,7 +268,9 @@ word.regression <- function () {
 #           outstanding is last word and two intermediate are singular, leaving 1089
 	opt.k <- 1092
 	wopt <- W[,1:opt.k] 
-	sr.opt <- summary(regr.opt<-lm(logPrice ~ poly(logTokens,5) + wopt)); 
+	sr.opt <- summary(regr.opt<-lm(logPrice ~ poly(logTokens,5) + wopt));
+	predictive.r2(regr.opt)
+	
 	plot(regr.opt)
 	plot(fitted.values(regr.opt), abs(residuals(regr.opt)))
 	
@@ -412,7 +415,7 @@ lsa.analysis <- function() {
 	weights <- "col"
 	city    <- "ChicagoOld3/"
 	path    <- paste("/Users/bob/C/text/text_src/temp/",city,sep="")
-	file    <- paste(path,city,"lsa_",weights,"_", nProj,"_p4.txt",sep="")
+	file    <- paste(path,"lsa_",weights,"_", nProj,"_p4.txt",sep="")
 	LSA     <- as.matrix(read.table(file, header=TRUE)); dim(LSA)
 
 
@@ -421,6 +424,7 @@ lsa.analysis <- function() {
 	p      <- 1000
 	lsa    <- as.matrix(LSA[,1:p])
 	sr.lsa <- summary(regr.lsa <- lm(logPrice ~ poly(nTokens,5) + lsa , x=TRUE, y=TRUE)); sr.lsa
+	predictive.r2(regr.lsa)
 	
 	# quartz(width=6.5,height=3); reset()
 	coef.summary.plot(sr.lsa, "LSA Component", omit=6)		# [ lsatstats.pdf ]  
@@ -442,6 +446,12 @@ lsa.analysis <- function() {
 	lines(lsa.fit[,"AICc"]) 
 	lsa.fit[k <- which.min(lsa.fit[,"AICc"]),]; k
 	lines(c(k,k), c(0,3250), col="gray")
+	
+	p <- 523;
+	lsa    <- as.matrix(LSA[,1:p])
+	sr.lsa <- summary(regr.lsa <- lm(logPrice ~ poly(nTokens,5) + lsa , x=TRUE, y=TRUE)); sr.lsa
+	predictive.r2(regr.lsa)
+
 
 	
 	
