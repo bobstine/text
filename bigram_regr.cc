@@ -1,6 +1,5 @@
 /*
-  This version of the regressor code does the LSA regression analysis,
-  optionally with quadratic expansion of the type space.
+  This version of the regressor code does the bigram regression analysis
 */
 
 #include "helpers.Template.h"
@@ -27,6 +26,7 @@ using std::endl;
 
 typedef Eigen::VectorXf Vector;
 typedef Eigen::MatrixXf Matrix;
+
 
 
 void
@@ -63,12 +63,11 @@ int main(int argc, char** argv)
   switch (adjust)
     {
     case 'w' : { wTag = "raw"  ; break; }
-    case 't' : { wTag = "tfidf"; break; }
     case 'r' : { wTag = "row"  ; break; }  // was sqrt
     case 'c' : { wTag = "col"  ; break; }
     case 'n' : { wTag = "recip"; break; }
     case 'b' : { wTag = "cca"  ; break; }
-    default:   { wTag = "error"; std::clog << "MAIN: Unrecognized adjustment " << adjust << " given.\n"; }
+    default:   { wTag = "error"; std::clog << "MAIN: Unrecognized adjustment " << adjust << " given.\n"; return 0;}
     }
   
   // global random seed set here (controls random projections)
@@ -82,7 +81,7 @@ int main(int argc, char** argv)
     vocabulary.write_type_freq(os);
     int const maxNumberToWrite (200);                                       // write oov to screen
     vocabulary.write_oov_to_stream(std::clog, maxNumberToWrite);
-  }  
+  }
 
   // compute the document x type matrix W; also reads house prices (response) at head of input line
   int nDocs (FileUtils::count_lines(fileName));
@@ -95,109 +94,80 @@ int main(int argc, char** argv)
     std::ifstream is(fileName);
     vocabulary.fill_sparse_regr_design_from_stream(Y, W, nTokens, is, sumToOne);
     std::clog << "MAIN: Number tokens in first docs are "        << nTokens.head(5).transpose() << endl;
-    std::clog << "MAIN: Leading block of the raw LSA matrix W[" << W.rows() << "," << W.cols() << "] \n" << W.block(0,0,5,10) << endl;
+    std::clog << "MAIN: Leading block of the raw doc/word matrix W[" << W.rows() << "," << W.cols() << "] \n" << W.block(0,0,5,10) << endl;
   }
 
-  // adjustments to the elements of the term-document matrix
+  // compute bigram matrix from vocabulary
+  Vocabulary::SparseMatrix B (vocabulary.n_types(), vocabulary.n_types());
+  const int bigramSkip = 0;
+  vocabulary.fill_sparse_bigram_matrix(B, bigramSkip);
+  std::clog << "MAIN: Bigram row sums are (0)"                              // match those from vocabulary if not scaled
+	    << B.row(0).sum() << "  (1)" << B.row(1).sum() << "  (2)"
+	    << B.row(2).sum() << "  (3)" << B.row(3).sum() << "  (4)" << B.row(4).sum() << std::endl;
+  
+  // adjustments to the bigram matrix
   if (adjust == 'r')
-  { Vector sr = (W * Vector::Ones(W.cols())).array().sqrt().inverse();
-    W = sr.asDiagonal() * W;
-    std::clog << "MAIN: Leading block of the LSA matrix after ROW sqrt adjustment: \n" << W.block(0,0,5,10) << endl;
+  { Vector sr = vocabulary.type_frequency_vector().array().sqrt().inverse();
+    B = sr.asDiagonal() * B;
+    std::clog << "MAIN: Leading block of the bigram matrix after ROW sqrt adjustment: \n" << B.block(0,0,5,10) << endl;
   }
   else if (adjust == 'c')
   { Vector st = vocabulary.type_frequency_vector().array().sqrt().inverse();
-    W = W * st.asDiagonal();
-    std::clog << "MAIN: Leading block of the LSA matrix after COL sqrt adjustment: \n" << W.block(0,0,5,10) << endl;
+    B = B * st.asDiagonal();
+    std::clog << "MAIN: Leading block of the bigram matrix after COL sqrt adjustment: \n" << B.block(0,0,5,10) << endl;
   }     
   else if (adjust == 'b')
-  { Vector sr = nTokens.array().sqrt().inverse();
-    Vector sc = vocabulary.type_frequency_vector().array().sqrt().inverse();
-    W = sr.asDiagonal() * W * sc.asDiagonal();
-    std::clog << "MAIN: Leading block of the LSA matrix after CCA adjustment: \n" << W.block(0,0,5,10) << endl;
-  }
-  else if (adjust == 't')
-  { Vector termCts = Vector::Zero(W.cols());   // count docs in which terms appear
-    for (int doc=0; doc<W.outerSize(); ++doc)
-      for (Vocabulary::SparseMatrix::InnerIterator it(W,doc); it; ++it)
-	++termCts(it.col());
-    for (int doc=0; doc<W.outerSize(); ++doc)
-      for (Vocabulary::SparseMatrix::InnerIterator it(W,doc); it; ++it)
-	W.coeffRef(doc, it.col()) = it.value() * log(W.rows()/termCts(it.col()));
-    std::clog << "MAIN: Leading block of the LSA matrix after tf-idf adjustment: \n" << W.block(0,0,5,10) << endl;
-  }
-  
-  if (false) // compute exact SVD decomposition
-  { std::clog << "MAIN: Computing exact SVD of document-term matrix W begins.\n";
-    Helper::write_exact_svd_to_path(W, nProjections, outputPath, wTag);
+  { Vector sc = vocabulary.type_frequency_vector().array().sqrt().inverse();
+    B = sc.asDiagonal() * B * sc.asDiagonal();
+    std::clog << "MAIN: Leading block of the bigram matrix after CCA adjustment: \n" << B.block(0,0,5,10) << endl;
   }
 
-  // P holds random projections version of SVD of LSA variables
+  // compute exact SVD decomposition
+  if (false)
+  { std::clog << "MAIN: Computing exact SVD of document-term matrix B begins.\n";
+    Helper::write_exact_svd_to_path(B, nProjections, outputPath, wTag);
+  }
+
+  // P holds random projections version of SVD of bigram
   Matrix P(nDocs, nProjections);
-  if (! quadratic)                                                                             // adapted from Helper::fill_random_projection
-    { Helper::fill_random_projection(P,W,powerIterations);
-    /*    -- code moved into helper --
-    std::clog << "MAIN: Computing left singular vectors of L by random projection";
-    if (powerIterations) std::clog << " with power iterations.\n" ; else std::clog << ".\n";
-    print_with_time_stamp("Starting base linear random projection", std::clog);
-    P = W * Matrix::Random(W.cols(), nProjections);    
-    while (powerIterations--)
-    { print_with_time_stamp("Performing W W' multiplication for power iteration", std::clog);
-      Matrix R = W * (W.transpose() * P);
-      print_with_time_stamp("Performing Householder step of iterated random projection", std::clog);
-      P = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());  // block does not work; use to get left P.cols()
-    }
-    std::clog << "MAIN: Check norms after Householder orthgonalization in random projection; 0'0="
-	      << P.col(0).dot(P.col(0)) << "   0'1=" << P.col(0).dot(P.col(1)) << "   1'1=" << P.col(1).dot(P.col(1)) << std::endl;
-    Matrix B = P.transpose() * W;
-    print_with_time_stamp("Computing SVD of reduced B matrix", std::clog);
-    Eigen::JacobiSVD<Matrix> svd(B, Eigen::ComputeThinU|Eigen::ComputeThinV);
-    Matrix U = svd.matrixU()  ;   // nProjections x nProjections
-    P = P * U;
-    print_with_time_stamp("Completed SVD of random projection", std::clog);
-    */
-  }
-  else  // quadratic
-  { std::clog << "MAIN: Computing random projection of " << (W.cols()*(W.cols()+1))/2 << " quadratics (excludes linear).";
-    if (powerIterations) std::clog << " with power iterations.\n" ; else std::clog << ".\n";
-    print_with_time_stamp("Starting base projection", std::clog);
-    Matrix R = Matrix::Zero(nDocs, nProjections);
-    Eigen::SparseMatrix<float, Eigen::ColMajor> X = W; 
-    for (int j=0; j<W.cols(); ++j)
-      for (int k=j; k<W.cols(); ++k)         // X'X = sum x_i x_i'
-      { Eigen::SparseVector<float>  cp  = X.col(j).cwiseProduct(X.col(k));
-	Vector                     rand = Vector::Random(nProjections);
-	for (int i=0; i<nProjections; ++i)   // same as P += cp * rand.transpose(), but faster this way
-	  R.col(i) += cp * rand(i);
-      }
-    P = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());
-    print_with_time_stamp("Complete base projection", std::clog);
-    if (powerIterations)
-    { print_with_time_stamp("Starting power iterations", std::clog);
-      while (powerIterations--)
-      { R = X * X.transpose() * P;
-	P = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());
-      }
-      print_with_time_stamp("Complete power iterations of quadratic projection", std::clog);
-    }
-  }
-  std::clog << "MAIN: Completed LSA projection.  P[" << P.rows() << "x" << P.cols() << "]\n";
+  Helper::fill_random_projection(P, B, powerIterations);
+  std::clog << "MAIN: Completed bigram projection.  P[" << P.rows() << "x" << P.cols() << "]\n";
 
-  
+  if (false)
+  { std::clog << "MAIN: Writing eigenword matrix P to file eigenwords.txt." << std::endl;
+    Helper::write_eigenwords_to_file (outputPath + "eigenwords.txt", P, vocabulary);
+  }
+  else std::clog << "MAIN: Skipping output of eigenword matrix to file.\n";
+
+  // build centroid predictors A from eigenwords as average word position (see below for correlation)
+  std::clog << "MAIN: Building centroid matrix A\n";
+  Matrix A (nDocs, P.cols());
+  for (int i=0; i<W.outerSize(); ++i)            // W is in row major order
+  { Vector dest (Vector::Zero(P.cols()));
+    int mi (0);
+    for (Vocabulary::SparseMatrix::InnerIterator it(W,i); it; ++it)
+    { mi += it.value();
+      dest += P.row(it.col()) * it.value();
+    }
+    if(mi != nTokens(i)) std::clog << "MAIN: ********  Word count mismatched !!!\n";
+    A.row(i) = dest.array() / mi;
+  }
+
   // optionally compute R2 sequence of regression models
-  if (true)
-  { std::clog << "MAIN: Fitting regressions on singular vectors.\n";
+  if (false)
+  { std::clog << "MAIN: Fitting regressions on bigram singular vectors.\n";
     Eigen::VectorXd YY(nDocs), mm(nDocs);                  // convert into double and take log for regression code
     YY = Y.cast<double>().array().log();
     mm = nTokens.cast<double>().array().log();
     mm = mm.array() - mm.sum()/mm.size();                  // center to reduce collinearity
     bool reverse (false);                                  // reverse tests low frequency words first
-    std::string fileName (outputPath + "lsa_regr_fit_");
+    std::string fileName (outputPath + "bigram_regr_fit_");
     if (nTokens.size() > 0) fileName += "with_m";
     else              fileName += "no_m";
     if (reverse) fileName += "_rev.txt";
     else         fileName += "_for.txt";
     const int degree = 5;
-    Helper::calculate_sequence_r2 (YY, mm, degree, reverse, P, vocabulary, P.cols(), fileName);  // need to have strings, not words
+    Helper::calculate_sequence_r2 (YY, mm, degree, reverse, A, vocabulary, P.cols(), fileName);  // need to have strings, not words
   }
 
 
@@ -206,25 +176,21 @@ int main(int argc, char** argv)
   { // prec, align, col sep, row sep, row pre, row suf, file pre, file suff
     Eigen::IOFormat fmt(Eigen::StreamPrecision,Eigen::DontAlignCols,"\t","\n","","","","");
     {
-      Matrix YX (W.rows(), 2);                         // y , m_i
-      YX.col(0) = Y.array().log();                     // stuff log Y into first column for output
+      Matrix YX (nDocs, 2);                             // y , m_i
+      YX.col(0) = Y.array().log();                      // stuff log Y into first column for output
       YX.col(1) = nTokens;
-      std::ofstream os (outputPath + "lsa_ym.txt");
+      std::ofstream os (outputPath + "bigram_ym.txt");
       os << "Y\tm" << endl;
       os <<  YX.format(fmt) << endl;
     }
     {
-      string label;
-      char varSymbol;
-      if (quadratic)
-      { label = "lsaq_" + wTag;  varSymbol = 'Q'; }
-      else
-      { label = "lsa_"  + wTag; varSymbol = 'L'; }
+      string label ="bigram_"  + wTag;
+      char varSymbol = 'B';
       string dim  (std::to_string(nProjections));
       std::ofstream os (outputPath + label + "_" + dim + powerTag + ".txt");
       os << varSymbol << "0";
-      for(int i=1; i<P.cols(); ++i) os << "\t" << varSymbol << i;
-      os << endl << P.format(fmt) << endl;
+      for(int i=1; i<A.cols(); ++i) os << "\t" << varSymbol << i;
+      os << endl << A.format(fmt) << endl;
     }
   }
   return 0;

@@ -22,7 +22,7 @@ EXTERNAL_USES = boost_system boost_thread boost_regex gomp
 
 level_1 = k_means.o token_manager.o confusion_matrix.o porter.o vocabulary.o eigenword_dictionary.o 
 level_2 = helpers.o
-level_3 = classifier.o regressor.o bigram.o unified_regressor.o  lsa_regr.o
+level_3 = classifier.o regressor.o bigram.o unified_regressor.o  lsa_regr.o  bigram_regr.o
 level_4 = cluster.o
 level_5 = 
 
@@ -46,6 +46,9 @@ seq_regression: seq_regression.o helpers.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
 lsa_regr: lsa_regr.o vocabulary.o helpers.o
+	$(GCC) $^ $(LDLIBS) -o  $@
+
+bigram_regr: bigram_regr.o vocabulary.o helpers.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
 cluster: cluster.o k_means.o token_manager.o classifier.o confusion_matrix.o
@@ -161,14 +164,26 @@ $(outREPath)L$(lsaProj).txt: lsa_regr $(rfile)
 	date >> $@
 
 $(outREPath)Q$(lsaProj).txt: lsa_regr $(rfile) 
-	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(lsaProj) --power_iter 1 --adjustment 's' --min_frequency 3 --quadratic 
+	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(lsaProj) --power_iter 1 --adjustment 'c' --min_frequency 3 --quadratic 
 	date >> $@
 
 dolsa:  $(outREPath)L$(lsaProj).txt $(temppath)$(city).txt
 	echo '---- LSA analysis ----' 
 
 
-# --- bigram various decompositions
+# --- bigram regressions
+
+bigProj = 1500
+
+$(outREPath)$(bigProj).txt: bigram_regr $(rfile) 
+	./bigram_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(bigProj) --power_iter 4  --adjustment 'b' --min_frequency 3
+	date >> $@
+
+dobig:  $(outREPath)$(bigProj).txt $(temppath)$(city).txt
+	echo '---- Bigram analysis ----' 
+
+
+# --- bigram decompositions
 
 bigramPath = $(temppath)bigram/
 

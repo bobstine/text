@@ -4,7 +4,6 @@ source("/Users/bob/C/text/functions.R")
 ##################################################################################
 #  type counts, zipf
 ##################################################################################
-zipf.plot <- function() { 
 
 	# --- look at type frequencies, zipf plot   (zipf.pdf)
 	type.cts <- sort(scan("/Users/bob/C/text/text_src/temp/ChicagoOld3/type_freq.txt"), decreasing=TRUE)
@@ -20,7 +19,6 @@ zipf.plot <- function() {
 	lx <- log(x<-c(1,5000)); y <- exp(predict(regr, data.frame(lx=lx)))
 	lines(x,y,col="red")
 
-}
 
 ##################################################################################
 #
@@ -78,7 +76,7 @@ reset()
 # Parsed variables
 #
 ##################################################################################
-parsed.analysis <- function() {
+
 	
 	sqft  <- Data[,"SqFt"];      sqft.obs <- 0<Data[,"SqFt"]         
 	sqft[!sqft.obs] <- mean( sqft[sqft.obs] )
@@ -143,14 +141,13 @@ ii <- which(nTokens==265); length(ii)
 
 mse <- show.cv(regr.parsed,5)
 
-}
+
 
 ##################################################################################
 #  
 #   Raw word regression
 #
 ##################################################################################
-word.regression <- function () {
 	
 	path <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/"
 	YM <- as.matrix(read.table(paste(path,"lsa_ym.txt",sep=""),header=T,as.is=T))
@@ -401,15 +398,13 @@ r <- residuals(wregr); f <- fitted.values(wregr)
 plot(r,f)
 
 plot(wregr)
-}
+
 
 ##################################################################################
 #
 #     LSA
 #
 ##################################################################################
-
-lsa.analysis <- function() {
 
 	nProj   <- 1500
 	weights <- "col"
@@ -444,8 +439,8 @@ lsa.analysis <- function() {
 			lty=3, ylim=range(lsa.fit[,"AICc"]))
 	lines(c(opt.k,opt.k), c(0,4300), col="gray")
 	lines(lsa.fit[,"AICc"]) 
-	lsa.fit[k <- which.min(lsa.fit[,"AICc"]),]; k
-	lines(c(k,k), c(0,3250), col="gray")
+	lsa.fit[opt.lsa <- which.min(lsa.fit[,"AICc"]),]; opt.lsa
+	lines(c(opt.lsa,opt.lsa), c(0,3250), col="gray")
 	
 	p <- 523;
 	lsa    <- as.matrix(LSA[,1:p])
@@ -608,6 +603,65 @@ pairs(udv$u[,1:3], udv.c$u[,1:3])
 cancor(udv$u[,1:20], udv.c$u[,1:20])$cor
 
 plot(fitted.values(regr), fitted.values(regr.c))
+
+
+##################################################################################
+#
+#     Bigram regression
+#
+##################################################################################
+
+	path <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/"
+
+	YM <- as.matrix(read.table(paste(path,"bigram_ym.txt",sep=""),header=T,as.is=T))
+	logPrice <- YM[,1]
+	nTokens  <- YM[,2]
+
+	nProj   <- 1500
+	weights <- "cca"
+	file    <- paste(path,"bigram_",weights,"_", nProj,"_p4.txt",sep="")
+	Bigram  <- as.matrix(read.table(file, header=TRUE)); dim(Bigram)
+
+
+# --- Analysis of bigram centroid regressors
+	p      <- 1000
+	big    <- as.matrix(Bigram[,1:p])
+	sr.big <- summary(regr.big <- lm(logPrice ~ poly(nTokens,5) + big)); sr.big
+	predictive.r2(regr.big)
+	
+	# quartz(width=6.5,height=3); reset()
+	coef.summary.plot(sr.big, "Bigram Component", omit=6)		# [ bigtstats.pdf ]  
+	
+# --- plot of spectrum                                      # [ spectrum.pdf ]
+	sv <- scan(paste(path,"svd_exact_d_col.txt",sep=""))
+    plot(sv[1:4000], xlab="Component", ylab="Singular Value", log="xy")                   
+
+# --- sequence of R2 statistics, in C++
+	word.fit<- read.table(paste(path,"word_regr_fit_with_m_for.txt",sep=""),header=T)
+	lsa.fit <- read.table(paste(path,"lsa_regr_fit_with_m_for.txt",sep=""), header=T)
+	big.fit <- read.table(paste(path,"bigram_regr_fit_with_m_for.txt",sep=""), header=T)
+	# change names (legacy C++ labels with types)
+	rownames(lsa.fit) <- c("tokens",paste("lsa",1:(nrow(lsa.fit)-1), sep=""))  # allow for nTokens
+	rownames(big.fit) <- c("tokens",paste("big",1:(nrow(big.fit)-1), sep=""))  
+	
+	# quartz(height=3.5, width=6); reset()
+	plot(word.fit[,"AICc"], type="l", xlab="Features", ylab="AICc",    # [ aic.pdf ]
+			lty=3, ylim=range(lsa.fit[,"AICc"]))
+	lines(lsa.fit[,"AICc"]) 
+	lines(big.fit[,"AICc"], lty=2)
+	word.fit[opt.k <- which.min(big.fit[,"AICc"]),]; opt.k   # offset for n tokens
+	points(opt.k, word.fit[opt.k,"AICc"], col="red", pch=10)
+	lsa.fit[opt.lsa <- which.min(lsa.fit[,"AICc"]),]; opt.lsa 
+	points(opt.lsa, lsa.fit[opt.lsa,"AICc"], col="red", pch=10)
+	big.fit[opt.big <- which.min(big.fit[,"AICc"]),]; opt.big
+	points(opt.big, big.fit[opt.big,"AICc"], col="red", pch=10)
+	
+	p <- opt.big-1;
+	big    <- as.matrix(Bigram[,1:p])
+	sr.big <- summary(regr.big <- lm(logPrice ~ poly(nTokens,5) + big))
+	predictive.r2(regr.big)  # 1110, close, but not a match [1] 0.7206029 0.6709017 0.5996140
+
+
 
 ##################################################################################
 #

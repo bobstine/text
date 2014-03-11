@@ -31,10 +31,15 @@ namespace Helper
     void
     calculate_sequence_r2 (Eigen::VectorXd const& Y, Eigen::VectorXd tokenCount, int degree, bool reverse, Mat const& W,
 				   Vocabulary const& vocab, int nToFit, string file);
+
+  void
+    fill_random_projection(Matrix &P, Vocabulary::SparseMatrix const& B, int power);
   
+  // old version
   void
     fill_random_projection(Matrix &P, Vocabulary::SparseMatrix const& B, Vector const& leftWts, Vector const& rightWts, int power);
 
+  
   void
     write_exact_svd_to_path(Vocabulary::SparseMatrix const& B, int nProjections, std::string path, std::string tag);
 
