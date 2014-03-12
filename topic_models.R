@@ -9,15 +9,15 @@ source("/Users/bob/C/text/functions.R")
 #    simulated response is lognormal (eg, log price)
 #
 ##################################################################################
-poisson.topic.model <- function() { 
+
 	
-	n.doc  <- 25000						#	number observed documents/listings  
-	K      <-   25						#	number attributes
+	n.doc  <- 5000						#	number observed documents/listings  
+	K      <-   50						#	number attributes
 	
-	mu <- rgamma(K, shape=1, scale=1)	#	'true' value of attributes
+	mu <- rgamma(K, shape=1.5, scale=0.5)	#	'true' value of attributes
 	hist(mu, main="Simulated True Contributions to Log Prices", breaks=20)		
 	
-	Y <- rnorm(n.doc, mean=6, sd=0.7)	#	initial seed log price (revised below)
+	Y <- 12								#	initial seed log price (revised below)
 	
 	A <-matrix(0,nrow=n.doc,ncol=K)		#	A identifies attributes in each doc, fuzzed
 	b <- rbinom(n.doc,1,0.5)  			#	coin tosses
@@ -33,23 +33,32 @@ poisson.topic.model <- function() {
 	
 	# --- model fits perfectly if regress Y on columns of A, so add noise
 	pct.noise <- 0.25
+	sigma <- sqrt(var(Y)*pct.noise/(1-pct.noise))
+	cat ("sigma = " , sigma,"\n")
 	Y.obs <- Y + sqrt(var(Y)*pct.noise/(1-pct.noise)) * rnorm(length(Y))
-	summary(lm( Y.obs ~ A ))
+	cat("mean and sd of Y.obs", mean(Y.obs),sd(Y.obs),"\n")
+	plot(density(logPrice), main="", xlab="log price")
+	lines(density(Y.obs), lty=2)
+	
+	summary(r <- lm( Y.obs ~ A ))
+	plot(mu,coefficients(r)[-1])
 	hist(Y.obs, main="Log Price", breaks=30)
 	plot(Y.obs ~ A.sum, xlab="Number Latent Attributes", ylab="Log Price"); 
 	cat("Squared attribute corr: ", cor(Y,A.sum)^2, ", logged ", cor(Y, log(A.sum))^2,"\n")
-
 
 	n.vocab <- 1500					# matrix with distributions over vocab for each attribute
 	P       <- matrix(0, nrow=K, ncol=n.vocab)
 	# this baked in style makes the common words totally useless
 	# for(k in 1:K) P[k,] <- c(p.c * p.common, (1-p.c)*rdirichlet(rep(0.01,n.vocab-n.common)))
-	n.common <- 50
-	zipf <- 1/(1:n.common); zipf <- zipf/sum(zipf)
-	p.c <- 0.4
+	n.common <- floor(0.1 * n.vocab)
+	q.c <- 0.4
+	zipf <- 1/(1:n.vocab); zipf <- zipf/sum(zipf)
+	#for(k in 1:K) {   														
+	#	P[k,] <- c(  q.c  *(0.5*rdirichlet(rep(0.1, n.common)) + 0.5*zipf), 
+	#	 		   (1-q.c)*rdirichlet(rep(0.02, n.vocab-n.common))  )
+	#}
 	for(k in 1:K) {   														
-		P[k,] <- c(  p.c  *(0.5*rdirichlet(rep(0.1, n.common)) + 0.5*zipf), 
-		 		   (1-p.c)*rdirichlet(rep(0.02, n.vocab-n.common))  )
+		P[k,] <-q.c*zipf+(1-q.c)*c(rep(0,n.common),rdirichlet(rep(0.01,n.vocab-n.common)))
 	}
 	apply(P,1,sum)[1:4]				# prob dist so sum to 1
 	plot(P[1,1:100]); points(P[2,1:100],col="red")
@@ -63,24 +72,12 @@ poisson.topic.model <- function() {
 	W <- matrix(0, nrow=n.doc, ncol=n.vocab)
 	# lambda <- rgamma(n.doc, shape=6, scale=2) * A %*% P;	#	expected frequencies
 	lambda <- 12 * A %*% P;
-	# for(i in 1:n.doc) {W[i,]<- rnorm(n.vocab, mean=lambda[i],sd=0.25)}
-	# for(i in 1:n.doc) {W[i,]<- rnorm(n.vocab,mean=lambda[i],sd=0.5*sqrt(lambda[i]*m[i,]))}
-	# for(i in 1:n.doc) {W[i,]<- rnorm(n.vocab,mean=lambda[i],sd=0.5*0.15)}
 	for(i in 1:n.doc) { W[i,] <- rpois(n.vocab, lambda[i,]) }
 	cat("Max word frequencies in first 5 docs", apply(W,1,max)[1:5])
 	doc.len <- apply(W,1,sum)						# check document lengths
 	mean(doc.len); hist(doc.len, breaks=25)
 	
-	qqplot(doc.len,nTokens); abline(0,1,col="red")	# great match but for long tail [need data]
-	
-	# --- regress log price on length
-	plot(Y ~ doc.len, xlab="Doc Length", ylab="Log Price");  
-	fit <-loess(Y ~ doc.len, span=0.3)    			# nothing nonlinear
-	o <- order(doc.len)
-	lines(doc.len[o], predict(fit)[o],col="red")	# nothing nonlinear
-	r <- lm(Y ~ doc.len); 
-	cat("Squared corr with doc length:",cor(Y, doc.len)^2,"  log ",cor(Y, log(doc.len))^2,"\n")
-	lines(doc.len[o], predict(r)[o], col="blue")
+	# qqplot(doc.len,nTokens); abline(0,1,col="red")# matches but for tail [need data]
 
 	# --- check vocab for Zipf distribution
 	freq <- apply(W,2,sum)
@@ -91,21 +88,40 @@ poisson.topic.model <- function() {
 	regr <- lm(lf ~ lr); coefficients(summary(regr)); 
 	lines(lr, predict(regr), col="red")
 	cat(sum(freq==0)," unused words\n");
+	
+	# --- regress log price on length
+	plot(Y ~ doc.len, xlab="Document Length", ylab="Response", );  
+	fit <-loess(Y ~ doc.len, span=0.4)    			# nothing nonlinear
+	o <- order(doc.len)
+	lines(doc.len[o], predict(fit)[o],col="red")	# some little nonlinear
+	r <- lm(Y ~ doc.len); 
+	cat("Squared corr with doc length:",cor(Y, doc.len)^2,"  log ",cor(Y, log(doc.len))^2,"\n")
+	# lines(doc.len[o], predict(r)[o], col="blue")
 
-		
-	# --- word regressions (word types in order of overall frequency, dropping 0)
+
+###################################################################################
+#
+#   Fitted regressions
+#
+###################################################################################
+
+	# --- Build ordered words (word types in order of overall frequency, dropping 0)
 	freq <- apply(W,2,sum)
 	o <- order(freq,decreasing=TRUE); cat("Most common words: ", o[1:20], "\n");
 	o <- o[freq[o]>0]
 	W.ordered <- W[,o]
 	
+
+
 	# saturated model to get max possible R2 with words + len (about 71% with noise)
-	sr <- summary(regr <- lm(Y.obs ~ doc.len + W.ordered));  sr
+	# sr <- summary(regr <- lm(Y.obs ~ doc.len + W.ordered));  sr
 	
 	# most common 250 words
-	sr <- summary(regr <- lm(Y.obs ~ doc.len + W.ordered[,1:250]));  sr
-	coef.summary.plot(sr, "Word Frequencies", omit=1:2)
+	# sr <- summary(regr <- lm(Y.obs ~ doc.len + W.ordered[,1:500]));  sr
+	# quartz(width=6.5,height=3); reset();
+	# coef.summary.plot(sr, "Word Frequencies", omit=2)
 
+	
 	
 	# --- LSA analysis, raw counts
 	udv <- svd(W.ordered)
@@ -116,8 +132,8 @@ poisson.topic.model <- function() {
 	# coef.summary.plot(lsa.sr, "LSA Variables", omit=1:2)
 	
 	# --- LSA analysis, sqrt counts
-	udv.sqrt <- svd(sqrt(W.ordered))
-	plot(udv$d[1:200], log="y")
+	# udv.sqrt <- svd(sqrt(W.ordered))
+	# plot(udv$d[1:200], log="y")
 
 	# --- LSA analysis, partially scaled (cols)
 	w.freq <- apply(W.ordered,2,sum)
@@ -126,8 +142,6 @@ poisson.topic.model <- function() {
 	plot(udv.cols$d[1:200], log="y")
 	U.cols <- udv.cols$u
 	
-	# lsa.cols.sr <- summary(lm(Y.obs ~ doc.len + U.cols[,1:250])); lsa.cols.sr
-	# coef.summary.plot(lsa.cols.sr, "Column-scaled LSA Variables", omit=1:2)
 
 	# --- LSA analysis, partially scaled (rows)
 	W.rows <- (1/sqrt(doc.len)) * W.ordered
@@ -135,22 +149,23 @@ poisson.topic.model <- function() {
 	plot(udv.rows$d[1:200], log="y")
 
 	# --- LSA analysis, CCA scaled
-	# W.cca <- (1/sqrt(doc.len)) * W.ordered
-	# w.freq <- apply(W.ordered,2,sum)
-	# W.cca <- t( (1/sqrt(w.freq)) * t(W.scaled))
-	# udv.cca <- svd(W.cca)
-	# U.cca <- udv.cca$u	
-	# plot(udv.cca$d[1:200], log="y")
+	W.cca <- (1/sqrt(doc.len)) * W.ordered
+	w.freq <- apply(W.ordered,2,sum)
+	W.cca <- t( (1/sqrt(w.freq)) * t(W.cca))
+	udv.cca <- svd(W.cca)
+	U.cca <- udv.cca$u	
+	plot(udv.cca$d[1:200], log="y")
 	
-	r <- rowSums(W.ordered)
-	c <- colSums(W.ordered)/sum(W.ordered)
-	divisor <- sqrt(r %*% t(c) + 0.5)
-	udv.cca2 <- svd(W.ordered/divisor)
-	plot(udv.cca2$d, log="y")
 	
-	U.cca <- udv.cca2$U[,1:250]	
-	lsa.cca.sr <- summary(lm(Y.obs ~ doc.len + U.cca)); lsa.cca.sr
-	coef.summary.plot(lsa.cca.sr, "Scaled LSA Variables", omit=1:2)
+	lsa.cols.sr <- summary(lm(Y.obs ~ doc.len + U.cols[,1:250])); lsa.cols.sr
+	coef.summary.plot(lsa.cols.sr, "Column-scaled LSA Variables", omit=2)
+	summary(lm(Y.obs ~ doc.len + U.cols[,1:50]))
+
+	lsa.cca.sr <- summary(lm(Y.obs ~ doc.len + U.cca[,1:250])); lsa.cca.sr
+	coef.summary.plot(lsa.cca.sr, "CCA Scaled LSA Variables", omit=2)
+	summary(lm(Y.obs ~ doc.len + U.cca[,1:50]))
+
+
 
 	# --- CCA with columns of A
 	# cca			<- cancor(A, U[,1:250], xcenter=F, ycenter=F)
@@ -158,24 +173,13 @@ poisson.topic.model <- function() {
 
 	# --- comparison of models
 	par(mfrow=c(2,2))
-		plot(scale(     udv$d[1:100]), log="y", main="Raw Frequencies")
-		plot(scale(udv.rows$d[1:100]), log="y", main="Scaled Rows")
-		plot(scale(udv.cols$d[1:100]), log="y", main="Scaled Columns")
-		plot(scale(udv.cca2$d[1:100]), log="y", main="CCA Scaling (both)")
+		i <- 2:100; s <-"Singular Value"
+		plot(i,udv     $d[i],log="y",xlab="Component",ylab=s,main="Raw Frequencies")
+		plot(i,udv.rows$d[i],log="y",xlab="Component",ylab=s,main="Scaled Rows")
+		plot(i,udv.cols$d[i],log="y",xlab="Component",ylab=s,main="Scaled Columns")
+		plot(i,udv.cca $d[i],log="y",xlab="Component",ylab=s,main="Both Scaled")
 	reset()
 	
-	
-	mm <- range(udv$d[1:150])
-	plot(udv$d[1:150], log="y", xlab="Component", ylab="Singular Values")
-	d <- udv.scaled$d[1:150]
-	points( mm[1] + diff(mm)*(d-min(d))/(max(d)-min(d)), col="red")
-		
-	cca			<- cancor(A, U[,1:200], xcenter=F, ycenter=F)
-	cca.scaled	<- cancor(A, U.scaled[,1:200], xcenter=F, ycenter=F)
-
-	plot(cca$cor, cca.scaled$cor); abline(0,1)
-
-}
 
 ##################################################################################
 #

@@ -13,6 +13,7 @@ regressor
 lsa_regr
 bigram
 bigram.prj
+bigram_regr
 anes_reply_encoder
 text_src
 tokens.txt
