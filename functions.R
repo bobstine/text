@@ -29,18 +29,18 @@ reset <- function() {
 	par(mfrow=c(1,1), mgp=c(1.5,0.5,0), mar=c(3,2.5,2,1)+0.1)  # bottom left top right
 	}
 
-coef.summary.plot <- function(sr, xlab, omit=1) { 				# omit intercept
-	par(mfrow=c(1,2))  
+coef.summary.plot <- function(sr, xlab, show.qq=TRUE, ylim=NULL, omit=1) { # omit intercept
+	if(show.qq) par(mfrow=c(1,2))
 		y <- abs(sr$coefficients[-(1:omit),3])
 		x <- 1:length(y)     
 		threshold <- -qnorm(.025/length(y))
 		cat("Bonferroni at ",threshold,"\n");
-		plot(x,y, xlab=xlab, ylab="|t|", main="", col="darkgray", cex=0.5)
+		plot(x,y, xlab=xlab, ylim=ylim, ylab="|t|", main="", col="darkgray", cex=0.5)
 		abline(h=threshold, col="black", lty=4)
 		abline(h=sqrt(2/pi), col="black")
 		lines(lowess(x,y,f=0.3), col="red")
-		half.normal.plot(y)
-	reset()
+		if (show.qq) half.normal.plot(y)
+	if (show.qq) reset()
 	}
 
 

@@ -14,10 +14,10 @@ source("/Users/bob/C/text/functions.R")
 	n.doc  <- 5000						#	number observed documents/listings  
 	K      <-   50						#	number attributes
 	
-	mu <- rgamma(K, shape=1.5, scale=0.5)	#	'true' value of attributes
-	hist(mu, main="Simulated True Contributions to Log Prices", breaks=20)		
+	mu <- rgamma(K, shape=2, scale=0.5)	#	'true' value of attributes
+	# hist(mu, main="Simulated True Contributions to Log Prices", breaks=20)		
 	
-	Y <- 12								#	initial seed log price (revised below)
+	Y <- rnorm(n.doc,mean=12.2,sd=0.8)	#	initial seed log price (revised below)
 	
 	A <-matrix(0,nrow=n.doc,ncol=K)		#	A identifies attributes in each doc, fuzzed
 	b <- rbinom(n.doc,1,0.5)  			#	coin tosses
@@ -29,36 +29,36 @@ source("/Users/bob/C/text/functions.R")
 		A[i,permute[1:nk]]<-1; Y[i] <- cs[nk]
 	}
 	A.sum <- apply(A,1,sum)
-	hist(A.sum); mean(A.sum); fivenum(A.sum)
+	# hist(A.sum); 
+	cat("Mean number of latent attributes", mean(A.sum),"\n"); fivenum(A.sum)
 	
 	# --- model fits perfectly if regress Y on columns of A, so add noise
-	pct.noise <- 0.25
+	pct.noise <- 0.20
 	sigma <- sqrt(var(Y)*pct.noise/(1-pct.noise))
 	cat ("sigma = " , sigma,"\n")
 	Y.obs <- Y + sqrt(var(Y)*pct.noise/(1-pct.noise)) * rnorm(length(Y))
+	# rescale SD
+	Y.obs <- mean(Y.obs) + (Y.obs-mean(Y.obs))*sd(logPrice)/sd(Y.obs)
 	cat("mean and sd of Y.obs", mean(Y.obs),sd(Y.obs),"\n")
-	plot(density(logPrice), main="", xlab="log price")
-	lines(density(Y.obs), lty=2)
+	# plot(density(logPrice), main="", xlab="log price", ylim=c(0,0.4))
+	lines(density(Y.obs), col="gray")
 	
 	summary(r <- lm( Y.obs ~ A ))
 	plot(mu,coefficients(r)[-1])
-	hist(Y.obs, main="Log Price", breaks=30)
 	plot(Y.obs ~ A.sum, xlab="Number Latent Attributes", ylab="Log Price"); 
-	cat("Squared attribute corr: ", cor(Y,A.sum)^2, ", logged ", cor(Y, log(A.sum))^2,"\n")
+	cat("Squared attribute corr: ",cor(Y,A.sum)^2,", logged ",cor(Y, log(A.sum))^2,"\n")
 
-	n.vocab <- 1500					# matrix with distributions over vocab for each attribute
+
+
+	n.vocab <- 1500					# matrix of distributions over vocab
 	P       <- matrix(0, nrow=K, ncol=n.vocab)
 	# this baked in style makes the common words totally useless
-	# for(k in 1:K) P[k,] <- c(p.c * p.common, (1-p.c)*rdirichlet(rep(0.01,n.vocab-n.common)))
+	# for(k in 1:K) P[k,]<-c(p.c*p.common,(1-p.c)*rdirichlet(rep(0.01,n.vocab-n.common)))
 	n.common <- floor(0.1 * n.vocab)
 	q.c <- 0.4
 	zipf <- 1/(1:n.vocab); zipf <- zipf/sum(zipf)
-	#for(k in 1:K) {   														
-	#	P[k,] <- c(  q.c  *(0.5*rdirichlet(rep(0.1, n.common)) + 0.5*zipf), 
-	#	 		   (1-q.c)*rdirichlet(rep(0.02, n.vocab-n.common))  )
-	#}
 	for(k in 1:K) {   														
-		P[k,] <-q.c*zipf+(1-q.c)*c(rep(0,n.common),rdirichlet(rep(0.01,n.vocab-n.common)))
+		P[k,] <-q.c*zipf+(1-q.c)*c(rep(0,n.common),rdirichlet(rep(0.025,n.vocab-n.common)))
 	}
 	apply(P,1,sum)[1:4]				# prob dist so sum to 1
 	plot(P[1,1:100]); points(P[2,1:100],col="red")
@@ -67,11 +67,16 @@ source("/Users/bob/C/text/functions.R")
 		plot(P[1,],P[2,],col=c); plot(P[3,],P[4,],col=c); 
 		plot(P[5,],P[6,],col=c); plot(P[7,],P[8,],col=c); 
 	reset()
+	# P.sparse <- P  # with alpha = 0.01
+	
+	plot(P.sparse[4,],P.sparse[3,],log="xy",xlab=expression(P[1]),ylab=expression(P[2]))
+	plot(P[4,],P[2,], log="xy", xlab=expression( P[1] ), ylab=expression( P[2] ))
+
 
 	# --- generate doc/word matrix
 	W <- matrix(0, nrow=n.doc, ncol=n.vocab)
 	# lambda <- rgamma(n.doc, shape=6, scale=2) * A %*% P;	#	expected frequencies
-	lambda <- 12 * A %*% P;
+	lambda <- 6 * A %*% P;
 	for(i in 1:n.doc) { W[i,] <- rpois(n.vocab, lambda[i,]) }
 	cat("Max word frequencies in first 5 docs", apply(W,1,max)[1:5])
 	doc.len <- apply(W,1,sum)						# check document lengths
@@ -79,25 +84,27 @@ source("/Users/bob/C/text/functions.R")
 	
 	# qqplot(doc.len,nTokens); abline(0,1,col="red")# matches but for tail [need data]
 
-	# --- check vocab for Zipf distribution
-	freq <- apply(W,2,sum)
-	sort.freq <- sort(freq[freq>0],decreasing=TRUE) 
-	lf <- log(sort.freq); lr <- log(1:length(sort.freq))
-	plot(lf ~ lr, xlab="log rank",ylab="log frequency")		# want slope -1
-	lf <- lf[1:500]; lr <- lr[1:500]
-	regr <- lm(lf ~ lr); coefficients(summary(regr)); 
-	lines(lr, predict(regr), col="red")
-	cat(sum(freq==0)," unused words\n");
+	# --- check vocab for Zipf distribution         [zipfcorr.pdf]
+	quartz(width=7.5,height=3); reset()
+	par(mfrow=c(1,2))
+		freq <- apply(W,2,sum)
+		sort.freq <- sort(freq[freq>0],decreasing=TRUE) 
+		lf <- log(sort.freq); lr <- log(1:length(sort.freq))
+		plot(sort.freq,log="xy", xlab="Word Rank",ylab="Frequency")
+		lf <- lf[1:500]; lr <- lr[1:500]
+		regr <- lm(lf ~ lr); coefficients(summary(regr)); 
+		lines(exp(predict(regr)), col="red")
+		cat(sum(freq==0)," unused words\n");
 	
 	# --- regress log price on length
-	plot(Y ~ doc.len, xlab="Document Length", ylab="Response", );  
-	fit <-loess(Y ~ doc.len, span=0.4)    			# nothing nonlinear
-	o <- order(doc.len)
-	lines(doc.len[o], predict(fit)[o],col="red")	# some little nonlinear
-	r <- lm(Y ~ doc.len); 
-	cat("Squared corr with doc length:",cor(Y, doc.len)^2,"  log ",cor(Y, log(doc.len))^2,"\n")
-	# lines(doc.len[o], predict(r)[o], col="blue")
-
+		plot(Y ~ doc.len, xlab="Document Length", ylab="Response", );  
+		fit <-loess(Y ~ doc.len, span=0.4)    			# nothing nonlinear
+		o <- order(doc.len)
+		lines(doc.len[o], predict(fit)[o],col="red")	# some little nonlinear
+		r <- lm(Y ~ doc.len); 
+		cat("Sqr corr with doc length:",cor(Y,doc.len)^2," log ",cor(Y,log(doc.len))^2,"\n")
+		# lines(doc.len[o], predict(r)[o], col="blue")
+	reset()
 
 ###################################################################################
 #
@@ -147,6 +154,7 @@ source("/Users/bob/C/text/functions.R")
 	W.rows <- (1/sqrt(doc.len)) * W.ordered
 	udv.rows <- svd(W.rows)
 	plot(udv.rows$d[1:200], log="y")
+	U.rows <- udv.rows$u
 
 	# --- LSA analysis, CCA scaled
 	W.cca <- (1/sqrt(doc.len)) * W.ordered
@@ -155,23 +163,9 @@ source("/Users/bob/C/text/functions.R")
 	udv.cca <- svd(W.cca)
 	U.cca <- udv.cca$u	
 	plot(udv.cca$d[1:200], log="y")
-	
-	
-	lsa.cols.sr <- summary(lm(Y.obs ~ doc.len + U.cols[,1:250])); lsa.cols.sr
-	coef.summary.plot(lsa.cols.sr, "Column-scaled LSA Variables", omit=2)
-	summary(lm(Y.obs ~ doc.len + U.cols[,1:50]))
-
-	lsa.cca.sr <- summary(lm(Y.obs ~ doc.len + U.cca[,1:250])); lsa.cca.sr
-	coef.summary.plot(lsa.cca.sr, "CCA Scaled LSA Variables", omit=2)
-	summary(lm(Y.obs ~ doc.len + U.cca[,1:50]))
-
-
-
-	# --- CCA with columns of A
-	# cca			<- cancor(A, U[,1:250], xcenter=F, ycenter=F)
-	# cca.scaled	<- cancor(A, U.scaled[,1:250], xcenter=F, ycenter=F)
-
-	# --- comparison of models
+		
+	# --- comparison of spectra					[ spectra.pdf ]
+	quartz(height=5,width=5); reset()
 	par(mfrow=c(2,2))
 		i <- 2:100; s <-"Singular Value"
 		plot(i,udv     $d[i],log="y",xlab="Component",ylab=s,main="Raw Frequencies")
@@ -179,6 +173,30 @@ source("/Users/bob/C/text/functions.R")
 		plot(i,udv.cols$d[i],log="y",xlab="Component",ylab=s,main="Scaled Columns")
 		plot(i,udv.cca $d[i],log="y",xlab="Component",ylab=s,main="Both Scaled")
 	reset()
+
+	
+	lsa.rows.sr <- summary(lm(Y.obs ~ doc.len + U.rows[,1:250])); lsa.rows.sr
+	coef.summary.plot(lsa.rows.sr, "Column-scaled LSA Variables", omit=1)
+	summary(lm(Y.obs ~ doc.len +  U.rows[,1:50]))
+
+	lsa.cols.sr <- summary(lm(Y.obs ~ doc.len + U.cols[,1:250])); lsa.cols.sr
+	coef.summary.plot(lsa.cols.sr, "Column-scaled LSA Variables", omit=1)
+	summary(lm(Y.obs ~ doc.len +  U.cols[,1:50]))
+
+	lsa.cca.sr <- summary(lm(Y.obs ~ doc.len + U.cca[,1:250])); lsa.cca.sr
+	coef.summary.plot(lsa.cca.sr, "CCA Scaled LSA Variables", omit=1)
+	summary(lm(Y.obs ~ doc.len + U.cca[,1:50]))
+
+	quartz(width=6.5, height=3); reset()
+	par(mfrow=c(1,2))
+		coef.summary.plot(lsa.cols.sr, "Column Scaled Component", ylim=c(0,9.5),omit=2,show.qq=F)
+		coef.summary.plot(lsa.cca.sr,  "CCA Scaled Component", omit=2, show.qq=F)
+	reset()
+
+	# --- CCA with columns of A
+	# cca			<- cancor(A, U[,1:250], xcenter=F, ycenter=F)
+	# cca.scaled	<- cancor(A, U.scaled[,1:250], xcenter=F, ycenter=F)
+
 	
 
 ##################################################################################
