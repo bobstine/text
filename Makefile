@@ -160,11 +160,11 @@ dore:  $(outREPath)$(nProj).txt
 lsaProj = 1500
 
 $(outREPath)L$(lsaProj).txt: lsa_regr $(rfile) 
-	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(lsaProj) --power_iter 4  --adjustment 'c' --min_frequency 3
+	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(lsaProj) --power_iter 4  --adjustment 'b' --min_frequency 3
 	date >> $@
 
 $(outREPath)Q$(lsaProj).txt: lsa_regr $(rfile) 
-	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(lsaProj) --power_iter 1 --adjustment 'c' --min_frequency 3 --quadratic 
+	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(lsaProj) --power_iter 1 --adjustment 'b' --min_frequency 3 --quadratic 
 	date >> $@
 
 dolsa:  $(outREPath)L$(lsaProj).txt $(temppath)$(city).txt

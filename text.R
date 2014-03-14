@@ -407,7 +407,7 @@ plot(wregr)
 ##################################################################################
 
 	nProj   <- 1500
-	weights <- "col"
+	weights <- "cca"
 	city    <- "ChicagoOld3/"
 	path    <- paste("/Users/bob/C/text/text_src/temp/",city,sep="")
 	file    <- paste(path,"lsa_",weights,"_", nProj,"_p4.txt",sep="")
@@ -418,24 +418,24 @@ plot(wregr)
 
 	p      <- 1000
 	lsa    <- as.matrix(LSA[,1:p])
-	sr.lsa <- summary(regr.lsa <- lm(logPrice ~ poly(nTokens,5) + lsa , x=TRUE, y=TRUE)); sr.lsa
+	sr.lsa <- summary(regr.lsa <- lm(logPrice ~ poly(nTokens,5) + lsa)); sr.lsa
 	predictive.r2(regr.lsa)
 	
-	# quartz(width=6.5,height=3); reset()
-	coef.summary.plot(sr.lsa, "LSA Component", omit=6)		# [ lsatstats.pdf ]  
+	quartz(width=6.5,height=3); reset()
+	coef.summary.plot(sr.lsa, "LSA Component", omit=6)		# [ lsa_tstats.pdf ]  
 	
 # --- plot of spectrum                                      # [ spectrum.pdf ]
-	sv <- scan(paste(path,"svd_exact_d_col.txt",sep=""))
+	sv <- scan(paste(path,"svd_exact_d_cca.txt",sep=""))
     plot(sv[1:4000], xlab="Component", ylab="Singular Value", log="xy")                   
 
-# --- sequence of R2 statistics, in C++
+# --- sequence of R2 statistics from C++  (watch for """ in C output)
 	word.fit<- read.table(paste(path,"word_regr_fit_with_m_for.txt",sep=""),header=T)
 	lsa.fit <- read.table(paste(path,"lsa_regr_fit_with_m_for.txt",sep=""), header=T)
 	# change names (legacy C++ labels with types)
 	rownames(lsa.fit) <- c("tokens",paste("lsa",1:(nrow(lsa.fit)-1), sep=""))  # allow for nTokens
 	
 	quartz(height=3.5, width=6); reset()
-	plot(word.fit[,"AICc"], type="l", xlab="Features", ylab="AICc",    # [ aic.pdf ]
+	plot(word.fit[,"AICc"], type="l", xlab="Features", ylab="AICc",    # [ aic.pdf portion ]
 			lty=3, ylim=range(lsa.fit[,"AICc"]))
 	lines(c(opt.k,opt.k), c(0,4300), col="gray")
 	lines(lsa.fit[,"AICc"]) 
@@ -636,7 +636,7 @@ plot(fitted.values(regr), fitted.values(regr.c))
 	sv <- scan(paste(path,"svd_exact_d_col.txt",sep=""))
     plot(sv[1:4000], xlab="Component", ylab="Singular Value", log="xy")                   
 
-# --- sequence of R2 statistics, in C++
+# --- sequence of R2 statistics, from C++  (watch for """ label)
 	word.fit<- read.table(paste(path,"word_regr_fit_with_m_for.txt",sep=""),header=T)
 	lsa.fit <- read.table(paste(path,"lsa_regr_fit_with_m_for.txt",sep=""), header=T)
 	big.fit <- read.table(paste(path,"bigram_regr_fit_with_m_for.txt",sep=""), header=T)
@@ -655,6 +655,11 @@ plot(fitted.values(regr), fitted.values(regr.c))
 	points(opt.lsa, lsa.fit[opt.lsa,"AICc"], col="red", pch=10)
 	big.fit[opt.big <- which.min(big.fit[,"AICc"]),]; opt.big
 	points(opt.big, big.fit[opt.big,"AICc"], col="red", pch=10)
+	
+	p <- opt.lsa-1;  
+	lsa <- as.matrix(LSA[,1:p])
+	sr.lsa <- summary(regr.lsa <- lm(logPrice ~ poly(nTokens,5) + lsa))
+	predictive.r2(regr.lsa) # 728, close but does not match C 0.7342424 0.7049491 0.6683420
 	
 	p <- opt.big-1;
 	big    <- as.matrix(Bigram[,1:p])
