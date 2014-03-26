@@ -52,13 +52,12 @@ source("/Users/bob/C/text/functions.R")
 
 	n.vocab <- 1500					# matrix of distributions over vocab
 	P       <- matrix(0, nrow=K, ncol=n.vocab)
-	# this baked in style makes the common words totally useless
-	# for(k in 1:K) P[k,]<-c(p.c*p.common,(1-p.c)*rdirichlet(rep(0.01,n.vocab-n.common)))
-	n.common <- floor(0.1 * n.vocab)
+	alpha   <- 0.01  				# dirichlet parameter
+	n.common<- floor(0.1 * n.vocab)
 	q.c <- 0.4
 	zipf <- 1/(1:n.vocab); zipf <- zipf/sum(zipf)
 	for(k in 1:K) {   														
-		P[k,] <-q.c*zipf+(1-q.c)*c(rep(0,n.common),rdirichlet(rep(0.025,n.vocab-n.common)))
+		P[k,] <-q.c*zipf+(1-q.c)*c(rep(0,n.common),rdirichlet(rep(alpha,n.vocab-n.common)))
 	}
 	apply(P,1,sum)[1:4]				# prob dist so sum to 1
 	plot(P[1,1:100]); points(P[2,1:100],col="red")
@@ -67,11 +66,15 @@ source("/Users/bob/C/text/functions.R")
 		plot(P[1,],P[2,],col=c); plot(P[3,],P[4,],col=c); 
 		plot(P[5,],P[6,],col=c); plot(P[7,],P[8,],col=c); 
 	reset()
-	# P.sparse <- P  # with alpha = 0.01
+	# P.025 <- P  			P.01 <- P
 	
-	plot(P.sparse[4,],P.sparse[3,],log="xy",xlab=expression(P[1]),ylab=expression(P[2]))
-	plot(P[4,],P[2,], log="xy", xlab=expression( P[1] ), ylab=expression( P[2] ))
-
+	# plot sparse and non sparse distributions				[ P.pdf ] 
+	par(mfrow=c(1,2))
+		plot(P.01[4,], P.01 [3,], log="xy",cex=0.5,xlab=expression(P[1]),ylab=expression(P[2]),
+			main=expression(alpha~"=0.010"), cex.main=0.8)
+		plot(P.025[4,],P.025[2,], log="xy",cex=0.5,xlab=expression(P[1]), ylab=expression(P[2]),
+			main=expression(alpha~"=0.025"), cex.main=0.8)
+	reset()
 
 	# --- generate doc/word matrix
 	W <- matrix(0, nrow=n.doc, ncol=n.vocab)
@@ -122,7 +125,6 @@ source("/Users/bob/C/text/functions.R")
 
 	# saturated model to get max possible R2 with words + len (about 71% with noise)
 	# sr <- summary(regr <- lm(Y.obs ~ doc.len + W.ordered));  sr
-	
 	# most common 250 words
 	# sr <- summary(regr <- lm(Y.obs ~ doc.len + W.ordered[,1:500]));  sr
 	# quartz(width=6.5,height=3); reset();
@@ -132,23 +134,15 @@ source("/Users/bob/C/text/functions.R")
 	
 	# --- LSA analysis, raw counts
 	udv <- svd(W.ordered)
-	U <- udv$u	
 	plot(udv$d[1:200], log="y")
+	U <- udv$u	
 	
-	# lsa.sr <- summary(lm(Y.obs ~ doc.len + U[,1:250])); lsa.sr
-	# coef.summary.plot(lsa.sr, "LSA Variables", omit=1:2)
-	
-	# --- LSA analysis, sqrt counts
-	# udv.sqrt <- svd(sqrt(W.ordered))
-	# plot(udv$d[1:200], log="y")
-
 	# --- LSA analysis, partially scaled (cols)
 	w.freq <- apply(W.ordered,2,sum)
 	W.cols <- t( (1/sqrt(w.freq)) * t(W.ordered))
 	udv.cols <- svd(W.cols)
 	plot(udv.cols$d[1:200], log="y")
 	U.cols <- udv.cols$u
-	
 
 	# --- LSA analysis, partially scaled (rows)
 	W.rows <- (1/sqrt(doc.len)) * W.ordered
@@ -161,20 +155,27 @@ source("/Users/bob/C/text/functions.R")
 	w.freq <- apply(W.ordered,2,sum)
 	W.cca <- t( (1/sqrt(w.freq)) * t(W.cca))
 	udv.cca <- svd(W.cca)
-	U.cca <- udv.cca$u	
 	plot(udv.cca$d[1:200], log="y")
+	U.cca <- udv.cca$u	
 		
-	# --- comparison of spectra					[ spectra.pdf ]
-	quartz(height=5,width=5); reset()
-	par(mfrow=c(2,2))
-		i <- 2:100; s <-"Singular Value"
-		plot(i,udv     $d[i],log="y",xlab="Component",ylab=s,main="Raw Frequencies")
-		plot(i,udv.rows$d[i],log="y",xlab="Component",ylab=s,main="Scaled Rows")
-		plot(i,udv.cols$d[i],log="y",xlab="Component",ylab=s,main="Scaled Columns")
-		plot(i,udv.cca $d[i],log="y",xlab="Component",ylab=s,main="Both Scaled")
-	reset()
+		
+	# --- Plot spectra			[ spectra.pdf, spectra2.pdf ]
+	i <- 2:100; x <- log(i)
+    plot(y<-udv$d[i], xlab="Component",ylab="Singular Value",log="y",type="l", ylim=c(30,105))
+    y <- log(y); coefficients(lm(y ~ x))        	# -0.6     
+    lines( 10 * (y<-udv.rows$d[i]), lty=4)  		# dot dash               
+    y <- log(y); coefficients(lm(y ~ x))        	# -0.6     
+    lines( 50 * (y<-udv.cols$d[i]), lty=3) 		# short dash
+    y <- log(y); coefficients(lm(y ~ x))        	# -0.25    
+    lines(500 * (y<-udv.cca $d[i]), lty=5)     		# long/short dash              
+    y <- log(y); coefficients(lm(y ~ x))        	# -0.2     
 
-	
+	# --- show gap
+	i <-25:75
+	plot( i,50 * (udv.cols$d[i]), cex=0.5,pch=3,ylim=c(73,99), 	# plus
+		ylab="Singular Value", xlab="Component")
+    points(i,500 * (udv.cca $d[i]), pch=4, cex=0.5)     			# times
+ 
 	lsa.rows.sr <- summary(lm(Y.obs ~ doc.len + U.rows[,1:250])); lsa.rows.sr
 	coef.summary.plot(lsa.rows.sr, "Column-scaled LSA Variables", omit=1)
 	summary(lm(Y.obs ~ doc.len +  U.rows[,1:50]))

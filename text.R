@@ -5,8 +5,8 @@ source("/Users/bob/C/text/functions.R")
 #  type counts, zipf
 ##################################################################################
 
-	# --- look at type frequencies, zipf plot   (zipf.pdf)
-	type.cts <- sort(scan("/Users/bob/C/text/text_src/temp/ChicagoOld3/type_freq.txt"), decreasing=TRUE)
+# --- look at type frequencies, zipf plot   (zipf.pdf)
+type.cts <- sort(scan("/Users/bob/C/text/text_src/temp/ChicagoOld3/type_freq.txt"), decreasing=TRUE)
 
 	x<-1:length(type.cts); y<-type.cts
 	zipf.data <- data.frame(list(x=x,y=y,lx=log(x),ly=log(y)))
@@ -425,8 +425,21 @@ plot(wregr)
 	coef.summary.plot(sr.lsa, "LSA Component", omit=6)		# [ lsa_tstats.pdf ]  
 	
 # --- plot of spectrum                                      # [ spectrum.pdf ]
-	sv <- scan(paste(path,"svd_exact_d_cca.txt",sep=""))
-    plot(sv[1:4000], xlab="Component", ylab="Singular Value", log="xy")                   
+	sv.raw <- scan(paste(path,"svd_exact_d_raw.txt",sep=""))
+	sv.row <- scan(paste(path,"svd_exact_d_row.txt",sep=""))
+	sv.col <- scan(paste(path,"svd_exact_d_col.txt",sep=""))
+	sv.cca <- scan(paste(path,"svd_exact_d_cca.txt",sep=""))
+    
+    i <- 1:2000; x <- log(i)
+    plot(y <- sv.raw[i], xlab="Component", ylab="Singular Value", ylim=c(5,1000),
+ 				log="xy", type="l")				# solid
+    y <- log(y); coefficients(lm(y ~ x))        	# -0.6     
+    lines( 10 * (y<-sv.row[i]), lty=4)  		# dot dash               
+    y <- log(y); coefficients(lm(y ~ x))        	# -0.6     
+    lines( 10 * (y<-sv.col[i]), lty=3) 			# short dash
+    y <- log(y); coefficients(lm(y ~ x))        	# -0.25    
+    lines(100 * (y<-sv.cca[i]), lty=5)     		# long/short dash              
+    y <- log(y); coefficients(lm(y ~ x))        	# -0.2     
 
 # --- sequence of R2 statistics from C++  (watch for """ in C output)
 	word.fit<- read.table(paste(path,"word_regr_fit_with_m_for.txt",sep=""),header=T)
