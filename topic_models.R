@@ -250,6 +250,56 @@ d2 <- svd(m %*% diag(c(1,1,10,10,10)))$d
 plot(d1, d2)
 
 
+##################################################################################
+#
+#	Zipf Experiment
+#
+#		Zipf over words produces power law (with lower power) spectrum in random words
+#
+##################################################################################
+
+# --- generate zipf dist over k integers
+
+k     <- 100
+power <- 1
+zpdf <- 1/ (1:k)^power; zpdf <- zpdf/sum(zpdf)
+plot( zpdf, log = "xy" )
+
+# --- sample n documents using this distribution over words
+
+n <- 500
+
+W <- matrix(0,nrow=n,ncol=k)
+doc.len <- 200
+
+for(i in 1:nrow(W)) {
+	df <- as.data.frame(table(sample(1:k, doc.len, replace=T, prob=zpdf)))
+	W[i,df$Var1] <- df$Freq
+	}
+#		retain colummns with positive counts
+cs <- colSums(W); cs
+W <- W[,cs>2]
+
+
+# --- spectrum of W
+
+plot( d <- svd(W)$d, log="xy", 	xlab="Component", ylab="Singular Values of W")
+
+	# fit drops first and last
+d <- d[2:floor(0.9*length(d))]
+y <- log(d); x <- log(1:length(d))
+r <- lm(y ~ x); r
+lines(exp(x),exp(predict(r)), col="red")
+
+u <- (svd(W)$u)[,1:3]
+
+round( t(u) %*% u  ,3)
+
+j <- 1;
+sum( outer(u[,j],u[,j]) )
+sum(u[,j]) ^2
+
+
 
 ##################################################################################
 #
