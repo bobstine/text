@@ -133,29 +133,8 @@ int main(int argc, char** argv)
 
   // P holds random projections version of SVD of LSA variables
   Matrix P(nDocs, nProjections);
-  if (! quadratic)                                                                             // adapted from Helper::fill_random_projection
-    { Helper::fill_random_projection(P,W,powerIterations);
-    /*    -- code moved into helper --
-    std::clog << "MAIN: Computing left singular vectors of L by random projection";
-    if (powerIterations) std::clog << " with power iterations.\n" ; else std::clog << ".\n";
-    print_with_time_stamp("Starting base linear random projection", std::clog);
-    P = W * Matrix::Random(W.cols(), nProjections);    
-    while (powerIterations--)
-    { print_with_time_stamp("Performing W W' multiplication for power iteration", std::clog);
-      Matrix R = W * (W.transpose() * P);
-      print_with_time_stamp("Performing Householder step of iterated random projection", std::clog);
-      P = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());  // block does not work; use to get left P.cols()
-    }
-    std::clog << "MAIN: Check norms after Householder orthgonalization in random projection; 0'0="
-	      << P.col(0).dot(P.col(0)) << "   0'1=" << P.col(0).dot(P.col(1)) << "   1'1=" << P.col(1).dot(P.col(1)) << std::endl;
-    Matrix B = P.transpose() * W;
-    print_with_time_stamp("Computing SVD of reduced B matrix", std::clog);
-    Eigen::JacobiSVD<Matrix> svd(B, Eigen::ComputeThinU|Eigen::ComputeThinV);
-    Matrix U = svd.matrixU()  ;   // nProjections x nProjections
-    P = P * U;
-    print_with_time_stamp("Completed SVD of random projection", std::clog);
-    */
-  }
+  if (! quadratic)                                                                          
+    Helper::fill_random_projection(P,W,powerIterations);
   else  // quadratic
   { std::clog << "MAIN: Computing random projection of " << (W.cols()*(W.cols()+1))/2 << " quadratics (excludes linear).";
     if (powerIterations) std::clog << " with power iterations.\n" ; else std::clog << ".\n";

@@ -156,13 +156,16 @@ dore:  $(outREPath)$(nProj).txt
 
 
 # --- lsa regressions   (dummy targets used to date stamp for linear/quadratic choice in dolsa)
+#	adjustments for doc/word matrix are  w(raw, without), t(tfidf), r(row), c(col), n(recip), and b(cca or both)
 
-lsaProj = 1500
+lsaProj = 500
 
+#	linear
 $(outREPath)L$(lsaProj).txt: lsa_regr $(rfile) 
-	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(lsaProj) --power_iter 4  --adjustment 'b' --min_frequency 3
+	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(lsaProj) --power_iter 4  --adjustment 'w' --min_frequency 3
 	date >> $@
 
+#	quadratic
 $(outREPath)Q$(lsaProj).txt: lsa_regr $(rfile) 
 	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(lsaProj) --power_iter 1 --adjustment 'b' --min_frequency 3 --quadratic 
 	date >> $@
