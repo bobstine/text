@@ -260,17 +260,17 @@ plot(d1, d2)
 
 # --- generate zipf dist over k integers
 
-k     <- 100
+k     <- 500
 power <- 1
 zpdf <- 1/ (1:k)^power; zpdf <- zpdf/sum(zpdf)
 plot( zpdf, log = "xy" )
 
 # --- sample n documents using this distribution over words
 
-n <- 500
+n <- 10000
 
 W <- matrix(0,nrow=n,ncol=k)
-doc.len <- 200
+doc.len <- 100
 
 for(i in 1:nrow(W)) {
 	df <- as.data.frame(table(sample(1:k, doc.len, replace=T, prob=zpdf)))
@@ -278,15 +278,17 @@ for(i in 1:nrow(W)) {
 	}
 #		retain colummns with positive counts
 cs <- colSums(W); cs
-W <- W[,cs>2]
+dim( W <- W[,cs>2] )
 
 
 # --- spectrum of W
 
+W <- t( t(W) - colMeans(W) )
+
 plot( d <- svd(W)$d, log="xy", 	xlab="Component", ylab="Singular Values of W")
 
 	# fit drops first and last
-d <- d[2:floor(0.9*length(d))]
+d <- d[2:floor(0.99*length(d))]
 y <- log(d); x <- log(1:length(d))
 r <- lm(y ~ x); r
 lines(exp(x),exp(predict(r)), col="red")
