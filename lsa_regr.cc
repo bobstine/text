@@ -58,6 +58,7 @@ int main(int argc, char** argv)
 	      << " --min_frequency=" << minFrequency << " --n_projections=" << nProjections << " ---adjustment=" << adjust
 	      << " --power_iter " << powerIterations << " --random_seed=" << randomSeed << endl;
   }
+
   string powerTag = "_p" + std::to_string(powerIterations);
   string wTag;
   switch (adjust)

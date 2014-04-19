@@ -31,7 +31,13 @@ TokenManager::init_from_stream(std::istream &input, float posThreshold)
   std::map<POS,int> posMap;   // initial pos prior to collapse rare pos to OTH
   while (input)
   { string typeStr;
+
+    std::cout << " ------------- HERE -------init from stream------" << std::endl;
+
     input >> typeStr;
+
+    std::cout << " ------------- HERE -------init from stream------" << std::endl;
+
     if (typeStr.empty()) break;   // end of file
     Type type(typeStr);
     ++mTypeCountMap[type];

@@ -11,7 +11,19 @@ int main()
     if (!fs)
       std::cout << "TEST: Could not open file.\n";
     else
-    { TokenManager tm (fs);
+    {
+      while (fs)
+      { string str;
+	std::cout << " ------------- HERE -------main------" << std::endl;
+	fs >> str;
+	std::cout << " Read the string... " << str << std::endl;
+      }
+      std::cout << " ------------- HERE -------main------" << std::endl;
+
+      return 0;
+    
+      TokenManager tm (fs);
+      std::cout << " ------------- HERE -------------" << std::endl;
       std::vector<Type> typeVector = tm.type_vector();   // check indexing
       std::cout << "TEST: first 10 types in type vector from Token Manager with index checks (should match)..." << std::endl;
       for(int i=0; i<10; ++i)

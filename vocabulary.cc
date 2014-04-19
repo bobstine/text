@@ -98,9 +98,9 @@ Vocabulary::init_from_stream(std::istream& is)
 {
   std::map<Type,int> fullVocab;
   fullVocab[OOV] = 0;                         // insert oov
-
   int nLines = 0;
   std::string line;
+  
   while(getline(is, line))
   { ++nLines;
     parse_line(line, fullVocab);
