@@ -16,7 +16,8 @@ OPT = -O3 -fopenmp -std=c++0x
 
 USES = eigen utils
 
-EXTERNAL_USES = boost_system boost_thread boost_regex mpi gomp
+# mpi
+EXTERNAL_USES = boost_system boost_thread boost_regex gomp
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
