@@ -537,7 +537,7 @@ cor(fitted.values(regr.lsa), f <- fitted.values(br2))
 ##################################################################################
 #
 # Exact SVD for LSA compared to random projection
-#   1500, raw counts
+#   1500, cca weighting
 #
 ##################################################################################
 
@@ -552,11 +552,11 @@ exact.u <- read.table("~/C/text/text_src/temp/ChicagoOld3/svd_exact_u_cca.txt");
 
 # spectrum is diffuse                                                 [ spectrum.pdf ] 
 quartz(height=3.5,width=5); reset()
-plot(exact.d[1:500], log="y", ylab="Singular Value")
+plot(exact.d[1:500], log="xy", main="Power law for singular values", ylab="Singular Value")
 
 # relate to U vectors found by random projection (not so correlated)
 pairs(cbind(exact.u[,1:3], lsa[,1:3]))
-cor(cbind(exact.u[,1],rp.u[,1:5]))[1,]
+cor(cbind(exact.u[,1],lsa[,1:5]))[1,]
 
 # Because of diffuse spectrum, don't recover the full spaces.         [ approx.pdf ]
 par(mfrow=c(3,1))
@@ -570,7 +570,7 @@ par(mfrow=c(3,1))
 	tau <- sum(cca$cor >= 0.90); cat(k, tau, cca$cor[tau],"\n"); abline(v=tau,col="gray",lty=3);
 	k <- 800
 	cca <- cancor(lsa[,1:k], exact.u[,1:k])
-	plot(cca$cor, xlab="CCA Component", ylab="Canonical Correlation");
+	plot(cca$cor[1:(k-2)], xlab="CCA Component", ylab="Canonical Correlation");
 	tau <- sum(cca$cor >= 0.90); cat(k, tau, cca$cor[tau],"\n"); abline(v=tau,col="gray",lty=3);
 reset()
 
