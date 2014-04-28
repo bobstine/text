@@ -3,7 +3,8 @@ include ../c_flags
 ###########################################################################
 #
 #   Note on special forms
-#      $^ are prereq   $< is first prerequisite  $@ is target    $* is stem   % -> $*
+#      $^ are prereq   $< is first prerequisite  $(word 2,$^) gives the second
+#      $@ is target    $* is stem   % -> $*
 #
 ###########################################################################
 
