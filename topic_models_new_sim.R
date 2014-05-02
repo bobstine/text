@@ -1,11 +1,16 @@
 
 source("/Users/bob/C/text/functions.R")
 
-# avg truths
+# KL distance with avg truths
 kl.dist<- function (p1,p2) {
 	i1 <- which(p1>0); i2 <- which(p2>0)
 	-0.5 * (sum(log( p2[i1]/p1[i1] ) * p1[i1]) + sum(log( p1[i2]/p2[i2] ) * p2[i2]))
 	}
+
+dither <- function(x) { x + rnorm(length(x),sd=0.05*sd(x)) }
+
+# n<-20; kl.dist( dbinom(0:n, n, prob=0.8), dbinom(0:n, n, prob=0.3)  )
+#        kl.dist(P[1,],P[2,])
 
 
 ##################################################################################
@@ -18,9 +23,9 @@ kl.dist<- function (p1,p2) {
 
 	
 	n.doc  <- 5000						#	number observed documents/listings  
-	K      <-  100						#	number possible attributes
+	K      <-   10						#	number possible attributes (topics)
 	
-	mu <- rgamma(K, shape=2, scale=0.5)	#	'true' value of attributes
+	mu <- rgamma(K, shape=2, scale=2)	#	'true' value of attributes
 	# hist(mu, main="Simulated True Contributions to Log Prices", breaks=20)		
 	
 	Y <- rnorm(n.doc,mean=12.2,sd=0.8)	#	initial seed log price (revised below)
@@ -56,28 +61,26 @@ kl.dist<- function (p1,p2) {
 
 
 
-	n.vocab <- 1500					# matrix of distributions over vocab
-	P       <- matrix(0, nrow=K, ncol=n.vocab)
-	alpha   <- 0.005  				# dirichlet parameter
-	n.common<- floor(0.05 * n.vocab)
-	q.c <- 0.0
-	zipf <- 1/(1:n.vocab); zipf <- zipf/sum(zipf)
-	for(k in 1:K) {   														
-		P[k,] <-q.c*zipf+(1-q.c)*c(rep(0,n.common),rdirichlet(rep(alpha,n.vocab-n.common)))
+	n.specific	<- 1000
+	n.common 	<-  200
+	n.vocab <- n.common + n.specific					# size of vocabulary
+	m.topic <- floor(n.specific/K)						# word types per topic
+	alpha   <- 0.1  									# dirichlet parameter within topic words
+	P       <- matrix(0, nrow=K, ncol=n.vocab)			# only *specific* components
+	for(k in 1:K) {  
+		j <- (n.common + 1+(k-1)*m.topic):(n.common + k * m.topic) 														
+		P[k,j] <- rdirichlet(rep(alpha,m.topic))
 	}
-	apply(P,1,sum)[1:4]				# prob dist so sum to 1
-	plot(P[1,1:100]); points(P[2,1:100],col="red")
-	par(mfrow=c(2,2)); 
-		c <- c(rep("gray",n.common), rep("red",n.vocab-n.common))
-		plot(P[1,],P[2,],col=c); plot(P[3,],P[4,],col=c); 
-		plot(P[5,],P[6,],col=c); plot(P[7,],P[8,],col=c); 
+	apply(P,1,sum)[1:4]										# prob dist so rows sum to 1
+	plot(P[1,]); points(P[2,],col="red"); points(P[4,],col="blue")
+	par(mfrow=c(2,2)); 										# only Zipf has common support
+		plot(P[1,],P[2,]); plot(P[3,],P[4,]); 
+		plot(P[5,],P[6,]); plot(P[7,],P[8,]); 
 	reset()
 	
 	# --- divergence distances
 	c(kl.dist(P[1,],P[2,]), kl.dist(P[2,],P[3,]), kl.dist(P[3,],P[4,]), kl.dist(P[4,],P[5,]))
 
-	# P.025 <- P  			P.01 <- P
-	
 	# plot sparse and non sparse distributions				[ P.pdf ] 
 	par(mfrow=c(1,2))
 		plot(P.01[4,], P.01 [3,], log="xy",cex=0.5,xlab=expression(P[1]),ylab=expression(P[2]),
@@ -86,19 +89,40 @@ kl.dist<- function (p1,p2) {
 			main=expression(alpha~"=0.025"), cex.main=0.8)
 	reset()
 
-	# --- generate doc/word matrix
-	W <- matrix(0, nrow=n.doc, ncol=n.vocab)
-	# lambda <- rgamma(n.doc, shape=6, scale=2) * A %*% P;	#	expected frequencies
-	lambda <- 6 * A %*% P;
-	for(i in 1:n.doc) { W[i,] <- rpois(n.vocab, lambda[i,]) }
+	# --- generate doc/word matrix W
+	W 		<- matrix(0, nrow=n.doc, ncol=n.vocab)
+	zipf	<- 1/(1:n.common); zipf <- zipf/sum(zipf)		# Zipf distribution
+	lambda.s <- 10											# expected word tokens per topic
+	one		<- rep(1,n.common)
+	for(i in 1:n.doc) { 
+		jj <- which(A[i,]==1)
+		nt <- length(jj)									# num topics in doc i
+		# n.words <- rep(lambda.s,nt);
+		n.words	<- pmax(1,rpois(nt, lambda.s))
+		W[i,1:n.common] <- rpois(one, nt*lambda.s*zipf)	# common words
+		for (j in 1:length(jj)) {
+			indx <- sample(1:n.vocab, n.words[j], replace=FALSE, prob=P[jj[j],]);
+			W[i,indx] <- W[i,indx] + 1
+		}
+	}
 	cat("Max word frequencies in first 5 docs", apply(W,1,max)[1:5])
 	doc.len <- apply(W,1,sum)						# check document lengths
-	mean(doc.len); hist(doc.len, breaks=25)
+	c(mean(doc.len), sd(doc.len)); hist(doc.len, breaks=25)
 	
-	
-	cca <- cancor(A,W,xcenter=F,ycenter=F)
+	# --- cca sanity check
+	j <- which(P[1,]>0.01); j
+	plot(dither(rowSums(W[,j])), dither(A[,1]))
+
+	# --- CCA analysis between attributes and words
+	keep <-	which(0 < (col.sd <- apply(W,2,sd))); length(keep)
+	cca <- cancor(A,W[,keep],xcenter=F,ycenter=F)
 	plot(cca$cor)
-	plot(cca$xcoef[,2])
+	plot(cca$xcoef[,3])
+	
+	k <- which.max(abs(cca$xcoef[,3])); k #29
+	i <- which(P[k,keep]>0.001)
+	plot(P[k,keep][i], cca$ycoef[,2][i])
+	max(abs(cor(P[k,keep],cca$ycoef)))
 	
 	
 	# qqplot(doc.len,nTokens); abline(0,1,col="red")# matches but for tail [need data]
@@ -125,28 +149,31 @@ kl.dist<- function (p1,p2) {
 		# lines(doc.len[o], predict(r)[o], col="blue")
 	reset()
 
-###################################################################################
+#######################################################################################
 #
 #   Fitted regressions
 #
-###################################################################################
+# 		Amazing effect...
+#		R2 in regr on words is 1 if fixed number per topic (know how many topics), but 
+# 		R2 drops to about 0.75 if Poisson number of words per topic
+#
+#######################################################################################
 
 	# --- Build ordered words (word types in order of overall frequency, dropping 0)
 	freq <- apply(W,2,sum)
-	o <- order(freq,decreasing=TRUE); cat("Most common words: ", o[1:20], "\n");
+	o <- order(freq,decreasing=TRUE); cat("Most common words: ", o[1:20], "\n"); dim(W.ordered)
 	o <- o[freq[o]>0]
 	W.ordered <- W[,o]
 	
 
+	# saturated model to get max possible R2 with words + len
+	sr <- summary(regr <- lm(Y.obs ~ doc.len + W.ordered));  sr
+	coef.summary.plot(sr, "Word Frequencies", omit=2)
 
-	# saturated model to get max possible R2 with words + len (about 71% with noise)
-	# sr <- summary(regr <- lm(Y.obs ~ doc.len + W.ordered));  sr
 	# most common 250 words
 	# sr <- summary(regr <- lm(Y.obs ~ doc.len + W.ordered[,1:500]));  sr
 	# quartz(width=6.5,height=3); reset();
-	# coef.summary.plot(sr, "Word Frequencies", omit=2)
-
-	
+	# 
 	
 	# --- LSA analysis, raw counts
 	udv <- svd(W.ordered)
@@ -192,6 +219,11 @@ kl.dist<- function (p1,p2) {
 		ylab="Singular Value", xlab="Component")
     points(i,500 * (udv.cca $d[i]), pch=4, cex=0.5)     			# times
  
+	# only first 10 are evident with Poisson variation in length but no zipf
+	# nicely spread out over the first 50 with the addition of the Zipf
+	lsa.sr <- summary(lm(Y.obs ~ doc.len + U[,1:250])); lsa.sr
+	coef.summary.plot(lsa.sr, "Unscaled LSA Variables", omit=1)
+
 	lsa.rows.sr <- summary(lm(Y.obs ~ doc.len + U.rows[,1:250])); lsa.rows.sr
 	coef.summary.plot(lsa.rows.sr, "Column-scaled LSA Variables", omit=1)
 	summary(lm(Y.obs ~ doc.len +  U.rows[,1:50]))
