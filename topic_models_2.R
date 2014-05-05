@@ -1,3 +1,8 @@
+##################################################################################
+#
+#  This version of topic models has disjoint support, sampling wo replacement
+#
+##################################################################################
 
 source("/Users/bob/C/text/functions.R")
 
@@ -9,8 +14,118 @@ kl.dist<- function (p1,p2) {
 
 dither <- function(x) { x + rnorm(length(x),sd=0.05*sd(x)) }
 
-# n<-20; kl.dist( dbinom(0:n, n, prob=0.8), dbinom(0:n, n, prob=0.3)  )
-#        kl.dist(P[1,],P[2,])
+
+##################################################################################
+#
+#   Supervised topic model generative process (Blei and McAullife)
+#
+##################################################################################
+
+# Given α and K topics with distributions β and regression coef η, var σ2
+
+# Generate a document as follows...
+# 1. Draw topic proportions θ | α ∼ Dir(α). 
+# 2. For each word w_n# 		(a) Draw topic assignment z_n |θ ∼ Mult(θ)		z_n indicates topic
+# 		(b) Draw word w_n|z_n,β_{1:K} ∼ Mult(β_{z_n})		# 3. Draw response variable 
+# 		y|z_{1:N},η,σ2 ∼ N(η'z-bar,σ2).
+#  z-bar is the average of the z's for document, the average topic assignment 
+#  the topic composition of all words in the document. (proportions of topics)
+#  Regressors are empirical rather than expected topic proportions.
+
+
+	n.vocab <- 1000
+	
+	K <- 30								# number of topics
+	beta<-matrix(0,nrow=K,ncol=n.vocab)	# dist over words for each topic
+	for(i in 1:K) beta[i,] <- rdirichlet(rep(0.01,n.vocab))
+
+	alpha <- rep(0.4,K)					# mix of topics
+	
+	n <- 4000							# documents
+	avg.len <- 50						# avg document length
+	
+		
+	theta <- matrix(0,nrow=n,ncol=K)	# expected topic mix
+	Z	  <- matrix(0,nrow=n,ncol=K)	# observed topic mix
+	doc.len <- rep(0,n)
+	for(i in 1:n) {						
+		doc.len[i] <- rpois(1,avg.len)
+		theta[i,] <- rdirichlet(alpha)		
+		Z[i,] <- as.vector(rmultinom(1,doc.len[i],theta[i,]))
+	}
+	
+	W <- matrix(0,nrow=n, ncol=n.vocab)	# generate y and W
+	eta <- rnorm(K, mean=3, sd=1) 		# topic regr coefs, need some neg
+	Y <- rep(0,n)
+	err <- rnorm(n, sd=20)
+	for(i in 1:n) {						
+		for(k in 1:K) W[i,]<-W[i,]+rmultinom(1,Z[i,k],beta[k,])
+		Y[i] <- sum(eta * Z[i,]) + err[i]
+	}
+	
+##################################################################################
+#
+#   Fit regression models
+#
+##################################################################################
+
+# --- fit using expected(theta) and actual(z) topic proportions
+	hist(Y)
+	
+	# --- these are independent rather than correlated if use z-bar
+	#	  but become very correlated if generate with Z if all eta>0
+	#	  so use some negative etas, but then cannot regress on topic mix
+	#	  and have to weight up by doc length
+	
+	plot(Y ~ doc.len); cor(Y,doc.len)^2
+	
+	summary(rt <- lm(Y ~ theta) )
+	summary(rz <- lm(Y ~ Z) );
+
+# --- word regressions
+	freq <- apply(W,2,sum)
+	o <- order(freq,decreasing=TRUE); cat("Most common words: ", o[1:20], "\n");
+	o <- o[freq[o]>0]
+	W.ordered <- W[,o]
+	dim(W.ordered)
+	
+	# saturated model to get max possible R2 with words + len
+	sr <- summary(regr <- lm(Y ~ W.ordered[,1:200]));  sr
+	coef.summary.plot(sr, "Word Frequencies", omit=2)
+
+	sr <- summary(regr <- lm(Y ~ W.ordered[,1:400]));  sr
+	coef.summary.plot(sr, "Word Frequencies", omit=2)
+
+	predictive.r2(rz)
+	predictive.r2(regr)
+
+# --- SVD regressions
+
+	# --- LSA analysis, raw counts
+	udv <- svd(W.ordered)
+	plot(udv$d[1:200], log="xy")
+	U <- udv$u	
+	
+	# --- LSA analysis, CCA scaled
+	W.cca <- (1/sqrt(doc.len)) * W.ordered
+	w.freq <- apply(W.ordered,2,sum)
+	W.cca <- t( (1/sqrt(w.freq)) * t(W.cca))
+	udv.cca <- svd(W.cca)
+	plot(udv.cca$d[1:200], log="y")
+	U.cca <- udv.cca$u	
+		
+	sr <- summary(regr.u <- lm(Y ~ U[,1:200]));  sr
+	coef.summary.plot(sr, "Word Frequencies", omit=2)
+	
+	sr <- summary(regr.cca.200 <- lm(Y ~ U.cca[,1:200]));  sr
+	coef.summary.plot(sr, "Word Frequencies", omit=2)
+
+	predictive.r2(rz); predictive.r2(regr.u); predictive.r2(regr.cca.200)
+
+	sr <- summary(regr.cca.50 <- lm(Y ~ U.cca[,1:50]));  sr
+	predictive.r2(rz); predictive.r2(regr.u); predictive.r2(regr.cca.200); predictive.r2(regr.cca.50)
+
+
 
 
 ##################################################################################
@@ -134,7 +249,7 @@ dither <- function(x) { x + rnorm(length(x),sd=0.05*sd(x)) }
 		sort.freq <- sort(freq[freq>0],decreasing=TRUE) 
 		lf <- log(sort.freq); lr <- log(1:length(sort.freq))
 		plot(sort.freq,log="xy", xlab="Word Rank",ylab="Frequency")
-		lf <- lf[1:500]; lr <- lr[1:500]
+		lf <- lf[1:100]; lr <- lr[1:100]
 		regr <- lm(lf ~ lr); coefficients(summary(regr)); 
 		lines(exp(predict(regr)), col="red")
 		cat(sum(freq==0)," unused words\n");
