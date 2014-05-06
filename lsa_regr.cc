@@ -2,7 +2,7 @@
   This version of the regressor code does the LSA regression analysis,
   optionally with quadratic expansion of the type space.
 */
-
+ 
 #include "helpers.Template.h"
 #include "vocabulary.h"
 #include "read_utils.h"

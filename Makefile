@@ -127,6 +127,24 @@ federalist: regressor lsa $(temppath)fedregr.txt $(temppath)fedx.txt
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#  movie ratings
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+moviePath = text_src/temp/movie_ratings/
+movieProj = 500
+movieSeed = 28731
+
+$(moviePath)merged.txt: ~/C/tools/merge_movies
+
+$(moviePath)L$(movieProj).txt: lsa_regr $(moviePath)merged_rating_text.txt 
+	./lsa_regr --file=$(word 2,$^) --output_path=$(moviePath) -s $(movieSeed) --n_projections $(movieProj) --power_iter 4  --adjustment 'b' --min_frequency 3
+	date > $@
+
+domovies: $(moviePath)L$(movieProj).txt
+	echo "Done movie projections"
+
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  real estate text descriptions
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
