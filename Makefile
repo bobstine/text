@@ -134,9 +134,21 @@ moviePath = text_src/temp/movie_ratings/
 movieProj = 500
 movieSeed = 28731
 
-$(moviePath)merged.txt: ~/C/tools/merge_movies
+$(moviePath).dir_build:
+	mkdir $(moviePath)
+	touch $@
 
-$(moviePath)L$(movieProj).txt: lsa_regr $(moviePath)merged_rating_text.txt 
+# this file has extra columns
+$(moviePath)merged_ratings.txt: ~/C/tools/merge_movies $(moviePath).dir_build
+	$< > $@ 
+
+# remove the extra columns, remove/select certain cases
+reviewer = Steve+Rhodes     # Dennis+Schwartz James+Berardinelli Scott+Renshaw 
+
+$(moviePath)regr_data.txt: $(moviePath)merged_ratings.txt 
+	grep $(reviewer) $< | cut --fields 1 --complement > $@
+
+$(moviePath)L$(movieProj).txt: lsa_regr $(moviePath)regr_data.txt 
 	./lsa_regr --file=$(word 2,$^) --output_path=$(moviePath) -s $(movieSeed) --n_projections $(movieProj) --power_iter 4  --adjustment 'b' --min_frequency 3
 	date > $@
 

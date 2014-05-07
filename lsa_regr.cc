@@ -134,8 +134,9 @@ int main(int argc, char** argv)
 
   // P holds random projections version of SVD of LSA variables
   Matrix P(nDocs, nProjections);
+  Vector sv(nProjections);
   if (! quadratic)                                                                          
-    Helper::fill_random_projection(P,W,powerIterations);
+    Helper::fill_random_projection_svd(&P,&sv,W,powerIterations);
   else  // quadratic
   { std::clog << "MAIN: Computing random projection of " << (W.cols()*(W.cols()+1))/2 << " quadratics (excludes linear).";
     if (powerIterations) std::clog << " with power iterations.\n" ; else std::clog << ".\n";
@@ -165,14 +166,19 @@ int main(int argc, char** argv)
   
   // optionally compute R2 sequence of regression models
   if (true)
-  { std::clog << "MAIN: Fitting regressions on singular vectors.\n";
+  { bool useM (false);                                     // use log token count in fitted model
+    bool reverse (false);                                  // reverse tests low frequency words first
+    std::clog << "MAIN: Fitting regressions on singular vectors.\n";
     Eigen::VectorXd YY(nDocs), mm(nDocs);                  // convert into double and take log for regression code
     YY = Y.cast<double>().array().log();
-    mm = nTokens.cast<double>().array().log();
-    mm = mm.array() - mm.sum()/mm.size();                  // center to reduce collinearity
-    bool reverse (false);                                  // reverse tests low frequency words first
+    if(useM)
+    { mm = nTokens.cast<double>().array().log();
+      mm = mm.array() - mm.sum()/mm.size();                // center to reduce collinearity
+    }
+    else
+      mm.resize(0);
     std::string fileName (outputPath + "lsa_regr_fit_");
-    if (nTokens.size() > 0) fileName += "with_m";
+    if (mm.size() > 0) fileName += "with_m";
     else              fileName += "no_m";
     if (reverse) fileName += "_rev.txt";
     else         fileName += "_for.txt";
@@ -201,10 +207,12 @@ int main(int argc, char** argv)
       else
       { label = "lsa_"  + wTag; varSymbol = 'L'; }
       string dim  (std::to_string(nProjections));
-      std::ofstream os (outputPath + label + "_" + dim + powerTag + ".txt");
-      os << varSymbol << "0";
+      std::ofstream os (outputPath + label + "_" + dim + powerTag + ".txt");      // write the singular vectors
+      os << varSymbol << "0";                                                     // write col labels for R
       for(int i=1; i<P.cols(); ++i) os << "\t" << varSymbol << i;
       os << endl << P.format(fmt) << endl;
+      std::ofstream os2 (outputPath + label + "_" + dim + powerTag + "_sv.txt");  // write singular values
+      os2 << sv.transpose().format(fmt) << endl;
     }
   }
   return 0;

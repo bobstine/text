@@ -11,14 +11,14 @@ add.path <- function(s) paste(path,s,sep="")
 # --- look at type frequencies, zipf plot   (zipf.pdf)
 #     amazingly linear, with slope 1
 
-type.cts <- sort(scan(add.path("type_freq.txt")), decreasing=TRUE)
+type.cts <- sort(scan(add.path("type_freq.txt")), decreasing=TRUE)		# 60,255 word types
 
 	x<-1:length(type.cts); y<-type.cts
 	zipf.data <- data.frame(list(x=x,y=y,lx=log(x),ly=log(y)))
 
 	plot(y~x, xlab="rank", ylab="frequency", log="xy", data=zipf.data)
-	common.words <- c(".", ",", "and", "-", "in")
-	text(0.9*x[1:5],0.7*y[1:5],common.words,cex=c(1,1,0.5,1,0.5))
+	common.words <- c("the","OOV","a","of","and")
+	text(0.9*x[1:5],0.7*y[1:5],common.words,cex=0.5)
 
 	regr<-lm(ly~lx, data=zipf.data[1:500,]); coefficients(regr)
 	lx <- log(x<-c(1,5000)); y <- exp(predict(regr, data.frame(lx=lx)))
@@ -37,9 +37,14 @@ type.cts <- sort(scan(add.path("type_freq.txt")), decreasing=TRUE)
 
 	n <- nrow(Data)
 	logRating <- Data[,"Y"]    # file holds log prices
-	ratings   <- exp(Data[,"Y"])
+	rating    <- exp(Data[,"Y"])
 	nTokens   <- Data[,"m"]
 	logTokens <- log(nTokens)
+	
+
+# --- reviewer information
+#     dropping 4 that are zero rated for Scott Renshaw  11961, 1391, 2790, 3285
+	reviewer <- as.factor(c(rep("DS",1028),rep("JB",1308),rep("SRe",903-4),rep("SRh",1771)))
 
 
 # --- lengths (m)
@@ -47,25 +52,24 @@ type.cts <- sort(scan(add.path("type_freq.txt")), decreasing=TRUE)
 	boxplot(nTokens, horizontal=TRUE, xlab="Lengths of Descriptions")   # boxplot.pdf
 	hist(log10(nTokens), breaks=20)
 
+# --- analysis of ratings, little association with length  (r = -0.05)
+#     no reason for log scale on ratings, and indeed skews the ratings
+	hist(rating, breaks=20)
+	hist(logRating, breaks=20);		
+	plot(rating ~ nTokens); cor(ratings,nTokens)
 
-# --- analysis of ratings, not much association with length
-	hist(ratings)
-	plot(ratings ~ nTokens)
-
-
+# --- reviewer explains about 4.4% of variation in ratings, 3% in log ratings (not much reason to log)
+	boxplot(logRating~reviewer)
+	summary(lm(logRating~reviewer))
+	
+	
 ##################################################################################
 #  
 #   Raw word regression
 #
 ##################################################################################
 	
-	YM <- as.matrix(read.table(add.path("lsa_ym.txt"),header=T,as.is=T))
 	W  <- as.matrix(read.table(add.path("w5708.txt"),header=T,as.is=T))
-
-	logRating <- YM[,1];
-	rating    <- exp(logRating);
-	nTokens   <- YM[,2];
-	logTokens <- log(YM[,2])
 
 	colnames(W)[1:10]         	# remove the EOL column, relabel others
 	W <- W[,-7]
@@ -122,41 +126,37 @@ type.cts <- sort(scan(add.path("type_freq.txt")), decreasing=TRUE)
 ##################################################################################
 
 	file    <- add.path("lsa_cca_500_p4.txt")
-	LSA     <- as.matrix(read.table(file, header=TRUE)); dim(LSA)
+	LSA     <- as.matrix(read.table(file, header=TRUE)); dim(LSA)	# 5006 rows
+
+# --- spectrum from random matrix
+	sv <- as.vector(scan(add.path("lsa_cca_500_p4_sv.txt")))
+	plot(sv, log="xy", xlab="Component", ylab="Singular Value")
 
 
-# --- LSA analysis from matrix W    adj R2=0.6567 with 1000 and log tokens
+# --- LSA analysis 		raw			log
+#		wo reviewer		0.33		0.26
+#       w  reviewer		0.344		0.275
 
-	p      <- 300
+	p      <- 100
 	lsa    <- as.matrix(LSA[,1:p])
-	sr.lsa <- summary(regr.lsa <- lm(rating ~ lsa)); sr.lsa
-	predictive.r2(regr.lsa)
+	
+	sr.lsa <- summary(regr <- lm(rating ~  lsa)); sr.lsa
+	predictive.r2(regr)
+
+	sr.R.lsa <- summary(regr <- lm(logRating ~ reviewer + lsa)); sr.R.lsa
+	predictive.r2(regr)
 	
 	# quartz(width=6.5,height=3); reset()
-	coef.summary.plot(sr.lsa, "LSA Component", omit=6)		# [ lsa_tstats.pdf ]  
+	coef.summary.plot(sr.R.lsa, "LSA Component", omit=6) 
 	
-# --- plot of spectrum                                      # [ spectrum.pdf ]
-	sv.raw <- scan(paste(path,"svd_exact_d_raw.txt",sep=""))
-	sv.row <- scan(paste(path,"svd_exact_d_row.txt",sep=""))
-	sv.col <- scan(paste(path,"svd_exact_d_col.txt",sep=""))
-	sv.cca <- scan(paste(path,"svd_exact_d_cca.txt",sep=""))
-    
-    i <- 1:2000; x <- log(i)
-    plot(y <- sv.raw[i], xlab="Component", ylab="Singular Value", ylim=c(5,1000),
- 				log="xy", type="l")				# solid
-    y <- log(y); coefficients(lm(y ~ x))        	# -0.6     
-    lines( 10 * (y<-sv.row[i]), lty=4)  		# dot dash               
-    y <- log(y); coefficients(lm(y ~ x))        	# -0.6     
-    lines( 10 * (y<-sv.col[i]), lty=3) 			# short dash
-    y <- log(y); coefficients(lm(y ~ x))        	# -0.25    
-    lines(100 * (y<-sv.cca[i]), lty=5)     		# long/short dash              
-    y <- log(y); coefficients(lm(y ~ x))        	# -0.2     
 
 # --- sequence of R2 statistics from C++  (watch for """ in C output)
-	word.fit<- read.table(paste(path,"word_regr_fit_with_m_for.txt",sep=""),header=T)
-	lsa.fit <- read.table(paste(path,"lsa_regr_fit_with_m_for.txt",sep=""), header=T)
-	# change names (legacy C++ labels with types)
-	rownames(lsa.fit) <- c("tokens",paste("lsa",1:(nrow(lsa.fit)-1), sep=""))  # allow for nTokens
+	lsa.fit<- read.table(add.path("lsa_regr_fit_no_m_for.txt"),header=T)
+	plot(lsa.fit[,"AICc"])
+	
+	# change names (legacy C++ labels (which are words) with types)
+	# rownames(lsa.fit) <- c("tokens",paste("lsa",1:(nrow(lsa.fit)-1), sep=""))  
+	rownames(lsa.fit) <- c(paste("lsa",1:(nrow(lsa.fit)), sep=""))  
 	
 	quartz(height=3.5, width=6); reset()
 	plot(word.fit[,"AICc"], type="l", xlab="Features", ylab="AICc",    # [ aic.pdf portion ]
@@ -170,35 +170,6 @@ type.cts <- sort(scan(add.path("type_freq.txt")), decreasing=TRUE)
 	lsa    <- as.matrix(LSA[,1:p])
 	sr.lsa <- summary(regr.lsa <- lm(logPrice ~ poly(nTokens,5) + lsa , x=TRUE, y=TRUE)); sr.lsa
 	predictive.r2(regr.lsa)
-
-	
-# --- sequence of R2 statistics, in R
-	df <- as.data.frame(cbind(logPrice,logTokens,LSA))
-	
-	k <- 100;
-	r2.len <- rep(0,k);
-	regr.len <- lm(logPrice ~ poly(logTokens,5), data=df); r2.poly <- summary(regr.len)$r.squared
-	r2.none<- rep(0,k);
-	regr.none<- lm(logPrice ~ 1, data=df)
-	for(j in 1:k) {
-		f <- paste(". ~ . + ",colnames(LSA)[j])
-		regr.len  <- update(regr.len, f,data=df);
-		r2.len[j] <- summary(regr.len)$r.squared;
-		regr.none <- update(regr.none,f,data=df);
-		r2.none[j]<- summary(regr.none)$r.squared;
-		if(0 == (j%%10)) cat("j=",j,"\n")
-	}
-	r2.len  <- c(r2.poly,r2.len)
-	r2.none <- c(  0    ,r2.none)
-	
-	plot(r2.len, xlim=c(0,100)); points(r2.none,col="red")
-	plot((r2.len - r2.none)[1:100], ylim=c(0,0.20), 
-				ylab="Increase in R2 with Length", xlab="Num LSA Terms")
-
-
-correctly.ordered(logPrice, fitted.values(regr.lsa), 1000)
-
-xtable(regr.lsa)
 
 
 # --- residuals only hint at heteroscedasticity

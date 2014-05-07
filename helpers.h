@@ -32,8 +32,9 @@ namespace Helper
     calculate_sequence_r2 (Eigen::VectorXd const& Y, Eigen::VectorXd tokenCount, int degree, bool reverse, Mat const& W,
 				   Vocabulary const& vocab, int nToFit, string file);
 
+
   void
-    fill_random_projection(Matrix &P, Vocabulary::SparseMatrix const& B, int power);
+    fill_random_projection_svd(Matrix* P, Vector* sv, Vocabulary::SparseMatrix const& B, int powerIterations);
   
   // old version
   void

@@ -179,25 +179,26 @@ Helper::write_exact_svd_to_path(Vocabulary::SparseMatrix const& B, int nProjecti
 
 
 void
-Helper::fill_random_projection(Matrix &P, Vocabulary::SparseMatrix const& B, int powerIterations)
+Helper::fill_random_projection_svd(Matrix* P, Vector* sv, Vocabulary::SparseMatrix const& B, int powerIterations)
 {
   std::clog << "HLPR: Computing left singular vectors of matrix by random projection";
   if (powerIterations) std::clog << " with power iterations.\n" ; else std::clog << ".\n";
   print_with_time_stamp("Starting base linear random projection", std::clog);
-  Matrix localP = B * Matrix::Random(B.cols(), P.cols());         // local version to avoid later potential aliasing problem
+  Matrix localP = B * Matrix::Random(B.cols(), P->cols());         // local version to avoid later potential aliasing problem
   while (powerIterations--)
   { print_with_time_stamp("Performing B B' multiplication for power iteration", std::clog);
     Matrix R = B * (B.transpose() * localP);
     print_with_time_stamp("Performing Householder step of iterated random projection", std::clog);
-    localP = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P.rows(),P.cols());  // block does not work; use to get left P.cols()
+    localP = Eigen::HouseholderQR<Matrix>(R).householderQ() * Matrix::Identity(P->rows(),P->cols());  // block does not work; use to get left P.cols()
   }
   std::clog << "MAIN: Check norms after Householder orthgonalization in random projection; 0'0="
 	      << localP.col(0).dot(localP.col(0)) << "   0'1=" << localP.col(0).dot(localP.col(1)) << "   1'1=" << localP.col(1).dot(localP.col(1)) << std::endl;
   Matrix rB = localP.transpose() * B;
   print_with_time_stamp("Computing SVD of reduced matrix", std::clog);
   Eigen::JacobiSVD<Matrix> svd(rB, Eigen::ComputeThinU|Eigen::ComputeThinV);
+  *sv = svd.singularValues();
   Matrix U = svd.matrixU()  ;   // nProjections x nProjections
-  P = localP * U;               // beware alias here
+  *P = localP * U;               // beware alias here
   print_with_time_stamp("Completed random projection", std::clog);
 }
 
