@@ -20,7 +20,10 @@ namespace Helper
     entropy(Vector const& prob);                     // assumes sum p(i) = 1 and p(i) >= 0
   float
     entropy(Vector const& x, float xSum);            // assumes x(i) >= 0
-  
+
+  Vector
+    document_frequency_vector (Vocabulary::SparseMatrix const& W);    // count number of docs in which terms appear
+   
   void
     write_eigenwords_to_file (string fileName, Matrix const& M, Vocabulary const& vocab);
   

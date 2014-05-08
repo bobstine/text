@@ -25,6 +25,7 @@
 using std::string;
 using std::endl;
 
+typedef float ScalarType;
 typedef Eigen::VectorXf Vector;
 typedef Eigen::MatrixXf Matrix;
 
@@ -99,6 +100,15 @@ int main(int argc, char** argv)
     std::clog << "MAIN: Leading block of the raw LSA matrix W[" << W.rows() << "," << W.cols() << "] \n" << W.block(0,0,5,10) << endl;
   }
 
+  // optionally write W to file
+  if (false)
+    { const int numWords (MIN(W.cols(), 6000));
+      std::string name ("w" + std::to_string(numWords) + ".txt");
+      Helper::write_word_counts_to_file (outputPath + name, W, numWords, vocabulary);
+      std::clog << "MAIN: Wrote W matrix to file " << name << std::endl;
+  }
+  else std::clog << "MAIN: Skipping output of W matrix to file.\n";
+
   // adjustments to the elements of the term-document matrix
   if (adjust == 'r')
   { Vector sr = (W * Vector::Ones(W.cols())).array().sqrt().inverse();
@@ -117,14 +127,41 @@ int main(int argc, char** argv)
     std::clog << "MAIN: Leading block of the LSA matrix after CCA adjustment: \n" << W.block(0,0,5,10) << endl;
   }
   else if (adjust == 't')
-  { Vector termCts = Vector::Zero(W.cols());   // count docs in which terms appear
+  { Vector docFreq = Helper::document_frequency_vector(W);
     for (int doc=0; doc<W.outerSize(); ++doc)
       for (Vocabulary::SparseMatrix::InnerIterator it(W,doc); it; ++it)
-	++termCts(it.col());
-    for (int doc=0; doc<W.outerSize(); ++doc)
-      for (Vocabulary::SparseMatrix::InnerIterator it(W,doc); it; ++it)
-	W.coeffRef(doc, it.col()) = it.value() * log(W.rows()/termCts(it.col()));
+	W.coeffRef(doc, it.col()) = it.value() * log(W.rows()/docFreq(it.col()));
     std::clog << "MAIN: Leading block of the LSA matrix after tf-idf adjustment: \n" << W.block(0,0,5,10) << endl;
+  }
+
+  // compute negative of tf-idf, sort columns of W on this variable (so biggest tf-idf are first)
+  if (true)
+  { std::clog << "MAIN: Selecting top 5000 columns from W based on TF-IDF.\n";
+    std::clog << "MAIN: Leading document frequencies are " << Helper::document_frequency_vector(W).head(10).transpose() << std::endl;
+    Vector logDocFreq = Helper::document_frequency_vector(W).array().log();
+    ScalarType logN = log((float)W.rows());
+    Vector negTfIdf = vocabulary.type_frequency_vector().array() * (logDocFreq.array() - logN);
+    std::map<ScalarType, int> orderMap;
+    for(int i=0; i<negTfIdf.size(); ++i)
+      orderMap[negTfIdf[i]]=i;
+    std::clog << "MAIN: tf-idf values for first 10 are " ;
+    int counter=0;
+    for(auto x = orderMap.cbegin(); x != orderMap.end(); ++x)
+    { std::clog << "(" << -x->first << "," << x->second << ") ";
+      if(10 < ++counter) break;
+    }
+    std::clog << std::endl;
+    Eigen::VectorXi indices(W.cols());
+    auto ptr = orderMap.cbegin();
+    for(int i=0; i<indices.size(); ++i)
+    { indices[i] = ptr->second;
+      ++ptr;
+    }
+    Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic> perm(indices);
+    std::clog << "MAIN: First 100 words are in positions " << indices.head(100).transpose() << std::endl << std::endl;
+    Vocabulary::SparseMatrix WW = W;
+    WW = W * perm;
+    W = WW.leftCols(5000);
   }
   
   if (false) // compute exact SVD decomposition
@@ -132,7 +169,7 @@ int main(int argc, char** argv)
     Helper::write_exact_svd_to_path(W, nProjections, outputPath, wTag);
   }
 
-  // P holds random projections version of SVD of LSA variables
+  // P holds random projection SVD of LSA variables
   Matrix P(nDocs, nProjections);
   Vector sv(nProjections);
   if (! quadratic)                                                                          
@@ -142,11 +179,11 @@ int main(int argc, char** argv)
     if (powerIterations) std::clog << " with power iterations.\n" ; else std::clog << ".\n";
     print_with_time_stamp("Starting base projection", std::clog);
     Matrix R = Matrix::Zero(nDocs, nProjections);
-    Eigen::SparseMatrix<float, Eigen::ColMajor> X = W; 
+    Eigen::SparseMatrix<ScalarType, Eigen::ColMajor> X = W; 
     for (int j=0; j<W.cols(); ++j)
       for (int k=j; k<W.cols(); ++k)         // X'X = sum x_i x_i'
-      { Eigen::SparseVector<float>  cp  = X.col(j).cwiseProduct(X.col(k));
-	Vector                     rand = Vector::Random(nProjections);
+      { Eigen::SparseVector<ScalarType>  cp  = X.col(j).cwiseProduct(X.col(k));
+	Vector                          rand = Vector::Random(nProjections);
 	for (int i=0; i<nProjections; ++i)   // same as P += cp * rand.transpose(), but faster this way
 	  R.col(i) += cp * rand(i);
       }

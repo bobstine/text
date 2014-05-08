@@ -117,6 +117,16 @@ Helper::write_eigenwords_to_file (string fileName, Matrix const& M, Vocabulary c
     os << names[i] << " " << M.row(i) << endl;
 }
 
+Helper::Vector
+Helper::document_frequency_vector (Vocabulary::SparseMatrix const& W)
+{ 
+  Vector termCts = Vector::Zero(W.cols());
+  for (int doc=0; doc<W.outerSize(); ++doc)
+    for (Vocabulary::SparseMatrix::InnerIterator it(W,doc); it; ++it)
+      ++termCts(it.col());
+  return termCts;
+}
+
 void
 Helper::write_word_counts_to_file(string fileName, Vocabulary::SparseMatrix const& W, int nCols, Vocabulary const& vocab)
 {
