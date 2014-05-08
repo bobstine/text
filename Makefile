@@ -138,18 +138,19 @@ $(moviePath).dir_build:
 	mkdir $(moviePath)
 	touch $@
 
-# this file has extra columns
+# merge and remove (remove prefix column for reviewer, or select reviewer)
 $(moviePath)merged_ratings.txt: ~/C/tools/merge_movies $(moviePath).dir_build
-	$< > $@ 
+	$< | cut --fields 1 --complement > $@
 
-# remove the extra columns, remove/select certain cases
-reviewer = Steve+Rhodes     # Dennis+Schwartz James+Berardinelli Scott+Renshaw 
+# reviewer = Steve+Rhodes     # Dennis+Schwartz James+Berardinelli Scott+Renshaw 
+#	grep $(reviewer) $< | cut --fields 1 --complement > $@
 
-$(moviePath)regr_data.txt: $(moviePath)merged_ratings.txt 
-	grep $(reviewer) $< | cut --fields 1 --complement > $@
+# tokenize
+$(moviePath)regr_data.txt: $(moviePath)merged_ratings.txt
+	./tokenize_listings_3.sh $< > $@ 
 
 $(moviePath)L$(movieProj).txt: lsa_regr $(moviePath)regr_data.txt 
-	./lsa_regr --file=$(word 2,$^) --output_path=$(moviePath) -s $(movieSeed) --n_projections $(movieProj) --power_iter 4  --adjustment 'b' --min_frequency 3
+	./lsa_regr --file=$(word 2,$^) --output_path=$(moviePath) -s $(movieSeed) --n_projections $(movieProj) --power_iter 4  --adjustment 'b' --min_frequency 10
 	date > $@
 
 domovies: $(moviePath)L$(movieProj).txt

@@ -10,15 +10,24 @@ add.path <- function(s) paste(path,s,sep="")
 
 # --- look at type frequencies, zipf plot   (zipf.pdf)
 #     amazingly linear, with slope 1
+#     60,255 word types before running tokenize script, 38,886 after (at min count 3)
+#     With higher count threshold 10, have half as many 19288
 
-type.cts <- sort(scan(add.path("type_freq.txt")), decreasing=TRUE)		# 60,255 word types
+# VOCB: Full vocabulary has 82631 types from input of 4384649 tokens on 5006 lines.                                     
+# VOCB: Thresholded vocabulary of 38815 types with token count 4384649 tokens.                                                                                  
+# VOCB: Position of OOV type is 9 with frequency 54342                                                                                                          
+# MAIN: Vocabulary has 38815 types from 4384649 tokens, with 54342 OOV.  Most frequent are:                                                                      
+#       ","->233729 "the"->213850 "."->184522 "a"->108441 "of"->97058 
+#       "and"->94661 "to"->92188 "is"->72036 "in"->60992 "OOV"->54342                                      
+
+type.cts <- sort(scan(add.path("type_freq.txt")), decreasing=TRUE)		
 
 	x<-1:length(type.cts); y<-type.cts
 	zipf.data <- data.frame(list(x=x,y=y,lx=log(x),ly=log(y)))
 
 	plot(y~x, xlab="rank", ylab="frequency", log="xy", data=zipf.data)
-	common.words <- c("the","OOV","a","of","and")
-	text(0.9*x[1:5],0.7*y[1:5],common.words,cex=0.5)
+	common.words <- c(",", "the",".","a","of","and", "to","is","in","OOV")
+	text(0.9*x[1:5],0.7*y[1:5],common.words[1:5],cex=0.5)
 
 	regr<-lm(ly~lx, data=zipf.data[1:500,]); coefficients(regr)
 	lx <- log(x<-c(1,5000)); y <- exp(predict(regr, data.frame(lx=lx)))
@@ -45,22 +54,29 @@ type.cts <- sort(scan(add.path("type_freq.txt")), decreasing=TRUE)		# 60,255 wor
 # --- reviewer information
 #     dropping 4 that are zero rated for Scott Renshaw  11961, 1391, 2790, 3285
 	reviewer <- as.factor(c(rep("DS",1028),rep("JB",1308),rep("SRe",903-4),rep("SRh",1771)))
-
+	col.r    <-  c(rep("red",1028),rep("green",1308),rep("blue",903-4),rep("violet",1771))
 
 # --- lengths (m)
-	mean(nTokens); fivenum(nTokens); quantile(nTokens,0.87)
-	boxplot(nTokens, horizontal=TRUE, xlab="Lengths of Descriptions")   # boxplot.pdf
+	mean(nTokens); fivenum(nTokens)
 	hist(log10(nTokens), breaks=20)
 
 # --- analysis of ratings, little association with length  (r = -0.05)
 #     no reason for log scale on ratings, and indeed skews the ratings
 	hist(rating, breaks=20)
 	hist(logRating, breaks=20);		
-	plot(rating ~ nTokens); cor(ratings,nTokens)
+	plot(rating ~ nTokens,col=col.r ); cor(rating,nTokens)
 
-# --- reviewer explains about 4.4% of variation in ratings, 3% in log ratings (not much reason to log)
+	plot(rating ~ logTokens,col=col.r ); cor(rating,logTokens)  # a very large outlier
+	rating.s <- rating[-450]; logTokens.s <- logTokens[-450]    # cor = 0.19
+	plot(rating.s ~ logTokens.s,col=col.r ); cor(rating.s,logTokens.s)  # without
+	
+	
+# --- reviewer explains about 4.4% of ratings, 3% of log ratings (not much reason to log)
+#     write more about better movies, on average
 	boxplot(logRating~reviewer)
-	summary(lm(logRating~reviewer))
+	summary(regr.a <- lm(rating~reviewer ))  # 4.3%
+	summary(regr.b <- lm(rating~reviewer + logTokens))  # 11%
+	summary(regr.c <- lm(rating~reviewer * logTokens))  # 11+%
 	
 	
 ##################################################################################
@@ -143,11 +159,11 @@ type.cts <- sort(scan(add.path("type_freq.txt")), decreasing=TRUE)		# 60,255 wor
 	sr.lsa <- summary(regr <- lm(rating ~  lsa)); sr.lsa
 	predictive.r2(regr)
 
-	sr.R.lsa <- summary(regr <- lm(logRating ~ reviewer + lsa)); sr.R.lsa
-	predictive.r2(regr)
+	sr.R.lsa <- summary(regr.R <- lm(rating ~ reviewer + lsa)); sr.R.lsa
+	predictive.r2(regr.R)
 	
 	# quartz(width=6.5,height=3); reset()
-	coef.summary.plot(sr.R.lsa, "LSA Component", omit=6) 
+	coef.summary.plot(sr.lsa, "LSA Component", omit=6) 
 	
 
 # --- sequence of R2 statistics from C++  (watch for """ in C output)
