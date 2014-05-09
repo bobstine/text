@@ -63,6 +63,7 @@ class Vocabulary
 
   int        n_types()                          const { return mFreqMap.size(); }
   int        type_index(Type const& type)       const;                                // OOV position if not found
+  Type       type (int position)                const { return mTypeVector[position]; }
   TypeVector types ()                           const { return mTypeVector; }         // types in Frequency order
   Vector     type_frequency_vector()            const { return mTypeFreqVector; }
   TypeMap    oov_map()                          const { return mOOVMap; }

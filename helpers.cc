@@ -189,7 +189,7 @@ Helper::write_exact_svd_to_path(Vocabulary::SparseMatrix const& B, int nProjecti
 
 
 void
-Helper::fill_random_projection_svd(Matrix* P, Vector* sv, Vocabulary::SparseMatrix const& B, int powerIterations)
+Helper::fill_random_projection_svd(Matrix* P, Vector* sv, Matrix *V, Vocabulary::SparseMatrix const& B, int powerIterations)
 {
   std::clog << "HLPR: Computing left singular vectors of matrix by random projection";
   if (powerIterations) std::clog << " with power iterations.\n" ; else std::clog << ".\n";
@@ -209,6 +209,7 @@ Helper::fill_random_projection_svd(Matrix* P, Vector* sv, Vocabulary::SparseMatr
   *sv = svd.singularValues();
   Matrix U = svd.matrixU()  ;   // nProjections x nProjections
   *P = localP * U;               // beware alias here
+  *V = svd.matrixV().leftCols(V->cols());
   print_with_time_stamp("Completed random projection", std::clog);
 }
 

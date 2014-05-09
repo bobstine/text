@@ -37,7 +37,7 @@ namespace Helper
 
 
   void
-    fill_random_projection_svd(Matrix* P, Vector* sv, Vocabulary::SparseMatrix const& B, int powerIterations);
+    fill_random_projection_svd(Matrix* U, Vector* d, Matrix *V, Vocabulary::SparseMatrix const& B, int powerIterations);
   
   // old version
   void

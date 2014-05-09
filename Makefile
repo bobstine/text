@@ -131,25 +131,41 @@ federalist: regressor lsa $(temppath)fedregr.txt $(temppath)fedx.txt
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 moviePath = text_src/temp/movie_ratings/
-movieProj = 500
-movieSeed = 28731
 
 $(moviePath).dir_build:
 	mkdir $(moviePath)
 	touch $@
 
+# this is my version of building the data from the original reviews
 # merge and remove (remove prefix column for reviewer, or select reviewer)
 $(moviePath)merged_ratings.txt: ~/C/tools/merge_movies $(moviePath).dir_build
 	$< | cut --fields 1 --complement > $@
-
 # reviewer = Steve+Rhodes     # Dennis+Schwartz James+Berardinelli Scott+Renshaw 
 #	grep $(reviewer) $< | cut --fields 1 --complement > $@
-
 # tokenize
 $(moviePath)regr_data.txt: $(moviePath)merged_ratings.txt
 	./tokenize_listings_3.sh $< > $@ 
 
-$(moviePath)L$(movieProj).txt: lsa_regr $(moviePath)regr_data.txt 
+# this version uses the provided aligned data for the several reviewers
+mdPath1 = /data/movies/scale_data/Dennis+Schwartz/
+mdPath2 = /data/movies/scale_data/James+Berardinelli/
+mdPath3 = /data/movies/scale_data/Scott+Renshaw/
+mdPath4 = /data/movies/scale_data/Steve+Rhodes/
+
+$(moviePath)regr_data_2.txt: 
+	rm -rf $@
+	paste $(mdPath1)rating.Dennis+Schwartz    $(mdPath1)subj.Dennis+Schwartz > $@
+	paste $(mdPath2)rating.James+Berardinelli $(mdPath2)subj.James+Berardinelli >> $@
+	paste $(mdPath3)rating.Scott+Renshaw      $(mdPath3)subj.Scott+Renshaw >> $@
+	paste $(mdPath4)rating.Steve+Rhodes       $(mdPath4)subj.Steve+Rhodes >> $@
+
+doit2: $(moviePath)regr_data_2.txt
+	echo done
+
+movieProj = 1000
+movieSeed = 28731
+
+$(moviePath)L$(movieProj).txt: lsa_regr $(moviePath)regr_data_2.txt  # or use the other review data in regr_data.txt  
 	./lsa_regr --file=$(word 2,$^) --output_path=$(moviePath) -s $(movieSeed) --n_projections $(movieProj) --power_iter 4  --adjustment 'b' --min_frequency 10
 	date > $@
 
@@ -181,7 +197,7 @@ outREPath = $(temppath)$(city)/
 engine = regressor
 
 $(outREPath)$(nProj).txt: $(engine) $(vFile) $(rfile) 
-	./$(engine) --vocab_file=$(vFile) --regr_file=$(rFile) --output_path=$(outREPath) -s $(reSeed) -k $(reSkip) --n_projections $(nProj) --power_iter 1
+	./$(engine) --vocab_file=$(vFile) --regr_file=$(rFile) --use_log --output_path=$(outREPath) -s $(reSeed) -k $(reSkip) --n_projections $(nProj) --power_iter 1
 	date >> $@
 
 dore:  $(outREPath)$(nProj).txt
@@ -195,12 +211,12 @@ lsaProj = 1500
 
 #	linear
 $(outREPath)L$(lsaProj).txt: lsa_regr $(rfile) 
-	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(lsaProj) --power_iter 4  --adjustment 'b' --min_frequency 3
+	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --use_log --n_projections $(lsaProj) --power_iter 4  --adjustment 'b' --min_frequency 3
 	date >> $@
 
 #	quadratic
 $(outREPath)Q$(lsaProj).txt: lsa_regr $(rfile) 
-	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(lsaProj) --power_iter 1 --adjustment 'b' --min_frequency 3 --quadratic 
+	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --use_log --n_projections $(lsaProj) --power_iter 1 --adjustment 'b' --min_frequency 3 --quadratic 
 	date >> $@
 
 dolsa:  $(outREPath)L$(lsaProj).txt $(temppath)$(city).txt

@@ -4,6 +4,22 @@ path <- "/Users/bob/C/text/text_src/temp/movie_ratings/"
 
 add.path <- function(s) paste(path,s,sep="")
 
+
+##################################################################################
+#
+#  Raw data investigation
+#
+##################################################################################
+
+ds  <- scan("/data/movies/scale_data/Dennis+Schwartz/id.Dennis+Schwartz")
+jb  <- scan("/data/movies/scale_data/James+Berardinelli/id.James+Berardinelli")
+sr  <- scan("/data/movies/scale_data/Scott+Renshaw/id.Scott+Renshaw")
+srh <- scan("/data/movies/scale_data/Steve+Rhodes/id.Steve+Rhodes")
+
+intersect(ds,jb); intersect(ds,sr); intersect(ds,srh)
+                  intersect(jb,sr); intersect(jb,srh)
+                  					intersect(sr,srh)
+
 ##################################################################################
 #  type counts, zipf
 ##################################################################################
@@ -19,6 +35,16 @@ add.path <- function(s) paste(path,s,sep="")
 # MAIN: Vocabulary has 38815 types from 4384649 tokens, with 54342 OOV.  Most frequent are:                                                                      
 #       ","->233729 "the"->213850 "."->184522 "a"->108441 "of"->97058 
 #       "and"->94661 "to"->92188 "is"->72036 "in"->60992 "OOV"->54342                                      
+
+# MAIN: regressor --file=regr_data_2.txt -min_frequency=10 --adjustment=b                                                                                                                                   
+# VOCB: Full vocabulary has 55450 types from input of 2148164 tokens on 5006 lines.                                        
+# VOCB: Thresholded vocabulary of 10931 types with token count 2148164 tokens.                                                                                            
+# VOCB: Position of OOV type is 2 with frequency 104043                                                                                                                   
+# MAIN: Vocabulary has 10931 types from 2148164 tokens, with 104043 OOV.  
+# Most frequent 10 types are:                                                                     
+#  "the"->112068 ","->108244 "OOV"->104043 "."->102043 "of"->55398 
+#   "a"->55045 "and"->47942 "to"->43916 "is"->39547 "in"->28447                                      
+
 
 type.cts <- sort(scan(add.path("type_freq.txt")), decreasing=TRUE)		
 
@@ -54,9 +80,9 @@ type.cts <- sort(scan(add.path("type_freq.txt")), decreasing=TRUE)
 # --- reviewer information
 #     dropping 4 that are zero rated for Scott Renshaw  11961, 1391, 2790, 3285
 	reviewer <- as.factor(c(rep("DS",1028),rep("JB",1308),rep("SRe",903-4),rep("SRh",1771)))
-	col.r    <-  c(rep("red",1028),rep("green",1308),rep("blue",903-4),rep("violet",1771))
+	col.r    <-  c(rep("red",1028),rep("seagreen",1308),rep("blue",903-4),rep("violet",1771))
 
-# --- lengths (m)
+# --- lengths (m) average was 876 from merged, down to 429 using subj files
 	mean(nTokens); fivenum(nTokens)
 	hist(log10(nTokens), breaks=20)
 
@@ -76,65 +102,7 @@ type.cts <- sort(scan(add.path("type_freq.txt")), decreasing=TRUE)
 #	  some interaction, but tiny improvement to fit
 	boxplot(logRating~reviewer)
 	summary(regr.a <- lm(rating~reviewer ))  # 4.3%
-	summary(regr.b <- lm(rating~reviewer + logTokens))  # 11%
-	summary(regr.c <- lm(rating~reviewer * logTokens))  # 11+%
-	
-	
-##################################################################################
-#  
-#   Raw word regression
-#
-##################################################################################
-	
-	W  <- as.matrix(read.table(add.path("w5708.txt"),header=T,as.is=T))
-
-	colnames(W)[1:10]         	# remove the EOL column, relabel others
-	W <- W[,-7]
-	colnames(W)[c(1,2,5)] <- c(".period.",".comma.",".exclamation.")
-	colnames(W)[1:10]
-
-# --- simple composition analysis  
-	short <- which((20<nTokens) & (nTokens<60)); length(short)
-	long  <- which((80<nTokens) & (nTokens<150)); length(long)
-	
-	j <- 11:410
-	p.long <- apply(W[long ,j],2,sum); p.long <- p.long/sum(p.long)
-	p.short<- apply(W[short,j],2,sum); p.short<-p.short/sum(p.short)
-	
-	plot(p.long, p.short, log="xy", sub="400 common word types", pch=NA,
-		xlab="Word Type Proportions, LONG docs",ylab="Word Type Proportions, SHORT docs")
-	abline(a=0,b=1)	
-	text(p.long, p.short,colnames(W)[j],cex=0.8)
-	
-	# transform as in Aitchison 82, but way too many zeros
-	j <- 10:50; n.j <- length(j)
-	W.common <- cbind(W[,j],nTokens-apply(W[,j],1,sum))
-	W.common <- W.common/matrix(nTokens,nrow=nrow(W.common), ncol=n.j+1, byrow=FALSE)
-	
-	trans <- function(freq) { freq <- pmax(freq,0.0001); log(freq/freq[n.j+1]) }
-	for(r in 1:nrow(W.common)) {
-		W.common[r,] <- trans(W.common[r,]) }	
-	j <- 4;
-	d.short <- density(W.common[short,j])
-	d.long  <- density(W.common[ long,j])
-	plot(d.short, type="l"); lines(d.long)
-	
-# --- check some fits; 5th degree from C++ with centering gets diff R2
-	sr.0    <- summary(r.0<-lm(logPrice ~ poly(logTokens,5)           )); sr.0
-	sr      <- summary(lm(logPrice ~ poly(logTokens,5) + W[,   1:2])); sr
-	sr      <- summary(lm(logPrice ~ poly(logTokens,5) + W[,  1:20])); sr
-	sr.3000 <- summary(r.3000<-lm(logPrice ~ poly(logTokens,5) + W[,1:3000])); sr.3000
-	predictive.r2(r.3000)
-	
-	anova(r.0, r.3000)
-	
-# --- see how well words describe length (duh)... only interesting for PCs
-	sr <- summary(regr <- lm(nTokens ~ W[,1:100])); sr
-	plot(regr)
-	sr <- summary(lm(logPrice ~ poly(logTokens,1)           )); sr
-	sr <- summary(lm(logPrice ~ poly(logTokens,5)           )); sr
-	
-
+	summary(regr.b <- lm(rating~reviewer + logTokens))  # 11%  but only 4.7% with subj data
 
 ##################################################################################
 #
@@ -145,11 +113,16 @@ type.cts <- sort(scan(add.path("type_freq.txt")), decreasing=TRUE)
 	file    <- add.path("lsa_cca_500_p4.txt")
 	LSA     <- as.matrix(read.table(file, header=TRUE)); dim(LSA)	# 5006 rows
 
-# --- spectrum from random matrix
+# --- spectrum from random matrix is much less power-law with tf-idf filtering
 	sv <- as.vector(scan(add.path("lsa_cca_500_p4_sv.txt")))
 	plot(sv, log="xy", xlab="Component", ylab="Singular Value")
 
-
+	# sv.all 	0.999999 0.295073 0.275427 0.238178 0.226597 0.216978
+	# sv sort	0.764017 0.259918 0.233001 0.185635 0.179704 0.171391
+	# sv subj   1.000000 0.344491 0.241269 0.233073 0.217952 0.215022
+	
+	plot(LSA[,1],col=col.r, cex=0.5)
+	
 # --- LSA analysis 		raw			log
 #		wo reviewer		0.33		0.26
 #       w  reviewer		0.344		0.275
@@ -157,8 +130,11 @@ type.cts <- sort(scan(add.path("type_freq.txt")), decreasing=TRUE)
 	p      <- 200
 	lsa    <- as.matrix(LSA[,1:p])
 	
-	sr.d <- summary(regr.d <- lm(rating ~ reviewer * logTokens + lsa)); sr.d
-	predictive.r2(regr.d)  # 32% @ 100, 33% @ 200
+	sr.d <- summary(regr.d <- lm(rating ~ lsa)); sr.d
+	predictive.r2(regr.d)  # 32% @ 100, 33% @ 200  but 47% with subj data!!!
+
+	sr.e <- summary(regr.e <- lm(rating ~ reviewer + lsa)); sr.e
+	predictive.r2(regr.e)  # 32% @ 100, 33% @ 200 and  48% with subj data
 	
 	# quartz(width=6.5,height=3); reset()
 	coef.summary.plot(sr.d, "LSA Component", omit=6) 

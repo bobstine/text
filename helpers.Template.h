@@ -11,13 +11,13 @@ void
 Helper::calculate_sequence_r2 (Eigen::VectorXd const& Y, Eigen::VectorXd tokenCount, int degree, bool reverse, M const& W,
 			       Vocabulary const& vocab, int nToFit, string file)
 {
-  std::clog << "MAIN: Top of calculate_sequence_r2 loop; fitting " << nToFit << " word regressors.\n";
+  std::clog << "HLPR: Top of calculate_sequence_r2 loop; fitting " << nToFit << " word regressors.\n";
   std::ofstream os(file);
   if ((file.size()>0) && (!os)) std::clog << "MAIN: Could not open file " << file << " for writing r2 sequence.\n";
   if (os)  os << "Type  r2 adjR2  RSS q AICc\n";
   LinearRegression regr("log price", Y, 0);
   if (tokenCount.size() > 0)
-  { std::clog << "MAIN: Calculate_sequence_r2 adjusted for total word count.\n";
+  { std::clog << "HLPR: Calculate_sequence_r2 adjusted for total word count.\n";
     Eigen::VectorXd x = tokenCount;
     for(int d=1; d<=degree; ++d)
     { std::string name = "length^" + std::to_string(d);

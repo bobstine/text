@@ -32,7 +32,7 @@ typedef Eigen::MatrixXf Matrix;
 
 void
 parse_arguments(int argc, char** argv,
-		string &fileName,
+		string &fileName,  bool &useLog,
 		int &minFrequency, int &nProjections, char &adjust, bool &quadratic, int &powerIterations, int &seed,
 		string &outputPath);
   
@@ -46,16 +46,18 @@ int main(int argc, char** argv)
   bool   markEndOfLine   ( false );  // avoid end-of-document token
   char   adjust          (  'w'  );  // use raw counts  (ignored if quadratic space)
   bool   quadratic       ( false );  // use second order token variables
+  bool   useLog          ( false );  // log y
   string outputPath      (  ""   );  // text files for parsed_#, lsa_#, bigram_#
   int    powerIterations (   0   );  // in Tropp algo for SVD
   int    minFrequency    (   3   );  // lower freq are treated as OOV
   int    nProjections    (  50   );
   int    randomSeed      ( 77777 );  // used to replicate random projection
   
-  parse_arguments(argc, argv, fileName, minFrequency, nProjections, adjust, quadratic, powerIterations, randomSeed, outputPath);
+  parse_arguments(argc, argv, fileName, useLog, minFrequency, nProjections, adjust, quadratic, powerIterations, randomSeed, outputPath);
   {
     std::string qStr = (quadratic) ? " --quadratic" : "";
-    std::clog << "MAIN: regressor --file=" << fileName << " --output_path=" << outputPath << qStr
+    std::string lStr = (useLog)    ? " --use_log" : "";
+    std::clog << "MAIN: regressor --file=" << fileName << " --output_path=" << outputPath << qStr << lStr 
 	      << " --min_frequency=" << minFrequency << " --n_projections=" << nProjections << " ---adjustment=" << adjust
 	      << " --power_iter " << powerIterations << " --random_seed=" << randomSeed << endl;
   }
@@ -124,7 +126,7 @@ int main(int argc, char** argv)
   { Vector sr = nTokens.array().sqrt().inverse();
     Vector sc = vocabulary.type_frequency_vector().array().sqrt().inverse();
     W = sr.asDiagonal() * W * sc.asDiagonal();
-    std::clog << "MAIN: Leading block of the LSA matrix after CCA adjustment: \n" << W.block(0,0,5,10) << endl;
+    std::clog << "MAIN: Leading block of the LSA matrix W after CCA adjustment: \n" << W.block(0,0,5,10) << endl;
   }
   else if (adjust == 't')
   { Vector docFreq = Helper::document_frequency_vector(W);
@@ -135,7 +137,7 @@ int main(int argc, char** argv)
   }
 
   // compute negative of tf-idf, sort columns of W on this variable (so biggest tf-idf are first)
-  if (true)
+  if (false)
   { std::clog << "MAIN: Selecting top 5000 columns from W based on TF-IDF.\n";
     std::clog << "MAIN: Leading document frequencies are " << Helper::document_frequency_vector(W).head(10).transpose() << std::endl;
     Vector logDocFreq = Helper::document_frequency_vector(W).array().log();
@@ -144,10 +146,10 @@ int main(int argc, char** argv)
     std::map<ScalarType, int> orderMap;
     for(int i=0; i<negTfIdf.size(); ++i)
       orderMap[negTfIdf[i]]=i;
-    std::clog << "MAIN: tf-idf values for first 10 are " ;
+    std::clog << "MAIN: tf-idf values for first 10 are \n" ;
     int counter=0;
     for(auto x = orderMap.cbegin(); x != orderMap.end(); ++x)
-    { std::clog << "(" << -x->first << "," << x->second << ") ";
+    { std::clog << "(" << -x->first << "," << x->second << "," << vocabulary.type(x->second) << ") ";
       if(10 < ++counter) break;
     }
     std::clog << std::endl;
@@ -172,10 +174,12 @@ int main(int argc, char** argv)
   }
 
   // P holds random projection SVD of LSA variables
+  std::clog << "MAIN: Preparing for random projection of W[" << W.rows() << "," << W.cols() << "]\n";
   Matrix P(nDocs, nProjections);
   Vector sv(nProjections);
+  Matrix V (nDocs,25);
   if (! quadratic)                                                                          
-    Helper::fill_random_projection_svd(&P,&sv,W,powerIterations);
+    Helper::fill_random_projection_svd(&P,&sv,&V, W,powerIterations);
   else  // quadratic
   { std::clog << "MAIN: Computing random projection of " << (W.cols()*(W.cols()+1))/2 << " quadratics (excludes linear).";
     if (powerIterations) std::clog << " with power iterations.\n" ; else std::clog << ".\n";
@@ -209,9 +213,14 @@ int main(int argc, char** argv)
     bool reverse (false);                                  // reverse tests low frequency words first
     std::clog << "MAIN: Fitting regressions on singular vectors.\n";
     Eigen::VectorXd YY(nDocs), mm(nDocs);                  // convert into double and take log for regression code
-    YY = Y.cast<double>().array().log();
+    YY = Y.cast<double>();
+    if(useLog)
+    { std::clog << "MAIN: Transforming response to log scale.\n";
+      YY = YY.array().log();
+    }
     if(useM)
-    { mm = nTokens.cast<double>().array().log();
+    { std::clog << "MAIN: Adding log of tokens to fitted regression models.\n";
+      mm = nTokens.cast<double>().array().log();
       mm = mm.array() - mm.sum()/mm.size();                // center to reduce collinearity
     }
     else
@@ -246,12 +255,17 @@ int main(int argc, char** argv)
       else
       { label = "lsa_"  + wTag; varSymbol = 'L'; }
       string dim  (std::to_string(nProjections));
-      std::ofstream os (outputPath + label + "_" + dim + powerTag + ".txt");      // write the singular vectors
+      string prefix = outputPath + label + "_" + dim + powerTag;
+      std::ofstream os (prefix + ".txt");      // write the singular vectors
       os << varSymbol << "0";                                                     // write col labels for R
       for(int i=1; i<P.cols(); ++i) os << "\t" << varSymbol << i;
       os << endl << P.format(fmt) << endl;
-      std::ofstream os2 (outputPath + label + "_" + dim + powerTag + "_sv.txt");  // write singular values
+      std::ofstream os2 (prefix + "_d.txt");  // write singular values
       os2 << sv.transpose().format(fmt) << endl;
+      std::ofstream os3 (prefix + "_v.txt");
+      os << "V0";                                                     // write col labels for V
+      for(int i=1; i<V.cols(); ++i) os << "\t" << "V" << i;
+      os3 << endl << V.format(fmt) << endl;
     }
   }
   return 0;
@@ -261,7 +275,7 @@ int main(int argc, char** argv)
 
 void
 parse_arguments(int argc, char** argv,
-		string &fileName,
+		string &fileName, bool& useLog,
 		int &oovThreshold, int &nProjections, char &adjust, bool &quadratic, int &powerIterations, int &seed, string &outputPath)
 {
   static struct option long_options[] = {
@@ -269,6 +283,7 @@ parse_arguments(int argc, char** argv,
     {"min_frequency", required_argument, 0, 'f'},
     {"adjustment",    required_argument, 0, 'a'},
     {"quadratic",     no_argument,       0, 'q'},
+    {"log_transform", no_argument,       0, 'l'},
     {"power_iter",    required_argument, 0, 'p'},
     {"n_projections", required_argument, 0, 'r'},
     {"random_seed",   required_argument, 0, 's'},
@@ -277,7 +292,7 @@ parse_arguments(int argc, char** argv,
   };
   int key;
   int option_index = 0;
-  while (-1 !=(key = getopt_long (argc, argv, "i:f:a:qp:r:s:o:", long_options, &option_index))) // colon means has argument
+  while (-1 !=(key = getopt_long (argc, argv, "i:f:a:qlp:r:s:o:", long_options, &option_index))) // colon means has argument
   {
     // std::cout << "Option key " << char(key) << " for option " << long_options[option_index].name << ", option_index=" << option_index << std::endl;
     switch (key)
@@ -286,6 +301,7 @@ parse_arguments(int argc, char** argv,
     case 'f' : { oovThreshold   = read_utils::lexical_cast<int>(optarg);   break; }
     case 'a' : { adjust         = *optarg;                                 break; }
     case 'q' : { quadratic      = true;                                    break; }
+    case 'l' : { useLog         = true;                                    break; }
     case 'p' : { powerIterations= read_utils::lexical_cast<int>(optarg);   break; }
     case 'r' : { nProjections   = read_utils::lexical_cast<int>(optarg);   break; }
     case 's' : { seed           = read_utils::lexical_cast<int>(optarg);   break; }
