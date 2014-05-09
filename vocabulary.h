@@ -29,7 +29,7 @@ class Vocabulary
   typedef std::map<std::pair<int,int>,int>           BigramMap;            // (row,col) positions of frequencies
   typedef Eigen::VectorXf                            Vector;
   typedef Eigen::VectorXi                            IntVector;
-  typedef Eigen::SparseMatrix<float,Eigen::RowMajor> SparseMatrix;
+  typedef Eigen::SparseMatrix<float,Eigen::ColMajor> SparseMatrix;
 
   static Type OOV;
   static Type EOL;

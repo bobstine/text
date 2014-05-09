@@ -157,9 +157,11 @@ int main(int argc, char** argv)
     { indices[i] = ptr->second;
       ++ptr;
     }
+    std::clog << "MAIN: First 100 words (out of " << indices.size() << ") are in positions "
+	      << indices.head(100).transpose() << " ... "
+	      << indices[indices.size()-2] << " " << indices[indices.size()-1] << std::endl << std::endl;
     Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic> perm(indices);
-    std::clog << "MAIN: First 100 words are in positions " << indices.head(100).transpose() << std::endl << std::endl;
-    Vocabulary::SparseMatrix WW = W;
+    Vocabulary::SparseMatrix WW;
     WW = W * perm;
     W = WW.leftCols(5000);
   }
