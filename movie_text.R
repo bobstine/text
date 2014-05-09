@@ -73,6 +73,7 @@ type.cts <- sort(scan(add.path("type_freq.txt")), decreasing=TRUE)
 	
 # --- reviewer explains about 4.4% of ratings, 3% of log ratings (not much reason to log)
 #     write more about better movies, on average
+#	  some interaction, but tiny improvement to fit
 	boxplot(logRating~reviewer)
 	summary(regr.a <- lm(rating~reviewer ))  # 4.3%
 	summary(regr.b <- lm(rating~reviewer + logTokens))  # 11%
@@ -153,17 +154,14 @@ type.cts <- sort(scan(add.path("type_freq.txt")), decreasing=TRUE)
 #		wo reviewer		0.33		0.26
 #       w  reviewer		0.344		0.275
 
-	p      <- 100
+	p      <- 200
 	lsa    <- as.matrix(LSA[,1:p])
 	
-	sr.lsa <- summary(regr <- lm(rating ~  lsa)); sr.lsa
-	predictive.r2(regr)
-
-	sr.R.lsa <- summary(regr.R <- lm(rating ~ reviewer + lsa)); sr.R.lsa
-	predictive.r2(regr.R)
+	sr.d <- summary(regr.d <- lm(rating ~ reviewer * logTokens + lsa)); sr.d
+	predictive.r2(regr.d)  # 32% @ 100, 33% @ 200
 	
 	# quartz(width=6.5,height=3); reset()
-	coef.summary.plot(sr.lsa, "LSA Component", omit=6) 
+	coef.summary.plot(sr.d, "LSA Component", omit=6) 
 	
 
 # --- sequence of R2 statistics from C++  (watch for """ in C output)
