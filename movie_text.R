@@ -110,11 +110,11 @@ type.cts <- sort(scan(add.path("type_freq.txt")), decreasing=TRUE)
 #
 ##################################################################################
 
-	file    <- add.path("lsa_cca_500_p4.txt")
+	file    <- add.path("lsa_cca_1000_p4.txt")
 	LSA     <- as.matrix(read.table(file, header=TRUE)); dim(LSA)	# 5006 rows
 
 # --- spectrum from random matrix is much less power-law with tf-idf filtering
-	sv <- as.vector(scan(add.path("lsa_cca_500_p4_sv.txt")))
+	sv <- as.vector(scan(add.path("lsa_cca_1000_p4_d.txt")))
 	plot(sv, log="xy", xlab="Component", ylab="Singular Value")
 
 	# sv.all 	0.999999 0.295073 0.275427 0.238178 0.226597 0.216978
@@ -122,16 +122,22 @@ type.cts <- sort(scan(add.path("type_freq.txt")), decreasing=TRUE)
 	# sv subj   1.000000 0.344491 0.241269 0.233073 0.217952 0.215022
 	
 	plot(LSA[,1],col=col.r, cex=0.5)
+
+	file    <- add.path("lsa_cca_1000_p4_v.txt")
+	V       <- as.matrix(read.table(file, header=TRUE)); dim(V)	# 10,930 rows, 25 cols
+	
+	plot(-V[,1], log="xy", xlab="Word", cex=0.4)
 	
 # --- LSA analysis 		raw			log
 #		wo reviewer		0.33		0.26
 #       w  reviewer		0.344		0.275
 
-	p      <- 200
+	p      <- 500
 	lsa    <- as.matrix(LSA[,1:p])
 	
 	sr.d <- summary(regr.d <- lm(rating ~ lsa)); sr.d
 	predictive.r2(regr.d)  # 32% @ 100, 33% @ 200  but 47% with subj data!!!
+
 
 	sr.e <- summary(regr.e <- lm(rating ~ reviewer + lsa)); sr.e
 	predictive.r2(regr.e)  # 32% @ 100, 33% @ 200 and  48% with subj data
@@ -142,7 +148,8 @@ type.cts <- sort(scan(add.path("type_freq.txt")), decreasing=TRUE)
 
 # --- sequence of R2 statistics from C++  (watch for """ in C output)
 	lsa.fit<- read.table(add.path("lsa_regr_fit_no_m_for.txt"),header=T)
-	plot(lsa.fit[,"AICc"])
+	plot(lsa.fit[,"AICc"], cex=0.4, xlab="Model Size", ylab="AICc")
+	plot(lsa.fit[,"adjR2"], cex=0.4, xlab="Model Size", ylab="Adjusted R2")
 	
 	# change names (legacy C++ labels (which are words) with types)
 	# rownames(lsa.fit) <- c("tokens",paste("lsa",1:(nrow(lsa.fit)-1), sep=""))  
