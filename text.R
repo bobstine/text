@@ -56,8 +56,14 @@ type.cts <- sort(scan("/Users/bob/C/text/text_src/temp/ChicagoOld3/type_freq.txt
 	plot(logPrice ~ logTokens) 
 	regr <- lm(logPrice ~ poly(logTokens,5)); summary(regr)
 	o <- order(nTokens)
-	lines(logTokens[o], fitted.values(regr)[o], col="red")
+	lines(logTokens[o], fitted.values(regr)[o], col="magenta")
 
+# --- simple model for log of prices, with raw tokens instead of logs
+	plot(logPrice ~ nTokens) 
+	regr <- lm(logPrice ~ poly(nTokens,3)); summary(regr)
+	o <- order(nTokens)
+	lines(nTokens[o], fitted.values(regr)[o], col="red")
+	lines(  lowess(nTokens, logPrice, f=.5), col="green" )
 
 
 boxplot(Bigram[,c(1,10,25,100,250,1000)]); abline(h=0,col="gray")
@@ -68,7 +74,15 @@ par(mfrow=c(3,1))
 	hist(Bigram[,1000])
 reset()
 
+# --- use a spline basis with 3 df
+	require("splines")
+	sp.basis <- bs(logTokens, df=3)
+	plot(logPrice ~ logTokens)
+	regr <- lm(logPrice ~ bs(logTokens,df=5)); summary(regr)
+	o <- order(nTokens)
+	lines(logTokens[o], fitted.values(regr)[o], col="red")
 
+svd(sp.basis)$d
 
 ##################################################################################
 # 
@@ -431,7 +445,7 @@ plot(wregr)
 #
 ##################################################################################
 
-	nProj   <- 1500
+	nProj   <- 500
 	weights <- "cca"
 	city    <- "ChicagoOld3/"
 	path    <- paste("/Users/bob/C/text/text_src/temp/",city,sep="")
@@ -441,9 +455,9 @@ plot(wregr)
 
 # --- LSA analysis from matrix W    adj R2=0.6567 with 1000 and log tokens
 
-	p      <- 1000
+	p      <- 4
 	lsa    <- as.matrix(LSA[,1:p])
-	sr.lsa <- summary(regr.lsa <- lm(logPrice ~ poly(nTokens,5) + lsa)); sr.lsa
+	sr.lsa <- summary(regr.lsa <- lm(logPrice ~ poly(logTokens,5) + lsa)); sr.lsa
 	predictive.r2(regr.lsa)
 	
 	quartz(width=6.5,height=3); reset()
@@ -532,6 +546,33 @@ br  <- lm(logPrice ~ .      , data = frame); summary(br)
 br2 <- lm(logPrice ~ . + .*., data = frame); summary(br2)
 anova(br,br2)
 cor(fitted.values(regr.lsa), f <- fitted.values(br2))
+
+##################################################################################
+#
+#   data files for CV in C++
+#
+##################################################################################
+
+poly <- model.matrix(~ poly(logTokens,5) - 1)
+
+colnames(poly) <- paste("poly_",1:5,sep="")
+# need to remove "" from column names manually in file
+write.table(poly, paste(path,"logtoken_poly_5.txt",sep=""), row.names=F)
+
+
+# plot CV results
+cv.results.1 <- read.delim(paste(path,"cv_53853/aic_lsa.txt",sep=""))
+colnames(cv.results.1)
+cv.results.2 <- read.delim(paste(path,"cv_24387/aic_lsa.txt",sep=""))
+cv.results.3 <- read.delim(paste(path,"cv_31427/aic_lsa.txt",sep=""))
+
+
+plot(CVSS ~ AICc, data=cv.results, log="xy", type="b")
+
+plot(cv.results[,"AICc"], log="y", type="l")
+lines(cv.results.1[,"CVSS"]-2000, log="y", col="red")
+lines(cv.results.2[,"CVSS"]-2000, log="y", col="red")
+lines(cv.results.3[,"CVSS"]-2000, log="y", col="red")
 
 
 ##################################################################################

@@ -2,9 +2,9 @@
   This application...
 
   -- reads 3 tab delimited data files that begin with the names of the
-     variables, then have the indicated number of data rows and
-     columns.  The number of rows does not count the leading line of
-     variable names.
+     variables on the first line. Following lines have the indicated
+     (on the command line) number of data rows and columns.  The
+     number of rows does not count the leading line of variable names.
 
   -- fits a sequence of regression models, with Y as the first
      variable read, followed the initializers, then by each of the
@@ -59,13 +59,13 @@ int main(int argc, char** argv)
 
   // read input options
   int    n         ( 0  );
-  int    ni        ( 0  );       // number X's used to initialize the model 
+  int    ni        ( 0  );       // number X's used to initialize the model (0 means none)
   int    nx        ( 0  );       // number X's used to extend the model (get AIC, CVSS for these)
   int    cvFolds   ( 0  );       // number folds for cross-validation (0 means no cross validation)
   int    randomSeed(2837);       // random seed controls validation slices
-  string yFileName ( "" ); 
-  string iFileName ( "" );
-  string xFileName ( "" );
+  string yFileName ( "" );       // two columns, y is first
+  string iFileName ( "" );       // only used if ni>0, preconditioning variables
+  string xFileName ( "" );       // sequence to explore in CV
   string outputFileName("");
 
   parse_arguments(argc, argv, n, yFileName, ni, iFileName, nx, xFileName, cvFolds, randomSeed, outputFileName);
@@ -73,15 +73,15 @@ int main(int argc, char** argv)
   if (0 < cvFolds) std::clog << " --seed=" << randomSeed;
   std::clog << endl
 	    << "  Files are        --y_file=" << yFileName << endl
-	    << "                   --i_file=" << iFileName << " --ni=" << ni << endl
             << "                   --x_file=" << xFileName << " --nx=" << nx << endl
+	    << "                   --i_file=" << iFileName << " --ni=" << ni << endl
 	    << "                   --output=" << outputFileName << endl;
   // assume all but the iFile must be named
   std::ifstream yStream (yFileName);
   std::ifstream xStream (xFileName);
   std::ofstream output(outputFileName);
-  if (0 == (n  * ni * nx))
-  { std::cerr << "MAIN: Illegal length, n=" << n << "  ni=" << ni << "  nx=" << nx << endl;
+  if (0 == (n * nx))
+  { std::cerr << "MAIN: Illegal length, n=" << n << "  nx=" << nx << endl;
     return 0;
   }
   if ((!yStream) || (!xStream) || (!output))
@@ -95,14 +95,14 @@ int main(int argc, char** argv)
     { std::cerr << "MAIN: Could not open file " << iFileName << " for reading initialization data.\n";
       return 0;
     }
-    fit_models(n, yStream, ni, iStream , nx, xStream, cvFolds, randomSeed, output);
+    fit_models   (n, yStream, ni, iStream , nx, xStream, cvFolds, randomSeed, output);
   }
   else fit_models(n, yStream, ni, std::cin, nx, xStream, cvFolds, randomSeed, output);
 }
 
 void
-fit_models(int  n, std::istream &yStream,                  // ystream has 2 cols, y and a first conditioning variable
-	   int ni, std::istream &iStream,                  // preconditioning variables
+fit_models(int  n, std::istream &yStream,                  // ystream has 1 col, with name first
+	   int ni, std::istream &iStream,                  // additional optional conditioning variables
 	   int nx, std::istream &xStream,                  // stepwise sequence
 	   int nFolds, int seed, std::ostream& output)
 {
@@ -110,21 +110,20 @@ fit_models(int  n, std::istream &yStream,                  // ystream has 2 cols
   string yName, countName;
   std::vector<string> iNames;
   Vector Y(n);
-  Matrix Xi(n,1+ni);  
-  yStream >> yName >> countName;
-  iNames.push_back(countName);
+  yStream >> yName;
   for(int i = 0; i<n; ++i)
-    yStream >> Y(i,0) >> Xi(i,0);
-  // read rest of initial X data
-  for(int j=1; j<=ni; ++j)
+    yStream >> Y(i,0); 
+  // read preconditioning X data
+  Matrix Xi(n,ni);
+  for(int j=0; j<ni; ++j)
   { string name;
     iStream >> name;
     iNames.push_back(name);
   }
   for(int i=0; i<n; ++i)
-    for(int j=1; j<=ni; ++j)
+    for(int j=0; j<ni; ++j)
       iStream >> Xi(i,j);
-  // read sequence of predictors
+  // read predictors from x file
   std::vector<string> xNames;
   Matrix X(n,nx);
   for(int j=0; j<nx; ++j)
@@ -136,7 +135,7 @@ fit_models(int  n, std::istream &yStream,                  // ystream has 2 cols
     for(int j=0; j<nx; ++j)
       xStream >> X(i,j);
   // call code to validate using threads
-  Eigen::MatrixXd results(X.cols(),4);            // R2, RSS, AICc, CVSS
+  Eigen::MatrixXd results(1+X.cols(),4);            // R2, RSS, AICc, CVSS, starting with preconditions
   validate_regression(Y, Xi, X, nFolds, results, seed);
   Eigen::IOFormat fmt(Eigen::StreamPrecision,Eigen::DontAlignCols,"\t","\n","","","","");
   output << "R2\tRSS\tAICc\tCVSS\n" << results.format(fmt);
@@ -169,7 +168,7 @@ parse_arguments(int argc, char** argv, int &n, string &yFileName,
     case 'n' : { n              = read_utils::lexical_cast<int>(optarg);      break; }
     case 'Y' : { yFileName      = optarg;                                     break; }
     case 'i' : { ni             = read_utils::lexical_cast<int>(optarg);      break; }
-    case 'I' : { iFileName      = optarg;                                     break; }
+    case 'I' : { iFileName      = optarg;                                     break; } 
     case 'x' : { nx             = read_utils::lexical_cast<int>(optarg);      break; }
     case 'X' : { xFileName      = optarg;                                     break; }
     case 'v' : { nFolds         = read_utils::lexical_cast<int>(optarg);      break; }

@@ -252,42 +252,55 @@ dobigram: $(bigramPath)date.txt
 
 # --- aic sequential regressions
 
+cvInputPath = /Users/bob/C/text/text_src/temp/ChicagoOld3/
 nDocs = 7384
 
-cvseed = 53853
+cvProj = 500
 
-cvPath = $(outPath)cv_$(cvseed)/
+# 53853 24387
+cvseed = 31427
 
-prfx = _pre_big_
+cvOutputPath = $(cvInputPath)cv_$(cvseed)/
 
-$(cvPath).directory_built: 
+$(cvOutputPath).directory_built: 
 	echo "Building directory for holding cv details."
-	mkdir $(cvPath)
+	mkdir $(cvOutputPath)
 	touch $@
 
-#                          y includes m counts
-$(outPath)y.txt: $(outPath)$(nProj).txt 
-	cut -f 1-2 $(outPath)parsed.txt > $@
+#		precondition only on doc length variable included in the ym.txt file
 
-#                          first 1500 columns of bigram (left side)
-$(outPath)big_$(nProj).txt: $(outPath)bigram_$(nProj).txt 
-	cut -f 1-1500 $^ > $@
+$(cvInputPath)lsa_y.txt: $(cvInputPath)lsa_ym.txt
+	cut -f 1 $< > $@
+
+$(cvOutputPath)aic_lsa.txt: seq_regression $(cvInputPath)lsa_y.txt $(cvInputPath)lsa_cca_$(cvProj)_p4.txt $(cvOutputPath).directory_built
+	./$< -Y $(word 2,$^) -X $(word 3,$^) -x $(cvProj)   -I $(cvInputPath)logtoken_poly_5.txt -i 5   -n $(nDocs) -s $(cvseed) -v 10 -o $@
+
+docv : $(cvOutputPath)aic_lsa.txt
+	echo Run AIC cross validation
+
+
+#        	This was made to get the CVSS 'surface' for various combinations of LSA and bigram features
+#		precondition using bigram variables
 
 $(cvPath)aic_pre_big_%.txt: seq_regression $(outPath)y.txt  $(cvPath).directory_built  
-	cut -f 1-$* $(outPath)bigram_$(nProj).txt | \
-          ./seq_regression -X $(outPath)LSA_$(nProj).txt  -n $(nDocs) -s $(cvseed) -v 10 -Y $(outPath)y.txt -x $(nProj) -i $* -o $@
+	cut -f 1-$* $(outPath)bigram_$(cvProj).txt | \
+          ./seq_regression -X $(outPath)LSA_$(cvProj).txt  -n $(nDocs) -s $(cvseed) -v 10 -Y $(outPath)y.txt -x $(nProj) -i $* -o $@
 
-$(cvPath)aic_pre_lsa_%.txt: seq_regression $(outPath)y.txt  $(cvPath).directory_built
-	cut -f 1-$* $(outPath)LSA_$(nProj).txt| \
-          ./seq_regression -X $(outPath)big_$(nProj).txt -n $(nDocs) -s $(cvseed) -v 10 -Y $(outPath)y.txt -x $(nProj) -i $* -o $@
+#		precondition using LSA variables, then do bigram
+$(cvPath)aic_pre_lsa_%.txt: seq_regression $(dataPath)lsa_y.txt  $(cvPath).directory_built
+	cut -f 1-$* $(outPath)LSA_$(cvProj).txt| \
+          ./seq_regression -X $(outPath)big_$(cvProj).txt -n $(nDocs) -s $(cvseed) -v 10 -Y $(outPath)y.txt -x $(nProj) -i $* -o $@
 
-doaic: $(cvPath)aic$(prfx)10.txt   $(cvPath)aic$(prfx)20.txt   $(cvPath)aic$(prfx)30.txt   $(cvPath)aic$(prfx)40.txt   $(cvPath)aic$(prfx)50.txt\
+# pick one of the two prior targets
+prfx = _pre_big_
+
+precondaic: $(cvPath)aic$(prfx)10.txt   $(cvPath)aic$(prfx)20.txt   $(cvPath)aic$(prfx)30.txt   $(cvPath)aic$(prfx)40.txt   $(cvPath)aic$(prfx)50.txt\
        $(cvPath)aic$(prfx)75.txt  $(cvPath)aic$(prfx)100.txt  $(cvPath)aic$(prfx)200.txt  $(cvPath)aic$(prfx)400.txt  $(cvPath)aic$(prfx)600.txt\
       $(cvPath)aic$(prfx)800.txt  $(cvPath)aic$(prfx)900.txt  $(cvPath)aic$(prfx)950.txt $(cvPath)aic$(prfx)1000.txt $(cvPath)aic$(prfx)1050.txt\
      $(cvPath)aic$(prfx)1100.txt $(cvPath)aic$(prfx)1200.txt $(cvPath)aic$(prfx)1300.txt $(cvPath)aic$(prfx)1400.txt $(cvPath)aic$(prfx)1500.txt
 	echo $(cvPath)
 
-#                   sets seed=zero to set up testing
+#                   sets seed=0 for testing
 
 $(outPath)big_750.txt:  $(outPath)big_$(nProj).txt
 	cut -f 1-750 $^ > $@
