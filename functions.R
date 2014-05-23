@@ -109,8 +109,27 @@ show.cv <- function(regr, mse=NULL, reps=1, seed=2382) {
 	rect(ci[1],0,ci[2],0.25,col="lightblue",border=NA)
 	list(fit=red, cv=blue, mse=mse)
 	}
-	
-	
+
+
+# fits initial model y ~ xi, then adds cols of x one at a time
+fit.models <- function(data.train, data.test) {
+	r2 <- sse <- rep(0, ncol(data.train$x)+1)
+	regr <- lm(y ~ xi, data=data.train)
+	err <- data.test$y- predict(regr, newdata=data.test);
+	sse[1] <- sum(err^2)
+	r2[1] <- predictive.r2(regr)[1]
+	for(k in 1:ncol(data.train$x)) {  # skip first one since singular
+		eqn <- as.formula(paste(".~.+ x[,",k,"]",sep=""))
+		regr <- update(regr, eqn, data=data.train)
+		r2[k+1] <- predictive.r2(regr)[1]
+		err <- data.test$y - predict(regr, newdata=data.test)
+		sse[k+1] <- sum(err*err)
+	}
+	list(sse=sse, r2=r2)
+}
+
+
+
 # --- run the following to initialize
 reset()  # sets up plot
 

@@ -141,8 +141,8 @@ fit_models(int  n, std::istream &yStream,                  // ystream has 1 col,
   output << "R2\tRSS\tAICc\tCVSS\n" << results.format(fmt);
   std::clog << "MAIN: Regression completed with results written to output stream."<< endl;
 }
-
-
+ 
+ 
 void
 parse_arguments(int argc, char** argv, int &n, string &yFileName,
 		int &ni, string &iFileName, int &nx, string &xFileName, int &nFolds, int& seed, string &outputFileName)

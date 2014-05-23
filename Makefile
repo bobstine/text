@@ -44,7 +44,7 @@ regressor: regressor.o vocabulary.o regex.o eigenword_dictionary.o helpers.o
 unified_regressor: unified_regressor.o vocabulary.o eigenword_dictionary.o helpers.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
-seq_regression: seq_regression.o helpers.o
+seq_regression: seq_regression.o helpers.o ../eigen/libeigen.a
 	$(GCC) $^ $(LDLIBS) -o  $@
 
 lsa_regr: lsa_regr.o vocabulary.o helpers.o
@@ -267,15 +267,15 @@ $(cvOutputPath).directory_built:
 	mkdir $(cvOutputPath)
 	touch $@
 
-#		precondition only on doc length variable included in the ym.txt file
+#		precondition on doc length variable included in the ym.txt file
 
 $(cvInputPath)lsa_y.txt: $(cvInputPath)lsa_ym.txt
 	cut -f 1 $< > $@
 
-$(cvOutputPath)aic_lsa.txt: seq_regression $(cvInputPath)lsa_y.txt $(cvInputPath)lsa_cca_$(cvProj)_p4.txt $(cvOutputPath).directory_built
-	./$< -Y $(word 2,$^) -X $(word 3,$^) -x $(cvProj)   -I $(cvInputPath)logtoken_poly_5.txt -i 5   -n $(nDocs) -s $(cvseed) -v 10 -o $@
+$(cvOutputPath)aic_lsa_40f.txt: seq_regression $(cvInputPath)lsa_y.txt $(cvInputPath)lsa_cca_$(cvProj)_p4.txt $(cvOutputPath).directory_built
+	./$< -Y $(word 2,$^) -X $(word 3,$^) -x $(cvProj)   -I $(cvInputPath)logtoken_poly_5.txt -i 5   -n $(nDocs) -s $(cvseed) -v 40 -o $@
 
-docv : $(cvOutputPath)aic_lsa.txt
+docv : $(cvOutputPath)aic_lsa_40f.txt
 	echo Run AIC cross validation
 
 

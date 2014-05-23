@@ -480,54 +480,33 @@ plot(wregr)
     lines(100 * (y<-sv.cca[i]), lty=5)     		# long/short dash              
     y <- log(y); coefficients(lm(y ~ x))        	# -0.2     
 
-# --- sequence of R2 statistics from C++  (watch for """ in C output)
-	word.fit<- read.table(paste(path,"word_regr_fit_with_m_for.txt",sep=""),header=T)
-	lsa.fit <- read.table(paste(path,"lsa_regr_fit_with_m_for.txt",sep=""), header=T)
-	# change names (legacy C++ labels with types)
-	rownames(lsa.fit) <- c("tokens",paste("lsa",1:(nrow(lsa.fit)-1), sep=""))  # allow for nTokens
 	
-	quartz(height=3.5, width=6); reset()
-	plot(word.fit[,"AICc"], type="l", xlab="Features", ylab="AICc",    # [ aic.pdf portion ]
-			lty=3, ylim=range(lsa.fit[,"AICc"]))
-	lines(c(opt.k,opt.k), c(0,4300), col="gray")
-	lines(lsa.fit[,"AICc"]) 
-	lsa.fit[opt.lsa <- which.min(lsa.fit[,"AICc"]),]; opt.lsa
-	lines(c(opt.lsa,opt.lsa), c(0,3250), col="gray")
-	
-	p <- 523;
-	lsa    <- as.matrix(LSA[,1:p])
-	sr.lsa <- summary(regr.lsa <- lm(logPrice ~ poly(nTokens,5) + lsa , x=TRUE, y=TRUE)); sr.lsa
-	predictive.r2(regr.lsa)
+# --- Replicate CV in R (to check CV in C++)
 
+	set.seed(23743)
+	n.folds <- 10	
+	n <- length(logPrice)
+	folds <- c(rep(1:n.folds,floor(n/n.folds)),1:n.folds)[1:n]
+	folds <- sample(folds,n)
 	
-# --- sequence of R2 statistics, in R
-	df <- as.data.frame(cbind(logPrice,logTokens,LSA))
-	
-	k <- 100;
-	r2.len <- rep(0,k);
-	regr.len <- lm(logPrice ~ poly(logTokens,5), data=df); r2.poly <- summary(regr.len)$r.squared
-	r2.none<- rep(0,k);
-	regr.none<- lm(logPrice ~ 1, data=df)
-	for(j in 1:k) {
-		f <- paste(". ~ . + ",colnames(LSA)[j])
-		regr.len  <- update(regr.len, f,data=df);
-		r2.len[j] <- summary(regr.len)$r.squared;
-		regr.none <- update(regr.none,f,data=df);
-		r2.none[j]<- summary(regr.none)$r.squared;
-		if(0 == (j%%10)) cat("j=",j,"\n")
+	lsa <- LSA[,1:200];  		# avoid singular first variable
+	cv.r2 <- cv.sse <- matrix(0,1+ncol(lsa),10)
+	for(fold in 1:n.folds) {
+		cat(fold," ");
+		ni <- 5; 
+		train <- (fold != folds); 
+		data.train <- list(y=logPrice[train], xi=poly(logTokens,ni)[train,], x=lsa[train,])
+		test  <- (fold == folds)
+		data.test  <- list(y=logPrice[ test], xi=poly(logTokens,ni)[ test,], x=lsa[ test,])
+		results <- fit.models(data.train, data.test)
+		cv.sse[,fold] <- results$sse
+		cv.r2[,fold] <- results$r2
 	}
-	r2.len  <- c(r2.poly,r2.len)
-	r2.none <- c(  0    ,r2.none)
-	
-	plot(r2.len, xlim=c(0,100)); points(r2.none,col="red")
-	plot((r2.len - r2.none)[1:100], ylim=c(0,0.20), 
-				ylab="Increase in R2 with Length", xlab="Num LSA Terms")
 
+plot(rowSums(sse))
 
-correctly.ordered(logPrice, fitted.values(regr.lsa), 1000)
-
-xtable(regr.lsa)
-
+boxplot(t(sse))
+boxplot(t(r2))
 
 # --- residuals only hint at heteroscedasticity
 plot(regr.lsa)
@@ -553,27 +532,62 @@ cor(fitted.values(regr.lsa), f <- fitted.values(br2))
 #
 ##################################################################################
 
-poly <- model.matrix(~ poly(logTokens,5) - 1)
+# --- Write data for C to use to precondition
+#        Note:  Remove "" from column names *manually* in written file
+	poly <- model.matrix(~ poly(logTokens,5) - 1)
+	colnames(poly) <- paste("poly_",1:5,sep="")
+	write.table(poly, paste(path,"logtoken_poly_5.txt",sep=""), row.names=F)
 
-colnames(poly) <- paste("poly_",1:5,sep="")
-# need to remove "" from column names manually in file
-write.table(poly, paste(path,"logtoken_poly_5.txt",sep=""), row.names=F)
+# --- read C++ CV results
+	cv.results.1    <- read.delim(paste(path,"cv_53853/aic_lsa.txt",sep=""))
+	cv.results.2    <- read.delim(paste(path,"cv_24387/aic_lsa.txt",sep=""))
+	cv.results.3    <- read.delim(paste(path,"cv_31427/aic_lsa.txt",sep=""))
+	cv.results.3.01 <- read.delim(paste(path,"cv_31427/aic_lsa_01.txt",sep=""))  # threshold 0.01
+	cv.results.3.20 <- read.delim(paste(path,"cv_31427/aic_lsa_20f.txt",sep=""))  # 20 folds
+	cv.results.3.40 <- read.delim(paste(path,"cv_31427/aic_lsa_40f.txt",sep=""))  # 40 folds
+	colnames(cv.results.1)
 
+# --- Compare to those done in R
+	cbind(rowMeans(cv.r2), rowSums(cv.sse), cv.results.1[1:nrow(cv.r2),])[c(1,10,20,30),]
 
-# plot CV results
-cv.results.1 <- read.delim(paste(path,"cv_53853/aic_lsa.txt",sep=""))
-colnames(cv.results.1)
-cv.results.2 <- read.delim(paste(path,"cv_24387/aic_lsa.txt",sep=""))
-cv.results.3 <- read.delim(paste(path,"cv_31427/aic_lsa.txt",sep=""))
+# --- overlay plot of CV runs
+plot(CVSS ~ AICc, data=cv.results.3, log="xy", type="b")
 
+plot (cv.results.1[,"AICc"], log="y", type="l",   xlim=c(0,300), ylim=c(2000,3500),
+			ylab="Multi-Fold CVSS", xlab="Model Dimension")
+lines(cv.results.1 [,"CVSS"]-2000, col="red")
+lines(cv.results.2 [,"CVSS"]-2000, col="red")
+lines(cv.results.3 [,"CVSS"]-2000, col="red")
+lines(cv.results.3.20[,"CVSS"]-2000, col="green")   # adds selection
+lines(cv.results.3.40[,"CVSS"]-2000, col="blue")   # adds selection
 
-plot(CVSS ~ AICc, data=cv.results, log="xy", type="b")
+lines(cv.results.3.01[,"CVSS"]-2000, col="blue")   # adds selection
 
-plot(cv.results[,"AICc"], log="y", type="l")
-lines(cv.results.1[,"CVSS"]-2000, log="y", col="red")
-lines(cv.results.2[,"CVSS"]-2000, log="y", col="red")
-lines(cv.results.3[,"CVSS"]-2000, log="y", col="red")
+lines(     rowSums(cv.sse) -2000, col="blue")
 
+# --- scatterplot of AIC vs CVSS
+plot(cv.results.1[,"AICc"]-2100,cv.results.1[,"CVSS"]-4000, type="b", log="xy")
+
+# --- skewness and kurtosis of LSA columns
+require(moments)
+m3 <- apply(LSA, 2, skewness)
+m4 <- apply(LSA, 2, kurtosis)
+
+boxplot(LSA[,order(m4, decreasing=TRUE)[1:10]])  # 26 37 100 18 40 21 33 13 52 101
+
+boxplot(LSA[,order(abs(m3), decreasing=TRUE)[1:10]])  # 
+
+par(mfrow=c(2,1))
+	plot(abs(m3[1:300]), ylab="|Skewness|"); lines((cv.results.1[,4]-3000)/100)
+	plot(m4[1:300], ylab="Kurtosis"); lines((cv.results.1[,4]-4000)/1)
+reset()
+
+plot(m4[0+(1:300)], diff(cv.results.1[,4])[1:300])
+acf(cbind(m4[1:300], diff(cv.results.1[,4])[1:300]))
+
+# --- leverage issues
+
+plot(rowSums(LSA[,1:300]^2))
 
 ##################################################################################
 #
