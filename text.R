@@ -558,8 +558,8 @@ plot (cv.results.1[,"AICc"], log="y", type="l",   xlim=c(0,300), ylim=c(2000,350
 lines(cv.results.1 [,"CVSS"]-2000, col="red")
 lines(cv.results.2 [,"CVSS"]-2000, col="red")
 lines(cv.results.3 [,"CVSS"]-2000, col="red")
-lines(cv.results.3.20[,"CVSS"]-2000, col="green")   # adds selection
-lines(cv.results.3.40[,"CVSS"]-2000, col="blue")   # adds selection
+lines(cv.results.3.20[,"CVSS"]-2000, col="green") 
+lines(cv.results.3.40[,"CVSS"]-2000, col="blue")   
 
 lines(cv.results.3.01[,"CVSS"]-2000, col="blue")   # adds selection
 
@@ -588,6 +588,16 @@ acf(cbind(m4[1:300], diff(cv.results.1[,4])[1:300]))
 # --- leverage issues
 
 plot(rowSums(LSA[,1:300]^2))
+
+# --- fit leverage regressions  (lsa columns numbered from 0)
+
+jj <- 103
+regr   <- lm(logPrice  ~ poly(logTokens,5) + LSA[,1:jj]); summary(regr)
+regr.x <- lm(LSA[,(1+jj)] ~ poly(logTokens,5) + LSA[,1:jj]); summary(regr.x)
+plot(residuals(regr.x), residuals(regr))
+summary(lm( residuals(regr) ~ residuals(regr.x)))
+
+plot(LSA[,101],LSA[,102])
 
 ##################################################################################
 #

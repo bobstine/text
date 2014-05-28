@@ -284,12 +284,12 @@ docv : $(cvOutputPath)aic_lsa_40f.txt
 
 $(cvPath)aic_pre_big_%.txt: seq_regression $(outPath)y.txt  $(cvPath).directory_built  
 	cut -f 1-$* $(outPath)bigram_$(cvProj).txt | \
-          ./seq_regression -X $(outPath)LSA_$(cvProj).txt  -n $(nDocs) -s $(cvseed) -v 10 -Y $(outPath)y.txt -x $(nProj) -i $* -o $@
+          ./$< -X $(outPath)LSA_$(cvProj).txt  -n $(nDocs) -s $(cvseed) -v 10 -Y $(outPath)y.txt -x $(nProj) -i $* -o $@
 
 #		precondition using LSA variables, then do bigram
 $(cvPath)aic_pre_lsa_%.txt: seq_regression $(dataPath)lsa_y.txt  $(cvPath).directory_built
 	cut -f 1-$* $(outPath)LSA_$(cvProj).txt| \
-          ./seq_regression -X $(outPath)big_$(cvProj).txt -n $(nDocs) -s $(cvseed) -v 10 -Y $(outPath)y.txt -x $(nProj) -i $* -o $@
+          ./$< -X $(outPath)big_$(cvProj).txt -n $(nDocs) -s $(cvseed) -v 10 -Y $(outPath)y.txt -x $(nProj) -i $* -o $@
 
 # pick one of the two prior targets
 prfx = _pre_big_
@@ -303,11 +303,11 @@ precondaic: $(cvPath)aic$(prfx)10.txt   $(cvPath)aic$(prfx)20.txt   $(cvPath)aic
 #                   sets seed=0 for testing
 
 $(outPath)big_750.txt:  $(outPath)big_$(nProj).txt
-	cut -f 1-750 $^ > $@
+	cut -f 1-750 $< > $@
 
 testaic: seq_regression $(outPath)y.txt $(outPath)big_750.txt
 	cut -f 1-10 $(outPath)LSA_$(nProj).txt | \
-        ./seq_regression -X $(outPath)big_750.txt -x 750  -n $(nDocs) -s 0 -v 10 -Y $(outPath)y.txt -i 10 -o $@
+        ./$< -X $(outPath)big_750.txt -x 750  -n $(nDocs) -s 0 -v 10 -Y $(outPath)y.txt -i 10 -o $@
 
 
 
@@ -411,12 +411,13 @@ $(apath)roberts.csv:
 name = pelosi
 
 $(apath)$(name).txt: $(apath)$(name).csv $(apath)sed.script
-	cut -d ',' -f 2 $< | tail -n +2 | sed -f $(apath)sed.script >> $@
+	cut -d ',' -f 2 $< | tail -n +2 | sed -f $(apath)sed.script > $@
 
 doanes: anes_reply_encoder $(epath)google_tri.txt $(apath)$(name).txt
-	./anes_reply_encoder --name $(name)
+	./$< --name $(name)
 
-
+dotest: $(apath)sed.script
+	sed -f $^ test.txt 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

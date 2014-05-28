@@ -1,9 +1,15 @@
 s/n't/ not /g
+s/'s/ is/g
+s/'m/ am/g
+s/'d/ would/g
+s/'ve/ have/g
 s/dk/do not know/g
 s/<dk>/do not know/g
 s/dk/do not know/g
 s/d.k./do not know/g
 s/<rf>/refused/g
+# move period away from end of word
+s/\([^[:space:]]\)[.]/\1 ./g
 s/<>/ . /g
 s/?/ /g
 s/;/ /g
