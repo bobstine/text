@@ -3,6 +3,7 @@ s/'s/ is/g
 s/'m/ am/g
 s/'d/ would/g
 s/'ve/ have/g
+s/'re/ are/g
 s/dk/do not know/g
 s/<dk>/do not know/g
 s/dk/do not know/g

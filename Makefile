@@ -211,12 +211,14 @@ lsaProj = 1500
 
 #	linear
 $(outREPath)L$(lsaProj).txt: lsa_regr $(rfile) 
-	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --use_log --n_projections $(lsaProj) --power_iter 4  --adjustment 'b' --min_frequency 3
+	./lsa_regr --hasY --use_log --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(lsaProj) --power_iter 4 \
+                         --adjustment 'b' --min_frequency 3
 	date >> $@
 
 #	quadratic
 $(outREPath)Q$(lsaProj).txt: lsa_regr $(rfile) 
-	./lsa_regr --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --use_log --n_projections $(lsaProj) --power_iter 1 --adjustment 'b' --min_frequency 3 --quadratic 
+	./lsa_regr --hasY --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --use_log --n_projections $(lsaProj) --power_iter 1 \
+                          --adjustment 'b' --min_frequency 3 --quadratic 
 	date >> $@
 
 dolsa:  $(outREPath)L$(lsaProj).txt $(temppath)$(city).txt
@@ -350,7 +352,7 @@ $(temppath)wine_regr.txt: regressor $(vWineFile) $(outWinePath).directory_built
             --power_iter 1  --bidirectional  
 
 $(outWinePath)L$(nWineProj).txt: lsa_regr $(vWineFile) 
-	./lsa_regr --file=$(vWineFile) --output_path=$(outWinePath) -s $(wineSeed) --n_projections $(nWineProj) --power_iter 1 --adjustment 'n'
+	./lsa_regr --hasY --file=$(vWineFile) --output_path=$(outWinePath) -s $(wineSeed) --n_projections $(nWineProj) --power_iter 1 --adjustment 'n'
 	date >> $@
 
 dowine:  $(outWinePath)L$(nWineProj).txt
@@ -410,14 +412,50 @@ $(apath)roberts.csv:
 # valid names are brown, cheney, pelosi, roberts
 name = pelosi
 
-$(apath)$(name).txt: $(apath)$(name).csv $(apath)sed.script
+$(apath)ids.txt: $(apath)brown.csv
+	cut -d ',' -f 1 $< > $@
+
+$(apath)brown.txt: $(apath)brown.csv $(apath)sed.script
 	cut -d ',' -f 2 $< | tail -n +2 | sed -f $(apath)sed.script > $@
 
-doanes: anes_reply_encoder $(epath)google_tri.txt $(apath)$(name).txt
-	./$< --name $(name)
+$(apath)cheney.txt: $(apath)cheney.csv $(apath)sed.script
+	cut -d ',' -f 2 $< | tail -n +2 | sed -f $(apath)sed.script > $@
 
-dotest: $(apath)sed.script
-	sed -f $^ test.txt 
+$(apath)pelosi.txt: $(apath)pelosi.csv $(apath)sed.script
+	cut -d ',' -f 2 $< | tail -n +2 | sed -f $(apath)sed.script > $@
+
+$(apath)roberts.txt: $(apath)roberts.csv $(apath)sed.script
+	cut -d ',' -f 2 $< | tail -n +2 | sed -f $(apath)sed.script > $@
+
+$(apath)all_names.txt: $(apath)brown.txt $(apath)cheney.txt $(apath)pelosi.txt $(apath)roberts.txt
+	paste $^ > $@
+
+
+$(apath)personal.txt: $(apath)CSES.ISSUE_PERSONAL_spellchk.csv $(apath)sed.script
+	cut -d ',' -f 2 $< | tail -n +2 | sed -f $(apath)sed.script > $@
+
+
+# locate centroids using google dictionary
+doanesCentroid: anes_reply_encoder $(epath)google_tri.txt $(apath)personal.txt # $(apath)all_names.txt $(apath)$(name).txt
+	./$< --name personal
+
+
+# build the vocabulary regressors for all names together  (no Y variable; just build design matrix)
+nAnesProj = 50
+anesSeed = 28322
+
+$(apath)L$(nAnesProj).txt: lsa_regr $(apath)all_names.txt 
+	./$< --file=$(word 2,$^) --output_path=$(apath) -s $(anesSeed) --n_projections $(nAnesProj) --power_iter 4 --adjustment 'b'
+	date >> $@
+
+# add the id tags
+$(apath)merged.txt:  $(apath)ids.txt  $(apath)L$(nAnesProj).txt  $(apath)personal_centroids.txt
+	paste $<  $(apath)lsa_cca_$(nAnesProj)_p4.txt $(word 3,$^) > $@
+
+
+doanes : $(apath)merged.txt
+	echo Build ANES merged text data file
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

@@ -25,14 +25,14 @@
 using std::string;
 using std::endl;
 
-typedef float ScalarType;
+typedef Helper::ScalarType ScalarType;
 typedef Eigen::VectorXf Vector;
 typedef Eigen::MatrixXf Matrix;
 
 
 void
 parse_arguments(int argc, char** argv,
-		string &fileName,  bool &useLog,
+		string &fileName,  bool& hasY, bool &useLog, 
 		int &minFrequency, int &nProjections, char &adjust, bool &quadratic, int &powerIterations, int &seed,
 		string &outputPath);
   
@@ -42,22 +42,25 @@ int main(int argc, char** argv)
   
   // read input options
   string fileName        (  ""   );  // used to build regression variables from document text (leading y_i)
-  int    nSkipInitTokens (   1   );  // regression response at start of line (to isolate y_i from vocab)
   bool   markEndOfLine   ( false );  // avoid end-of-document token
   char   adjust          (  'w'  );  // use raw counts  (ignored if quadratic space)
   bool   quadratic       ( false );  // use second order token variables
+  bool   hasY            ( false );  // data includes a response
   bool   useLog          ( false );  // log y
   string outputPath      (  ""   );  // text files for parsed_#, lsa_#, bigram_#
   int    powerIterations (   0   );  // in Tropp algo for SVD
   int    minFrequency    (   3   );  // lower freq are treated as OOV
   int    nProjections    (  50   );
   int    randomSeed      ( 77777 );  // used to replicate random projection
+
+  int    nSkipInitToken  = (hasY) ? 1 : 0;  // regression response at start of line (to isolate y_i from vocab)
   
-  parse_arguments(argc, argv, fileName, useLog, minFrequency, nProjections, adjust, quadratic, powerIterations, randomSeed, outputPath);
+  parse_arguments(argc, argv, fileName, hasY, useLog, minFrequency, nProjections, adjust, quadratic, powerIterations, randomSeed, outputPath);
   {
     std::string qStr = (quadratic) ? " --quadratic" : "";
+    std::string yStr = (hasY)      ? " --has_y" : "";
     std::string lStr = (useLog)    ? " --use_log" : "";
-    std::clog << "MAIN: regressor --file=" << fileName << " --output_path=" << outputPath << qStr << lStr 
+    std::clog << "MAIN: lsa_regr " << yStr << lStr << " --file=" << fileName << " --output_path=" << outputPath << qStr 
 	      << " --min_frequency=" << minFrequency << " --n_projections=" << nProjections << " ---adjustment=" << adjust
 	      << " --power_iter " << powerIterations << " --random_seed=" << randomSeed << endl;
   }
@@ -79,16 +82,16 @@ int main(int argc, char** argv)
   srand(randomSeed);
 
   // build vocabulary
-  Vocabulary vocabulary(fileName, nSkipInitTokens, markEndOfLine, minFrequency);
+  Vocabulary vocabulary(fileName, nSkipInitToken, markEndOfLine, minFrequency);
   std::clog << "MAIN: " << vocabulary << endl;
   {
     std::ofstream os (outputPath + "type_freq.txt");                        // write frequencies to file
     vocabulary.write_type_freq(os);
     int const maxNumberToWrite (200);                                       // write oov to screen
     vocabulary.write_oov_to_stream(std::clog, maxNumberToWrite);
-  }  
+  }
 
-  // compute the document x type matrix W; also reads house prices (response) at head of input line
+  // compute the document x type matrix W; optionally reads response at head of input line
   int nDocs (FileUtils::count_lines(fileName));
   std::clog << "MAIN: Building word count matrix from " << nDocs << " lines of input in file " << fileName << ".\n";
   Vocabulary::SparseMatrix W(nDocs,vocabulary.n_types());
@@ -97,7 +100,12 @@ int main(int argc, char** argv)
     bool sumToOne = false;            // avg of types (row sums to one; used to find centroids)
     if (adjust == 'n') sumToOne = true;
     std::ifstream is(fileName);
-    vocabulary.fill_sparse_regr_design_from_stream(Y, W, nTokens, is, sumToOne);
+    if (hasY)
+      vocabulary.fill_sparse_regr_design_from_stream(Y, W, nTokens, is, sumToOne);
+    else
+    { Y.setZero();
+      vocabulary.fill_sparse_regr_design_from_stream(W, nTokens, is, sumToOne);
+    }
     std::clog << "MAIN: Number tokens in first docs are "        << nTokens.head(5).transpose() << endl;
     std::clog << "MAIN: Leading block of the raw LSA matrix W[" << W.rows() << "," << W.cols() << "] \n" << W.block(0,0,5,10) << endl;
   }
@@ -112,60 +120,11 @@ int main(int argc, char** argv)
   else std::clog << "MAIN: Skipping output of W matrix to file.\n";
 
   // adjustments to the elements of the term-document matrix
-  if (adjust == 'r')
-  { Vector sr = (W * Vector::Ones(W.cols())).array().sqrt().inverse();
-    W = sr.asDiagonal() * W;
-    std::clog << "MAIN: Leading block of the LSA matrix after ROW sqrt adjustment: \n" << W.block(0,0,5,10) << endl;
-  }
-  else if (adjust == 'c')
-  { Vector st = vocabulary.type_frequency_vector().array().sqrt().inverse();
-    W = W * st.asDiagonal();
-    std::clog << "MAIN: Leading block of the LSA matrix after COL sqrt adjustment: \n" << W.block(0,0,5,10) << endl;
-  }     
-  else if (adjust == 'b')
-  { Vector sr = nTokens.array().sqrt().inverse();
-    Vector sc = vocabulary.type_frequency_vector().array().sqrt().inverse();
-    W = sr.asDiagonal() * W * sc.asDiagonal();
-    std::clog << "MAIN: Leading block of the LSA matrix W after CCA adjustment: \n" << W.block(0,0,5,10) << endl;
-  }
-  else if (adjust == 't')
-  { Vector docFreq = Helper::document_frequency_vector(W);
-    for (int doc=0; doc<W.outerSize(); ++doc)
-      for (Vocabulary::SparseMatrix::InnerIterator it(W,doc); it; ++it)
-	W.coeffRef(doc, it.col()) = it.value() * log(W.rows()/docFreq(it.col()));
-    std::clog << "MAIN: Leading block of the LSA matrix after tf-idf adjustment: \n" << W.block(0,0,5,10) << endl;
-  }
+  Helper::scale_doc_term_matrix(adjust, &W, vocabulary, nTokens);
 
-  // compute negative of tf-idf, sort columns of W on this variable (so biggest tf-idf are first)
-  if (false)
-  { std::clog << "MAIN: Selecting top 5000 columns from W based on TF-IDF.\n";
-    std::clog << "MAIN: Leading document frequencies are " << Helper::document_frequency_vector(W).head(10).transpose() << std::endl;
-    Vector logDocFreq = Helper::document_frequency_vector(W).array().log();
-    ScalarType logN = log((float)W.rows());
-    Vector negTfIdf = vocabulary.type_frequency_vector().array() * (logDocFreq.array() - logN);
-    std::map<ScalarType, int> orderMap;
-    for(int i=0; i<negTfIdf.size(); ++i)
-      orderMap[negTfIdf[i]]=i;
-    std::clog << "MAIN: tf-idf values for first 10 are \n" ;
-    int counter=0;
-    for(auto x = orderMap.cbegin(); x != orderMap.end(); ++x)
-    { std::clog << "(" << -x->first << "," << x->second << "," << vocabulary.type(x->second) << ") ";
-      if(10 < ++counter) break;
-    }
-    std::clog << std::endl;
-    Eigen::VectorXi indices(W.cols());
-    auto ptr = orderMap.cbegin();
-    for(int i=0; i<indices.size(); ++i)
-    { indices[i] = ptr->second;
-      ++ptr;
-    }
-    std::clog << "MAIN: First 100 words (out of " << indices.size() << ") are in positions "
-	      << indices.head(100).transpose() << " ... "
-	      << indices[indices.size()-2] << " " << indices[indices.size()-1] << std::endl << std::endl;
-    Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic> perm(indices);
-    Vocabulary::SparseMatrix WW;
-    WW = W * perm;
-    W = WW.leftCols(5000);
+  if (false)   // compute negative of tf-idf, sort columns of W on this variable (so biggest tf-idf are first)
+  { std::clog << "MAIN: Sorting top 5000 columns of W using tf-idf." << endl;
+    Helper::sort_columns_using_tfidf (&W, vocabulary);
   }
   
   if (false) // compute exact SVD decomposition
@@ -208,7 +167,7 @@ int main(int argc, char** argv)
 
   
   // optionally compute R2 sequence of regression models
-  if (true)
+  if (true && hasY)
   { bool useM (false);                                     // use log token count in fitted model
     bool reverse (false);                                  // reverse tests low frequency words first
     std::clog << "MAIN: Fitting regressions on singular vectors.\n";
@@ -241,7 +200,14 @@ int main(int argc, char** argv)
     Eigen::IOFormat fmt(Eigen::StreamPrecision,Eigen::DontAlignCols,"\t","\n","","","","");
     {
       Matrix YX (W.rows(), 2);                         // y , m_i
-      YX.col(0) = Y.array().log();                     // stuff log Y into first column for output
+      if(useLog)                                       // stuff log Y into first column for output
+      { std::clog << "MAIN: Writing file with response on log scale.\n";
+	YX.col(0) = Y.array().log();
+      }
+      else
+      { std::clog << "MAIN: Writing response on original scale.\n";
+	YX.col(0) = Y;
+      }
       YX.col(1) = nTokens;
       std::ofstream os (outputPath + "lsa_ym.txt");
       os << "Y\tm" << endl;
@@ -256,16 +222,22 @@ int main(int argc, char** argv)
       { label = "lsa_"  + wTag; varSymbol = 'L'; }
       string dim  (std::to_string(nProjections));
       string prefix = outputPath + label + "_" + dim + powerTag;
-      std::ofstream os (prefix + ".txt");      // write the singular vectors
-      os << varSymbol << "0";                                                     // write col labels for R
-      for(int i=1; i<P.cols(); ++i) os << "\t" << varSymbol << i;
-      os << endl << P.format(fmt) << endl;
-      std::ofstream os2 (prefix + "_d.txt");  // write singular values
-      os2 << sv.transpose().format(fmt) << endl;
-      std::ofstream os3 (prefix + "_v.txt");
-      os << "V0";                                                     // write col labels for V
-      for(int i=1; i<V.cols(); ++i) os << "\t" << "V" << i;
-      os3 << endl << V.format(fmt) << endl;
+      {
+	std::ofstream os (prefix + ".txt");      // write the singular vectors
+	os << varSymbol << "0";                                                     // write col labels for R
+	for(int i=1; i<P.cols(); ++i) os << "\t" << varSymbol << i;
+	os << endl << P.format(fmt) << endl;
+      }
+      {
+	std::ofstream os2 (prefix + "_d.txt");  // write singular values
+	os2 << sv.transpose().format(fmt) << endl;
+      }
+      {
+	std::ofstream os3 (prefix + "_v.txt");
+	os3 << "V0";                            // write col labels for V
+	for(int i=1; i<V.cols(); ++i) os3 << "\t" << "V" << i;
+	os3 << endl << V.format(fmt) << endl;
+      }
     }
   }
   return 0;
@@ -275,7 +247,7 @@ int main(int argc, char** argv)
 
 void
 parse_arguments(int argc, char** argv,
-		string &fileName, bool& useLog,
+		string &fileName, bool& hasY, bool& useLog, 
 		int &oovThreshold, int &nProjections, char &adjust, bool &quadratic, int &powerIterations, int &seed, string &outputPath)
 {
   static struct option long_options[] = {
@@ -283,6 +255,7 @@ parse_arguments(int argc, char** argv,
     {"min_frequency", required_argument, 0, 'f'},
     {"adjustment",    required_argument, 0, 'a'},
     {"quadratic",     no_argument,       0, 'q'},
+    {"has_y",         no_argument,       0, 'y'},
     {"log_transform", no_argument,       0, 'l'},
     {"power_iter",    required_argument, 0, 'p'},
     {"n_projections", required_argument, 0, 'r'},
@@ -292,7 +265,7 @@ parse_arguments(int argc, char** argv,
   };
   int key;
   int option_index = 0;
-  while (-1 !=(key = getopt_long (argc, argv, "i:f:a:qlp:r:s:o:", long_options, &option_index))) // colon means has argument
+  while (-1 !=(key = getopt_long (argc, argv, "i:f:a:qlyp:r:s:o:", long_options, &option_index))) // colon means has argument
   {
     // std::cout << "Option key " << char(key) << " for option " << long_options[option_index].name << ", option_index=" << option_index << std::endl;
     switch (key)
@@ -301,6 +274,7 @@ parse_arguments(int argc, char** argv,
     case 'f' : { oovThreshold   = read_utils::lexical_cast<int>(optarg);   break; }
     case 'a' : { adjust         = *optarg;                                 break; }
     case 'q' : { quadratic      = true;                                    break; }
+    case 'y' : { hasY           = true;                                    break; }
     case 'l' : { useLog         = true;                                    break; }
     case 'p' : { powerIterations= read_utils::lexical_cast<int>(optarg);   break; }
     case 'r' : { nProjections   = read_utils::lexical_cast<int>(optarg);   break; }

@@ -482,12 +482,16 @@ plot(wregr)
 
 	
 # --- Replicate CV in R (to check CV in C++)
-
 	set.seed(23743)
 	n.folds <- 10	
 	n <- length(logPrice)
-	folds <- c(rep(1:n.folds,floor(n/n.folds)),1:n.folds)[1:n]
+	folds <- c(rep(1:n.folds,ceiling(n/n.folds)))[1:n]
 	folds <- sample(folds,n)
+
+	library(parallel)
+	doit <- function(fold) { }
+	res <- mclapply(values, doit, mc.cores = numWorkers)
+	
 	
 	lsa <- LSA[,1:200];  		# avoid singular first variable
 	cv.r2 <- cv.sse <- matrix(0,1+ncol(lsa),10)

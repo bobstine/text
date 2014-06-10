@@ -52,7 +52,73 @@ Helper::entropy(Vector const& x, float xSum)           // assumes x(i) >= 0
     return 0.0;
 }
 
-  
+
+//     doc/term matrix manipulations     doc/term matrix manipulations     doc/term matrix manipulations
+
+void
+Helper::scale_doc_term_matrix(char adjust, Vocabulary::SparseMatrix *W, Vocabulary const& vocabulary, Vector const& nTokens)
+{
+  std::string adjustment("  ");
+  if (adjust == 'r')
+  { Vector sr = ((*W) * Vector::Ones(W->cols())).array().sqrt().inverse();
+    *W = sr.asDiagonal() * (*W);
+    adjustment = "ROW sqrt";
+  }
+  else if (adjust == 'c')
+  { Vector st = vocabulary.type_frequency_vector().array().sqrt().inverse();
+    *W = (*W) * st.asDiagonal();
+    adjustment = "COL sqrt";
+  }     
+  else if (adjust == 'b')
+  { Vector sr = nTokens.array().sqrt().inverse();
+    Vector sc = vocabulary.type_frequency_vector().array().sqrt().inverse();
+    *W = sr.asDiagonal() * (*W) * sc.asDiagonal();
+    adjustment = "CCA";
+  }
+  else if (adjust == 't')
+  { Vector docFreq = Helper::document_frequency_vector(*W);
+    for (int doc=0; doc<W->outerSize(); ++doc)
+      for (Vocabulary::SparseMatrix::InnerIterator it(*W,doc); it; ++it)
+	W->coeffRef(doc, it.col()) = it.value() * log(W->rows()/docFreq(it.col()));
+    adjustment = "tf-idf";
+  }
+  std::clog << "HLPR: Leading block of the LSA matrix after " << adjustment << " adjustment: \n" << W->block(0,0,5,10) << endl;
+}
+    
+void
+Helper::sort_columns_using_tfidf (Vocabulary::SparseMatrix *W, Vocabulary const& vocabulary)
+{
+  std::clog << "HLPR: Leading document frequencies are " << Helper::document_frequency_vector(*W).head(10).transpose() << std::endl;
+  Vector logDocFreq = Helper::document_frequency_vector(*W).array().log();
+  ScalarType logN = log((float)W->rows());
+  Vector negTfIdf = vocabulary.type_frequency_vector().array() * (logDocFreq.array() - logN);
+  std::map<ScalarType, int> orderMap;
+  for(int i=0; i<negTfIdf.size(); ++i)
+    orderMap[negTfIdf[i]]=i;
+  std::clog << "HLPR: tf-idf values for first 10 are \n" ;
+  int counter=0;
+  for(auto x = orderMap.cbegin(); x != orderMap.end(); ++x)
+  { std::clog << "(" << -x->first << "," << x->second << "," << vocabulary.type(x->second) << ") ";
+    if(10 < ++counter) break;
+  }
+  std::clog << std::endl;
+  Eigen::VectorXi indices(W->cols());
+  auto ptr = orderMap.cbegin();
+  for(int i=0; i<indices.size(); ++i)
+  { indices[i] = ptr->second;
+    ++ptr;
+  }
+  std::clog << "HLPR: First 100 words (out of " << indices.size() << ") are in positions "
+	    << indices.head(100).transpose() << " ... "
+	    << indices[indices.size()-2] << " " << indices[indices.size()-1] << std::endl << std::endl;
+  Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic> perm(indices);
+  Vocabulary::SparseMatrix WW;
+  WW = (*W) * perm;
+  *W = WW.leftCols(5000);
+}
+
+
+
 void
 Helper::scan_google_vocabulary_for_oov (Vocabulary const& vocab)
 {

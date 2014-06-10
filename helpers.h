@@ -8,7 +8,7 @@
 
 namespace Helper
 {
-  
+  typedef float ScalarType;
   typedef Eigen::VectorXf Vector;
   typedef Eigen::MatrixXf Matrix;
   
@@ -21,9 +21,17 @@ namespace Helper
   float
     entropy(Vector const& x, float xSum);            // assumes x(i) >= 0
 
+  void
+    sort_columns_using_tfidf (Vocabulary::SparseMatrix *W, Vocabulary const& vocabulary);
+
+  void
+    scale_doc_term_matrix(char adjust, Vocabulary::SparseMatrix *W, Vocabulary const& vocabulary, Vector const& nTokens);
+    
+  
   Vector
     document_frequency_vector (Vocabulary::SparseMatrix const& W);    // count number of docs in which terms appear
-   
+
+  
   void
     write_eigenwords_to_file (string fileName, Matrix const& M, Vocabulary const& vocab);
   

@@ -187,18 +187,26 @@ Vocabulary::fill_bigram_map(BigramMap &bm, int skip) const
 //     build count vector     build count vector     build count vector     build count vector     build count vector
 
 void
+Vocabulary::fill_sparse_regr_design_from_stream (           Vocabulary::SparseMatrix &X, Vector &nTokens, std::istream &is, bool normalize) const
+{
+  Vector Y;   // size is 0
+  fill_sparse_regr_design_from_stream (Y, X, nTokens, is, normalize);
+}
+
+void
 Vocabulary::fill_sparse_regr_design_from_stream (Vector &Y, Vocabulary::SparseMatrix &X, Vector &nTokens, std::istream &is, bool normalize) const
 {
   typedef Eigen::Triplet<float> T;
   std::vector<T> triplets;         // list worked in Eigen 3.1.3
   std::string line;
   std::string token;
-  assert (Y.size() == X.rows());
+  if (Y.size())                     // skip if empty
+    assert (Y.size() == X.rows());
   for (int i=0; i<X.rows(); ++i)
   { getline(is, line);
     std::istringstream is(line);
+    if(Y.size()) is >> Y(i);        // read y-value at head of line
     std::map<Type,int> counts;
-    is >> Y(i);                     // read y-value at head of line
     int tokenCount = 0;
     while (is >> token)
     { ++counts[ Type(token) ];      // map of remaining text tokens

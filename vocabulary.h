@@ -71,6 +71,7 @@ class Vocabulary
   int        n_tokens()                         const { return mNTokens; }
   
   void       fill_sparse_bigram_matrix (SparseMatrix &B, int skip) const;                                     // norm doc counts within doc
+  void       fill_sparse_regr_design_from_stream (           SparseMatrix &X, Vector &nTokens, std::istream &is, bool normalize=false) const;
   void       fill_sparse_regr_design_from_stream (Vector &Y, SparseMatrix &X, Vector &nTokens, std::istream &is, bool normalize=false) const;
   
   void       print_to_stream    (std::ostream & os) const;
