@@ -551,36 +551,49 @@ cor(fitted.values(regr.lsa), f <- fitted.values(br2))
 	cv.results.3.40 <- read.delim(paste(path,"cv_31427/aic_lsa_40f.txt",sep=""))  # 40 folds
 	colnames(cv.results.1)
 
-# --- Compare to those done in R
+# --- Compare to those done in R (above section)
+#		Compare first two columns of following to next two columns
 	cbind(rowMeans(cv.r2), rowSums(cv.sse), cv.results.1[1:nrow(cv.r2),])[c(1,10,20,30),]
 
 # --- overlay plot of CV runs
 plot(CVSS ~ AICc, data=cv.results.3, log="xy", type="b")
 
+# --- This plot shows monotone AIC with bump in CVSS
 plot (cv.results.1[,"AICc"], log="y", type="l",   xlim=c(0,300), ylim=c(2000,3500),
 			ylab="Multi-Fold CVSS", xlab="Model Dimension")
-lines(cv.results.1 [,"CVSS"]-2000, col="red")
-lines(cv.results.2 [,"CVSS"]-2000, col="red")
-lines(cv.results.3 [,"CVSS"]-2000, col="red")
-lines(cv.results.3.20[,"CVSS"]-2000, col="green") 
-lines(cv.results.3.40[,"CVSS"]-2000, col="blue")   
+	lines(cv.results.1 [,"CVSS"]-2000, col="red")
+	lines(cv.results.2 [,"CVSS"]-2000, col="red")
+	lines(cv.results.3 [,"CVSS"]-2000, col="red")
+	lines(cv.results.3.20[,"CVSS"]-2000, col="green") 
+	lines(cv.results.3.40[,"CVSS"]-2000, col="blue")   
 
 lines(cv.results.3.01[,"CVSS"]-2000, col="blue")   # adds selection
 
 lines(     rowSums(cv.sse) -2000, col="blue")
+
+# --- row variances of LSA columns
+nc = 200
+sds = apply(LSA[,1:nc],1,sd)
+	plot( sds )
+	plot( sds ~ nTokens ); lines(lowess(nTokens,sds, f=1/3), col="red")
+	hist( sds , breaks=40 )
+	p = (1:200)/201
+	plot( qchisq(p, df=0.5) , quantile(sds^2, probs=p) )
+
 
 # --- scatterplot of AIC vs CVSS
 plot(cv.results.1[,"AICc"]-2100,cv.results.1[,"CVSS"]-4000, type="b", log="xy")
 
 # --- skewness and kurtosis of LSA columns
 require(moments)
-m3 <- apply(LSA, 2, skewness)
-m4 <- apply(LSA, 2, kurtosis)
+	m3 <- apply(LSA, 2, skewness)
+	m4 <- apply(LSA, 2, kurtosis)
 
-boxplot(LSA[,order(m4, decreasing=TRUE)[1:10]])  # 26 37 100 18 40 21 33 13 52 101
+boxplot(LSA[,order(m4, decreasing=TRUE)[1:10]])			# 26 37 100 18 40 21 33 13 52 101
 
-boxplot(LSA[,order(abs(m3), decreasing=TRUE)[1:10]])  # 
+boxplot(LSA[,order(abs(m3), decreasing=TRUE)[1:10]])	# 26 18 37 100 13 33 52 21 40 9
 
+#	  the large skewness and kurtosis coincide with weird CV/AIC comparison
 par(mfrow=c(2,1))
 	plot(abs(m3[1:300]), ylab="|Skewness|"); lines((cv.results.1[,4]-3000)/100)
 	plot(m4[1:300], ylab="Kurtosis"); lines((cv.results.1[,4]-4000)/1)
