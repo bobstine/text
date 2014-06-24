@@ -393,43 +393,32 @@ $(epath)vocab: $(epath)vocab.gz
 $(epath)vocab.gz:
 	scp sob:/data/google_data/1gms/vocab.gz $(epath)
 
-# ANES text
+# ANES text.  Valid names are brown, cheney, pelosi, roberts
 
+dpath = ~/data/text/anes/
 apath = text_src/anes/
 
-$(apath)brown.csv: 
-	scp anes.ldc.upenn.edu:/data/anes_revised/coding_dfs/OFCREC.KNOW_BROWN.csv $@
-
-$(apath)cheney.csv: 
-	scp anes.ldc.upenn.edu:/data/anes_revised/coding_dfs/OFCREC.KNOW_CHENEY.csv $@
-
-$(apath)pelosi.csv: 
-	scp anes.ldc.upenn.edu:/data/anes_revised/coding_dfs/OFCREC.KNOW_PELOSI.csv $@
-
-$(apath)roberts.csv: 
-	scp anes.ldc.upenn.edu:/data/anes_revised/coding_dfs/OFCREC.KNOW_ROBERTS.csv $@
-
-# valid names are brown, cheney, pelosi, roberts
 name = pelosi
 
-$(apath)ids.txt: $(apath)brown.csv
-	cut -d ',' -f 1 $< > $@
+# script picks out id and text
+$(apath)brown.txt: $(dpath)brown.csv $(dpath)sed.script
+	cut -d ',' -f 1,4 $< | tail -n +2 | sed -f $(dpath)sed.script > $@
 
-$(apath)brown.txt: $(apath)brown.csv $(apath)sed.script
-	cut -d ',' -f 2 $< | tail -n +2 | sed -f $(apath)sed.script > $@
+$(apath)cheney.txt: $(dpath)cheney.csv $(dpath)sed.script
+	cut -d ',' -f 1,4 $< | tail -n +2 | sed -f $(dpath)sed.script > $@
 
-$(apath)cheney.txt: $(apath)cheney.csv $(apath)sed.script
-	cut -d ',' -f 2 $< | tail -n +2 | sed -f $(apath)sed.script > $@
+$(apath)pelosi.txt: $(dpath)pelosi.csv $(dpath)sed.script
+	cut -d ',' -f 1,4 $< | tail -n +2 | sed -f $(dpath)sed.script > $@
 
-$(apath)pelosi.txt: $(apath)pelosi.csv $(apath)sed.script
-	cut -d ',' -f 2 $< | tail -n +2 | sed -f $(apath)sed.script > $@
-
-$(apath)roberts.txt: $(apath)roberts.csv $(apath)sed.script
-	cut -d ',' -f 2 $< | tail -n +2 | sed -f $(apath)sed.script > $@
+$(apath)roberts.txt: $(dpath)roberts.csv $(dpath)sed.script
+	cut -d ',' -f 1,4 $< | tail -n +2 | sed -f $(dpath)sed.script > $@
 
 $(apath)all_names.txt: $(apath)brown.txt $(apath)cheney.txt $(apath)pelosi.txt $(apath)roberts.txt
 	paste $^ > $@
 
+
+$(apath)ids.txt: $(apath)all_names.csv
+	cut -d ',' -f 1 $< > $@
 
 $(apath)personal.txt: $(apath)CSES.ISSUE_PERSONAL_spellchk.csv $(apath)sed.script
 	cut -d ',' -f 2 $< | tail -n +2 | sed -f $(apath)sed.script > $@
