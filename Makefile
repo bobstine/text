@@ -393,36 +393,9 @@ $(epath)vocab: $(epath)vocab.gz
 $(epath)vocab.gz:
 	scp sob:/data/google_data/1gms/vocab.gz $(epath)
 
-# ANES text.  Valid names are brown, cheney, pelosi, roberts
-
-dpath = ~/data/text/anes/
-apath = text_src/anes/
-
-name = pelosi
-
-# script picks out id and text
-$(apath)brown.txt: $(dpath)brown.csv $(dpath)sed.script
-	cut -d ',' -f 1,4 $< | tail -n +2 | sed -f $(dpath)sed.script > $@
-
-$(apath)cheney.txt: $(dpath)cheney.csv $(dpath)sed.script
-	cut -d ',' -f 1,4 $< | tail -n +2 | sed -f $(dpath)sed.script > $@
-
-$(apath)pelosi.txt: $(dpath)pelosi.csv $(dpath)sed.script
-	cut -d ',' -f 1,4 $< | tail -n +2 | sed -f $(dpath)sed.script > $@
-
-$(apath)roberts.txt: $(dpath)roberts.csv $(dpath)sed.script
-	cut -d ',' -f 1,4 $< | tail -n +2 | sed -f $(dpath)sed.script > $@
-
-$(apath)all_names.txt: $(apath)brown.txt $(apath)cheney.txt $(apath)pelosi.txt $(apath)roberts.txt
-	paste $^ > $@
-
-
-$(apath)ids.txt: $(apath)all_names.csv
-	cut -d ',' -f 1 $< > $@
-
-$(apath)personal.txt: $(apath)CSES.ISSUE_PERSONAL_spellchk.csv $(apath)sed.script
-	cut -d ',' -f 2 $< | tail -n +2 | sed -f $(apath)sed.script > $@
-
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#  anes interview coding
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # locate centroids using google dictionary
 doanesCentroid: anes_reply_encoder $(epath)google_tri.txt $(apath)personal.txt # $(apath)all_names.txt $(apath)$(name).txt
