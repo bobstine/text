@@ -32,7 +32,7 @@ type.cts <- sort(scan("/Users/bob/C/text/text_src/temp/ChicagoOld3/type_freq.txt
 	file    <- paste("/Users/bob/C/text/text_src/temp/",city,"parsed.txt", sep="")
 	Data    <- read.table(file, header=TRUE); dim(Data)
 
-	n <- nrow(Data)
+	n         <- nrow(Data)
 	logPrice  <- Data[,"Y"]    # file holds log prices
 	price     <- exp(Data[,"Y"])
 	nTokens   <- Data[,"m"]
@@ -555,11 +555,11 @@ cor(fitted.values(regr.lsa), f <- fitted.values(br2))
 #		Compare first two columns of following to next two columns
 	cbind(rowMeans(cv.r2), rowSums(cv.sse), cv.results.1[1:nrow(cv.r2),])[c(1,10,20,30),]
 
-# --- overlay plot of CV runs
-plot(CVSS ~ AICc, data=cv.results.3, log="xy", type="b")
-
-# --- This plot shows monotone AIC with bump in CVSS
-plot (cv.results.1[,"AICc"], log="y", type="l",   xlim=c(0,300), ylim=c(2000,3500),
+# --- scatterplot of CV runs
+	plot(CVSS ~ AICc, data=cv.results.3, log="xy", type="b")
+	
+# --- This plot shows monotone AIC with pronounced bumps in CVSS
+plot (cv.results.3[,"AICc"], log="y", type="l",   xlim=c(0,300), ylim=c(2000,6500),
 			ylab="Multi-Fold CVSS", xlab="Model Dimension")
 	lines(cv.results.1 [,"CVSS"]-2000, col="red")
 	lines(cv.results.2 [,"CVSS"]-2000, col="red")
