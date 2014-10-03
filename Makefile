@@ -209,8 +209,9 @@ dore:  $(outREPath)$(nProj).txt
 
 # --- lsa regressions   (dummy targets used to date stamp for linear/quadratic choice in dolsa)
 #	adjustments for doc/word matrix are  w(raw, without), t(tfidf), r(row), c(col), n(recip), and b(cca or both)
+#       control whether log of tokens used in fit with boolean 'useM' in C code
 
-lsaProj = 1500
+lsaProj = 500
 
 #	linear
 $(outREPath)L$(lsaProj).txt: lsa_regr $(rfile) 
@@ -257,13 +258,13 @@ dobigram: $(bigramPath)date.txt
 
 # --- aic sequential regressions
 
-cvInputPath = /Users/bob/C/text/text_src/temp/ChicagoOld3/
+cvInputPath = ~/C/text/text_src/temp/ChicagoOld3/
 nDocs = 7384
 
 cvProj = 500
 
-# 53853 24387
-cvseed = 31427
+# 53853 24387 31427
+cvseed = 15242
 
 cvOutputPath = $(cvInputPath)cv_$(cvseed)/
 

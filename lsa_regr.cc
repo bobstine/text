@@ -168,8 +168,8 @@ int main(int argc, char** argv)
   
   // optionally compute R2 sequence of regression models
   if (true && hasY)
-  { bool useM (false);                                     // use log token count in fitted model
-    bool reverse (false);                                  // reverse tests low frequency words first
+  { const bool useM    ( true);                            // use log token count in fitted model
+    const bool reverse (false);                            // reverse tests low frequency words first
     std::clog << "MAIN: Fitting regressions on singular vectors.\n";
     Eigen::VectorXd YY(nDocs), mm(nDocs);                  // convert into double and take log for regression code
     YY = Y.cast<double>();
@@ -194,7 +194,7 @@ int main(int argc, char** argv)
   }
 
 
-  // write to tab delimited output files if path assigned
+  // write to tab delimited output of data to files if path assigned
   if (outputPath.size() > 0)
   { // prec, align, col sep, row sep, row pre, row suf, file pre, file suff
     Eigen::IOFormat fmt(Eigen::StreamPrecision,Eigen::DontAlignCols,"\t","\n","","","","");
@@ -224,7 +224,7 @@ int main(int argc, char** argv)
       string prefix = outputPath + label + "_" + dim + powerTag;
       {
 	std::ofstream os (prefix + ".txt");      // write the singular vectors
-	os << varSymbol << "0";                                                     // write col labels for R
+	os << varSymbol << "0";                  // add col labels for reading into R
 	for(int i=1; i<P.cols(); ++i) os << "\t" << varSymbol << i;
 	os << endl << P.format(fmt) << endl;
       }
