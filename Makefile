@@ -196,6 +196,7 @@ rFile   = $(vFile)
 outREPath = $(temppath)$(city)/
 
 
+# --- regressor is deprecated; using lsa_regr or bigram_regr
 engine = regressor
 
 $(outREPath)$(nProj).txt: $(engine) $(vFile) $(rfile) 
@@ -213,13 +214,13 @@ lsaProj = 1500
 
 #	linear
 $(outREPath)L$(lsaProj).txt: lsa_regr $(rfile) 
-	./lsa_regr --hasY --use_log --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(lsaProj) --power_iter 4 \
+	./lsa_regr --has_y --use_log --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --n_projections $(lsaProj) --power_iter 4 \
                          --adjustment 'b' --min_frequency 3
 	date >> $@
 
 #	quadratic
 $(outREPath)Q$(lsaProj).txt: lsa_regr $(rfile) 
-	./lsa_regr --hasY --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --use_log --n_projections $(lsaProj) --power_iter 1 \
+	./lsa_regr --has_y --file=$(rFile) --output_path=$(outREPath) -s $(reSeed) --use_log --n_projections $(lsaProj) --power_iter 1 \
                           --adjustment 'b' --min_frequency 3 --quadratic 
 	date >> $@
 
