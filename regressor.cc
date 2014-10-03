@@ -209,14 +209,19 @@ int main(int argc, char** argv)
     { YY(i) = log (Y(i));
       mm(i) = nTokens(i);
     }
+    const bool reverse = false;
+    const int  degree = 0;  // for token adjustment
     std::string fileName (outputPath + "lsa_regr_fit_");
-    if (nTokens.size() > 0) fileName += "with_m";
-    else              fileName += "no_m";
-    Helper::calculate_sequence_r2 (YY, mm, "LSA_", L, fileName+".txt");
+    if (nTokens.size() > 0)
+    { fileName += "with_m";
+      degree = 5;
+    }
+    else fileName += "no_m";     // RAS ??? calc_seq_r2 was adjusted for words and looks at vocabulary
+    Helper::calculate_sequence_r2 (YY, mm, degree, reverse, L, vocabulary, (int)L.cols(), fileName+".txt");
     fileName = outputPath + "bigram_regr_fit_";
     if (nTokens.size() > 0) fileName += "with_m";
-    else              fileName += "no_m";
-    Helper::calculate_sequence_r2 (YY, mm, "Bigram_", A.leftCols(nProjections), fileName+".txt");
+    else                    fileName += "no_m";
+    Helper::calculate_sequence_r2 (YY, mm, degree, reverse, A.leftCols(nProjections), vocabulary, nProjections, fileName+".txt");
   }
   
   // parse domain-specific attributes

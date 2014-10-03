@@ -29,9 +29,9 @@ Helper::entropy(Vector const& prob)                     // assumes sum p(i) = 1 
   float entropy = 0.0;
   for(int i = 0; i<prob.size(); ++i)
     if(0 < prob(i))
-      entropy += prob(i) * log(prob(i));
+      entropy += (float) (prob(i) * log(prob(i)));
   if (entropy < 0)
-    return -entropy/log(prob.size());
+    return -entropy/(float)log((float)prob.size());
   else
     return 0.0;
 }
@@ -40,13 +40,13 @@ float
 Helper::entropy(Vector const& x, float xSum)           // assumes x(i) >= 0
 {
   float entropy = 0.0;
-  float logSum = log(xSum);
+  float logSum = (float) log(xSum);
   for(int i = 0; i<x.size(); ++i)
     if(0 < x(i))
-      entropy += x(i) * (log(x(i)) - logSum);
+      entropy += (float) x(i) * (float)(log(x(i)) - logSum);
   if (entropy != 0)
   { entropy /= xSum;
-    return -entropy/log(x.size());
+    return -entropy/(float)log((float)x.size());
   }
   else
     return 0.0;
@@ -79,7 +79,7 @@ Helper::scale_doc_term_matrix(char adjust, Vocabulary::SparseMatrix *W, Vocabula
   { Vector docFreq = Helper::document_frequency_vector(*W);
     for (int doc=0; doc<W->outerSize(); ++doc)
       for (Vocabulary::SparseMatrix::InnerIterator it(*W,doc); it; ++it)
-	W->coeffRef(doc, it.col()) = it.value() * log(W->rows()/docFreq(it.col()));
+	W->coeffRef(doc, it.col()) = it.value() * (float)log(W->rows()/docFreq(it.col()));
     adjustment = "tf-idf";
   }
   std::clog << "HLPR: Leading block of the LSA matrix after " << adjustment << " adjustment: \n" << W->block(0,0,5,10) << endl;
@@ -90,7 +90,7 @@ Helper::sort_columns_using_tfidf (Vocabulary::SparseMatrix *W, Vocabulary const&
 {
   std::clog << "HLPR: Leading document frequencies are " << Helper::document_frequency_vector(*W).head(10).transpose() << std::endl;
   Vector logDocFreq = Helper::document_frequency_vector(*W).array().log();
-  ScalarType logN = log((float)W->rows());
+  ScalarType logN = (ScalarType)log(W->rows());
   Vector negTfIdf = vocabulary.type_frequency_vector().array() * (logDocFreq.array() - logN);
   std::map<ScalarType, int> orderMap;
   for(int i=0; i<negTfIdf.size(); ++i)

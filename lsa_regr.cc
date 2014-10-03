@@ -180,7 +180,7 @@ int main(int argc, char** argv)
     if(useM)
     { std::clog << "MAIN: Adding log of tokens to fitted regression models.\n";
       mm = nTokens.cast<double>().array().log();
-      mm = mm.array() - mm.sum()/mm.size();                // center to reduce collinearity
+      mm = mm.array() - mm.sum()/(int)mm.size();                // center to reduce collinearity
     }
     else
       mm.resize(0);
@@ -190,7 +190,7 @@ int main(int argc, char** argv)
     if (reverse) fileName += "_rev.txt";
     else         fileName += "_for.txt";
     const int degree = 5;
-    Helper::calculate_sequence_r2 (YY, mm, degree, reverse, P, vocabulary, P.cols(), fileName);  // need to have strings, not words
+    Helper::calculate_sequence_r2 (YY, mm, degree, reverse, P, vocabulary, (int)P.cols(), fileName);  // need to have strings, not words
   }
 
 

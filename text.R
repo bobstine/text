@@ -440,7 +440,7 @@ plot(wregr)
 #
 ##################################################################################
 
-	nProj   <- 500
+	nProj   <- 1500
 	weights <- "cca"
 	city    <- "ChicagoOld3/"
 	path    <- paste("/Users/bob/C/text/text_src/temp/",city,sep="")
@@ -450,7 +450,7 @@ plot(wregr)
 
 # --- LSA analysis from matrix W    adj R2=0.6567 with 1000 and log tokens
 
-	p      <- 4
+	p      <- 50
 	lsa    <- as.matrix(LSA[,1:p])
 	sr.lsa <- summary(regr.lsa <- lm(logPrice ~ poly(logTokens,5) + lsa)); sr.lsa
 	predictive.r2(regr.lsa)

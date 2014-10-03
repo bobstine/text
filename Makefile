@@ -17,8 +17,8 @@ OPT = -O3 -fopenmp -std=c++0x
 
 USES = eigen utils
 
-# mpi
-EXTERNAL_USES = boost_system boost_thread boost_regex gomp
+# mpi boost_system boost_thread boost_regex
+EXTERNAL_USES =  gomp
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -38,6 +38,7 @@ porter: porter.o
 bigram: bigram.o vocabulary.o eigenword_dictionary.o helpers.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
+# regressor is deprecated: use lsa_regr or bigram_regr
 regressor: regressor.o vocabulary.o regex.o eigenword_dictionary.o helpers.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
@@ -182,6 +183,7 @@ city = ChicagoOld3
 #			removes lines with no text (need $$ to escape $ in make)
 $(temppath)$(city).txt: text_src/real_estate/Set10Tokenized/$(city)Tokenized
 	grep -v '^[0-9\,\.[:blank:]]\+$$' $^ > $@
+
 #			skip for bigram
 reSkip = 0
 #			defines random projection

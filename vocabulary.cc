@@ -131,7 +131,7 @@ Vocabulary::init_from_stream(std::istream& is)
   mTypeFreqVector = Vector(mFreqMap.size());
   int index = 0;
   for(auto it=sortTypesMap.crbegin(); it != sortTypesMap.crend(); ++it, ++index) // reverse iter
-  { mTypeFreqVector(index) = it->first;
+  { mTypeFreqVector(index) = (float)it->first;
     mTypeVector.push_back(it->second);
     mIndexMap[it->second] = index;
   }
@@ -216,13 +216,13 @@ Vocabulary::fill_sparse_regr_design_from_stream (Vector &Y, Vocabulary::SparseMa
     { ++counts[ Vocabulary::EOL ];
       ++tokenCount;
     }
-    nTokens(i) = tokenCount;
+    nTokens(i) = (float) tokenCount;
     if (normalize)
       for (auto x : counts)
 	triplets.push_back(T(i, type_index(x.first), ((float)x.second)/nTokens(i)));  // (i, j, value)
     else
       for (auto x : counts)
-	triplets.push_back(T(i, type_index(x.first), x.second)); 
+	triplets.push_back(T(i, type_index(x.first), (float)x.second)); 
   }
   X.setFromTriplets(triplets.begin(), triplets.end());
 }

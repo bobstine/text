@@ -29,8 +29,8 @@ class EigenwordDictionary
   EigenwordDictionary (string fileName, int nTypes, int dim)                         // file needs header
     : mTypes(), mIndexMap(), mEigenwords(nTypes,dim) { init_from_file(fileName); }
 
-  int        n_types()                           const  { return mEigenwords.rows(); }
-  int        eigen_dim()                         const  { return mEigenwords.cols(); }
+  int        n_types()                           const  { return (int)mEigenwords.rows(); }
+  int        eigen_dim()                         const  { return (int)mEigenwords.cols(); }
  
   TypeVector types()                             const  { return mTypes; }
   Matrix     eigenwords()                        const  { return mEigenwords; }

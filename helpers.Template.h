@@ -27,9 +27,10 @@ Helper::calculate_sequence_r2 (Eigen::VectorXd const& Y, Eigen::VectorXd tokenCo
       x = x.cwiseProduct(tokenCount);
     }
     if (os)
-      os << "Tokens " << regr.r_squared() << " " << regr.adj_r_squared() << " " << regr.residual_ss() << " " << regr.q() << " " << regr.aic_c() << std::endl;
+      os << "Tokens " << regr.r_squared() << " " << regr.adj_r_squared() << " "
+	 << regr.residual_ss() << " " << regr.q() << " " << regr.aic_c() << std::endl;
   }    
-  const int k = W.cols();
+  const int k = (int)W.cols();
   Vocabulary::TypeVector tv = vocab.types();
   Eigen::VectorXf ind = Eigen::VectorXf::Zero(k);
   for (int j=0; j<nToFit; ++j)
@@ -44,9 +45,11 @@ Helper::calculate_sequence_r2 (Eigen::VectorXd const& Y, Eigen::VectorXd tokenCo
     for(int i=0; i<x.size(); ++i) X(i) = x(i);
     FStatistic f=regr.f_test_predictor("xx", X);
     if(f.f_stat() > 0.00001) regr.add_predictors();
-    else std::clog << "MAIN: F = " << f.f_stat() << " for word j=" << index << ", type=" << tv[index] << " is (near) singular in sequence r2 and skipped.\n";
+    else std::clog << "MAIN: F = " << f.f_stat() << " for word j=" << index << ", type="
+		   << tv[index] << " is (near) singular in sequence r2 and skipped.\n";
     if (os)
-      os << tv[index] << " " << regr.r_squared() << " " << regr.adj_r_squared() << " " << regr.residual_ss() << " " << regr.q() <<" "<< regr.aic_c() <<std::endl;
+      os << tv[index] << " " << regr.r_squared() << " " << regr.adj_r_squared() << " "
+	 << regr.residual_ss() << " " << regr.q() <<" "<< regr.aic_c() <<std::endl;
   }
   std::clog << "MAIN: Regression on W completed with results written to " << file << ".\n";
 }
