@@ -61,7 +61,7 @@ class Vocabulary
    : mSkipInitial(skipInitial), mMarkEOL(markEOL), mNTokens(0), mMinFrequency(minFrequency), mOOVIndex(0),
      mTokens(), mTypeVector(), mTypeFreqVector(), mFreqMap(), mOOVMap(), mIndexMap() { init_from_stream(is); }
 
-  int        n_types()                          const { return mFreqMap.size(); }
+  int        n_types()                          const { return (int)mFreqMap.size(); }
   int        type_index(Type const& type)       const;                                // OOV position if not found
   Type       type (int position)                const { return mTypeVector[position]; }
   TypeVector types ()                           const { return mTypeVector; }         // types in Frequency order
