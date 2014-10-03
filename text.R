@@ -1,4 +1,5 @@
-source("/Users/bob/C/text/functions.R")
+source("~/C/text/functions.R")
+source("~/R/cross_validation_vs_AIC.R")
 
 ##################################################################################
 #  type counts, zipf
@@ -440,7 +441,7 @@ plot(wregr)
 #
 ##################################################################################
 
-	nProj   <- 1500
+	nProj   <- 500
 	weights <- "cca"
 	city    <- "ChicagoOld3/"
 	path    <- paste("/Users/bob/C/text/text_src/temp/",city,sep="")
@@ -450,7 +451,7 @@ plot(wregr)
 
 # --- LSA analysis from matrix W    adj R2=0.6567 with 1000 and log tokens
 
-	p      <- 50
+	p      <- 4
 	lsa    <- as.matrix(LSA[,1:p])
 	sr.lsa <- summary(regr.lsa <- lm(logPrice ~ poly(logTokens,5) + lsa)); sr.lsa
 	predictive.r2(regr.lsa)
@@ -475,7 +476,12 @@ plot(wregr)
     lines(100 * (y<-sv.cca[i]), lty=5)     		# long/short dash              
     y <- log(y); coefficients(lm(y ~ x))        	# -0.2     
 
-	
+
+# --- L0 is basically singular given the 5th degree in log tokens
+	plot(logTokens, LSA[,1])
+	p.0  <- lm(LSA[, 1] ~ poly(logTokens,5)             ); summary(p.0)
+
+
 # --- Replicate CV in R (to check CV in C++)
 	set.seed(23743)
 	n.folds <- 10	
@@ -483,26 +489,27 @@ plot(wregr)
 	folds <- c(rep(1:n.folds,ceiling(n/n.folds)))[1:n]
 	folds <- sample(folds,n)
 
+	# --- play with parallel
 	library(parallel)
 	doit <- function(fold) { }
 	res <- mclapply(values, doit, mc.cores = numWorkers)
 	
-	
-	lsa <- LSA[,1:200];  		# avoid singular first variable
-	cv.r2 <- cv.sse <- matrix(0,1+ncol(lsa),10)
+	# --- via loop
+	lsa <- LSA[,2:50];  		# avoid L0
+	cv.r2 <- cv.sse <- matrix(NA, 1+ncol(lsa), 10)
+	degree <- 5; 
 	for(fold in 1:n.folds) {
 		cat(fold," ");
-		ni <- 5; 
 		train <- (fold != folds); 
-		data.train <- list(y=logPrice[train], xi=poly(logTokens,ni)[train,], x=lsa[train,])
+		data.train <- list(y=logPrice[train], xi=poly(logTokens,degree)[train,], x=lsa[train,])
 		test  <- (fold == folds)
-		data.test  <- list(y=logPrice[ test], xi=poly(logTokens,ni)[ test,], x=lsa[ test,])
+		data.test  <- list(y=logPrice[ test], xi=poly(logTokens,degree)[ test,], x=lsa[ test,])
 		results <- fit.models(data.train, data.test)
 		cv.sse[,fold] <- results$sse
 		cv.r2[,fold] <- results$r2
 	}
 
-plot(rowSums(sse))
+plot(rowSums(cv.sse), type="l")
 
 boxplot(t(sse))
 boxplot(t(r2))
@@ -531,8 +538,8 @@ cor(fitted.values(regr.lsa), f <- fitted.values(br2))
 #
 ##################################################################################
 
-# --- Write data for C to use to precondition
-#        Note:  Remove "" from column names *manually* in written file
+# --- Write polynomial in tokens for C to use to precondition
+#        Note:  Remove quotes from column names *manually* in written file
 	poly <- model.matrix(~ poly(logTokens,5) - 1)
 	colnames(poly) <- paste("poly_",1:5,sep="")
 	write.table(poly, paste(path,"logtoken_poly_5.txt",sep=""), row.names=F)
@@ -553,19 +560,59 @@ cor(fitted.values(regr.lsa), f <- fitted.values(br2))
 # --- scatterplot of CV runs
 	plot(CVSS ~ AICc, data=cv.results.3, log="xy", type="b")
 	
+# --- AICc for LSA falls off much more steeply than for words
+#     One is for words, other is for LSA...
+	plot(r2.words.for[1:1500,"AICc"], xlab="Model Dimension", ylab="AICc", type="l")
+	lines(rescale(cv.results.2[,"AICc"],r2.words.for[1:1500,"AICc"] ), col="red" )
+	
 # --- This plot shows monotone AIC with pronounced bumps in CVSS
-plot (cv.results.3[,"AICc"], log="y", type="l",   xlim=c(0,300), ylim=c(2000,6500),
+xlim <- NULL;      ylim <- c(2000,7000)
+xlim <- c( 25, 35); ylim <- c(2800,5500)	# 20% bump up
+xlim <- c(100,110); ylim <- c(2100,2300)	# same point is good/bad leverage
+xlim <- c(135,140); ylim <- c(2100,2600)	#
+plot (cv.results.3[,"AICc"], log="y", type="l",   xlim=xlim, ylim=ylim,
 			ylab="Multi-Fold CVSS", xlab="Model Dimension")
-	lines(cv.results.1 [,"CVSS"]-2000, col="red")
-	lines(cv.results.2 [,"CVSS"]-2000, col="red")
-	lines(cv.results.3 [,"CVSS"]-2000, col="red")
+	lines(cv.results.1   [,"CVSS"]-2000, col="red")
+	lines(cv.results.2   [,"CVSS"]-2000, col="red")
+	lines(cv.results.3   [,"CVSS"]-2000, col="red")
 	lines(cv.results.3.20[,"CVSS"]-2000, col="green") 
 	lines(cv.results.3.40[,"CVSS"]-2000, col="blue")   
 
-lines(cv.results.3.01[,"CVSS"]-2000, col="blue")   # adds selection
+# --- find the inversion (CVSS up, AICc down between 28 and 29)
+	rows <- 25:35
+	cv.results.3[rows,c("RSS","AICc","CVSS")]
 
-lines(     rowSums(cv.sse) -2000, col="blue")
-
+	# change is very significant, added variable (L28) highly significant (omit L0 since collinear)
+	sr.27 <- lm(logPrice ~ poly(logTokens,5) + LSA[,2:27]); summary(sr.27)$r.squared
+	sr.28 <- lm(logPrice ~ poly(logTokens,5) + LSA[,2:28]); summary(sr.28)$r.squared
+	sr.29 <- lm(logPrice ~ poly(logTokens,5) + LSA[,2:29]); summary(sr.29)$r.squared
+	anova(sr.28,sr.29)
+	
+	# partial regr of L28 on L0:L28 is basically nil (R2 < 0.01, but is signficant)
+	p.28 <- lm(LSA[,28] ~ poly(logTokens,5) + LSA[,2:27]); summary(p.27)
+	p.29 <- lm(LSA[,29] ~ poly(logTokens,5) + LSA[,2:28]); summary(p.28)
+	
+	plot(sr.28)   # 3646 is highly leveraged (about 0.9)
+	plot(sr.29)   # 3646 remains highly leveraged
+	
+	# partial regression plots
+	pr.plot <- function(k) {
+		rx <- lm(LSA[,k]  ~ poly(logTokens,5) + LSA[,2:k-1]); 
+		ry <- lm(logPrice ~ poly(logTokens,5) + LSA[,2:k-1]); 
+		plot(x<-residuals(rx), y<-residuals(ry), 
+			xlab=paste("Partial Residuals, k =",k), ylab= "Partial Res log Price")
+		abline(r <- lm(y~x));
+		ii <- order(hat(x),decreasing=T)[1:5]
+		sapply(ii,function(i) text(x[i],y[i],paste(i),pos=3,cex=0.5))
+		x <- x[-ii]; y <- y[-ii]
+		abline(r <- lm(y~x), col="red");
+	}
+	# 	not so bad at step 28, but very bad at 29
+	par(mfrow=c(2,2)	);	mapply(pr.plot,  28:31);		reset()
+	par(mfrow=c(2,2));	mapply(pr.plot, 101:104);		reset()
+	par(mfrow=c(2,2));	mapply(pr.plot, 135:138);		reset()
+	
+	
 # --- row variances of LSA columns
 nc = 200
 sds = apply(LSA[,1:nc],1,sd)
