@@ -256,7 +256,7 @@ $(bigramPath)date.txt: bigram $(rFile) $(bigramPath).dir_built
 dobigram: $(bigramPath)date.txt
 
 
-# --- aic sequential regressions
+# --- aic sequential regressions, with optional orthgonal rotation prior to regression
 
 cvInputPath = ~/C/text/text_src/temp/ChicagoOld3/
 nDocs = 7384
@@ -279,9 +279,12 @@ $(cvInputPath)lsa_y.txt: $(cvInputPath)lsa_ym.txt
 	cut -f 1 $< > $@
 
 $(cvOutputPath)aic_lsa_40f.txt: seq_regression $(cvInputPath)lsa_y.txt $(cvInputPath)lsa_cca_$(cvProj)_p4.txt $(cvOutputPath).directory_built
-	./$< -Y $(word 2,$^) -X $(word 3,$^) -x $(cvProj)   -I $(cvInputPath)logtoken_poly_5.txt -i 5   -n $(nDocs) -s $(cvseed) -v 40 -o $@
+	./$< -Y $(word 2,$^) -X $(word 3,$^) -x $(cvProj)   -I $(cvInputPath)logtoken_poly_5.txt -i 5   -n $(nDocs) -s $(cvseed) -v 40    -o $@
 
-docv : $(cvOutputPath)aic_lsa_40f.txt
+$(cvOutputPath)aic_lsa_40fo.txt: seq_regression $(cvInputPath)lsa_y.txt $(cvInputPath)lsa_cca_$(cvProj)_p4.txt $(cvOutputPath).directory_built
+	./$< -Y $(word 2,$^) -X $(word 3,$^) -x $(cvProj)   -I $(cvInputPath)logtoken_poly_5.txt -i 5   -n $(nDocs) -s $(cvseed) -v 40 -r -o $@
+
+docv : $(cvOutputPath)aic_lsa_40fo.txt
 	echo Run AIC cross validation
 
 
