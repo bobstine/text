@@ -545,13 +545,27 @@ cor(fitted.values(regr.lsa), f <- fitted.values(br2))
 	write.table(poly, paste(path,"logtoken_poly_5.txt",sep=""), row.names=F)
 
 # --- read C++ CV results
-	cv.results.1    <- read.delim(paste(path,"cv_53853/aic_lsa.txt",sep=""))
-	cv.results.2    <- read.delim(paste(path,"cv_24387/aic_lsa.txt",sep=""))
-	cv.results.3    <- read.delim(paste(path,"cv_31427/aic_lsa.txt",sep=""))
-	cv.results.3.01 <- read.delim(paste(path,"cv_31427/aic_lsa_01.txt",sep=""))  # threshold 0.01
-	cv.results.3.20 <- read.delim(paste(path,"cv_31427/aic_lsa_20f.txt",sep=""))  # 20 folds
+	cv.results.1.10 <- read.delim(paste(path,"cv_15242/aic_lsa_10f.txt",sep="")) 
+	cv.results.1.20 <- read.delim(paste(path,"cv_24387/aic_lsa_10f.txt",sep=""))
+	cv.results.3.10 <- read.delim(paste(path,"cv_31427/aic_lsa_10f.txt",sep=""))
+	cv.results.4.10 <- read.delim(paste(path,"cv_53853/aic_lsa_10f.txt",sep=""))
+	cv.results.5.10 <- read.delim(paste(path,"cv_73241/aic_lsa_10f.txt",sep=""))
+	cv.results.1.20 <- read.delim(paste(path,"cv_15242/aic_lsa_20f.txt",sep="")) 
+	cv.results.2.20 <- read.delim(paste(path,"cv_24387/aic_lsa_20f.txt",sep=""))
+	cv.results.3.20 <- read.delim(paste(path,"cv_31427/aic_lsa_20f.txt",sep=""))
+	cv.results.4.20 <- read.delim(paste(path,"cv_53853/aic_lsa_20f.txt",sep=""))
+	cv.results.5.20 <- read.delim(paste(path,"cv_73241/aic_lsa_20f.txt",sep=""))
+	cv.results.1.40 <- read.delim(paste(path,"cv_15242/aic_lsa_40f.txt",sep="")) 
+	cv.results.2.40 <- read.delim(paste(path,"cv_24387/aic_lsa_40f.txt",sep=""))
 	cv.results.3.40 <- read.delim(paste(path,"cv_31427/aic_lsa_40f.txt",sep=""))  # 40 folds
+	cv.results.4.40 <- read.delim(paste(path,"cv_53853/aic_lsa_40f.txt",sep=""))
+	cv.results.5.40 <- read.delim(paste(path,"cv_73241/aic_lsa_40f.txt",sep=""))
+	
+	cv.results.4.40o<- read.delim(paste(path,"cv_15242/aic_lsa_40fo.txt",sep="")) 
 	colnames(cv.results.1)
+
+	cv.results.5.40 <- read.delim(paste(path,"cv_73241/aic_lsa_40f.txt",sep="")) 
+	cv.results.5.40o<- read.delim(paste(path,"cv_73241/aic_lsa_40fo.txt",sep="")) 
 
 # --- Compare to those done in R (above section)
 #		Compare first two columns of following to next two columns
@@ -560,24 +574,47 @@ cor(fitted.values(regr.lsa), f <- fitted.values(br2))
 # --- scatterplot of CV runs
 	plot(CVSS ~ AICc, data=cv.results.3, log="xy", type="b")
 	
-# --- AICc for LSA falls off much more steeply than for words
+# --- AICc for LSA falls off much more steeply than for words (done in prior section)
 #     One is for words, other is for LSA...
 	plot(r2.words.for[1:1500,"AICc"], xlab="Model Dimension", ylab="AICc", type="l")
 	lines(rescale(cv.results.2[,"AICc"],r2.words.for[1:1500,"AICc"] ), col="red" )
 	
-# --- This plot shows monotone AIC with pronounced bumps in CVSS
-xlim <- NULL;      ylim <- c(2000,7000)
+#                   --- key plot --- 
+# --- This plot shows monotone AIC with pronounced bumps in CVSS   
+
+# pick range for x axis (first gives default)
+xlim <- NULL;       ylim <- c(1500,7000)
 xlim <- c( 25, 35); ylim <- c(2800,5500)	# 20% bump up
 xlim <- c(100,110); ylim <- c(2100,2300)	# same point is good/bad leverage
 xlim <- c(135,140); ylim <- c(2100,2600)	#
-plot (cv.results.3[,"AICc"], log="y", type="l",   xlim=xlim, ylim=ylim,
-			ylab="Multi-Fold CVSS", xlab="Model Dimension")
-	lines(cv.results.1   [,"CVSS"]-2000, col="red")
-	lines(cv.results.2   [,"CVSS"]-2000, col="red")
-	lines(cv.results.3   [,"CVSS"]-2000, col="red")
-	lines(cv.results.3.20[,"CVSS"]-2000, col="green") 
-	lines(cv.results.3.40[,"CVSS"]-2000, col="blue")   
 
+plot (cv.results.1.10[,"AICc"], log="y", type="l",   xlim=xlim, ylim=ylim,
+			ylab="Multi-Fold CVSS", xlab="Model Dimension")
+	lines(cv.results.1.10 [,"CVSS"]-2000, col="red")   # 10 fold
+	lines(cv.results.2.10 [,"CVSS"]-2000, col="red")
+	lines(cv.results.3.10 [,"CVSS"]-2000, col="red")
+	lines(cv.results.4.10 [,"CVSS"]-2000, col="red")
+	lines(cv.results.5.10 [,"CVSS"]-2000, col="red")
+
+	lines(cv.results.1.20 [,"CVSS"]-2000, col="blue")   # 20 fold
+	lines(cv.results.2.20 [,"CVSS"]-2000, col="blue")
+	lines(cv.results.3.20 [,"CVSS"]-2000, col="blue")
+	lines(cv.results.4.20 [,"CVSS"]-2000, col="blue")
+	lines(cv.results.5.20 [,"CVSS"]-2000, col="blue")
+
+	lines(cv.results.1.40 [,"CVSS"]-2000, col="green")   # 40 fold
+	lines(cv.results.2.40 [,"CVSS"]-2000, col="green")
+	lines(cv.results.3.40 [,"CVSS"]-2000, col="green")
+	lines(cv.results.4.40 [,"CVSS"]-2000, col="green")
+	lines(cv.results.5.40 [,"CVSS"]-2000, col="green")
+	
+	lines(cv.results.4.40o[,"CVSS"]-2000, col="cyan")
+
+
+#	highly correlated after orthogonalization
+	plot(cv.results.4.40o[,"CVSS"],cv.results.1.10[,"AICc"], xlab="Orthogonal CVSS", ylab="AICc")
+	
+	
 # --- find the inversion (CVSS up, AICc down between 28 and 29)
 	rows <- 25:35
 	cv.results.3[rows,c("RSS","AICc","CVSS")]
