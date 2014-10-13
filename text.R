@@ -203,11 +203,24 @@ mse <- show.cv(regr.parsed,5)
 	d.long  <- density(W.common[ long,j])
 	plot(d.short, type="l"); lines(d.long)
 	
+# --- leverages, with and without CCA scaling
+	lev <- hat(W[,1:250]); hist( log(lev) )   # very fat tailed
+	qqnorm(log(lev)); abline(a=mean(log(lev)), b=sd(log(lev)))
+	
+	w <- W[,1:250]
+	type.freq <- colSums(w)
+	w <- t( t(w) * 1/(sqrt(type.freq)) )
+	w <- w * (1/sqrt(nTokens)) 				# skew if use 1/n wo sqrt
+
+	lev <- hat(w); hist( log(lev) )   # still long tails, but much better
+	qqnorm(log(lev)); abline(a=mean(log(lev)), b=sd(log(lev)))
+
+
 # --- check some fits; 5th degree from C++ with centering gets diff R2
-	sr.0    <- summary(r.0<-lm(logPrice ~ poly(logTokens,5)           )); sr.0
-	sr      <- summary(lm(logPrice ~ poly(logTokens,5) + W[,   1:2])); sr
-	sr      <- summary(lm(logPrice ~ poly(logTokens,5) + W[,  1:20])); sr
-	sr.500 <- summary(r.500<-lm(logPrice ~ poly(logTokens,5) + W[,1:500])); sr.500
+	sr.0    <- summary(r.0  <-lm(logPrice ~ poly(logTokens,5)             )); sr.0
+	sr      <- summary(       lm(logPrice ~ poly(logTokens,5) + W[,   1:2])); sr
+	sr      <- summary(       lm(logPrice ~ poly(logTokens,5) + W[,  1:20])); sr
+	sr.500  <- summary(r.500<-lm(logPrice ~ poly(logTokens,5) + W[, 1:500])); sr.500
 	predictive.r2(r.500)
 	
 	anova(r.0, r.500)	
@@ -459,6 +472,40 @@ plot(wregr)
 	quartz(width=6.5,height=3); reset()
 	coef.summary.plot(sr.lsa, "LSA Component", omit=6)		# [ lsa_tstats.pdf ]  
 	
+# --- Which words make up the LSA components?
+	
+	V<- as.matrix(read.table(paste(path,"svd_exact_v_cca.txt",sep=""),header=FALSE)); dim(V)
+	type.freq <- colSums(W)
+	plot(V[,1]^2, type.freq)   # nails that one (note that these are CCA scaled)
+	
+	x <- 1:nrow(V)
+	j <- 17; plot(V[,j],col="gray"); w<-order(abs(V[,j]),decreasing=T)[1:50]; 
+	text(x[w],V[w,j],colnames(W)[w],cex=0.75)
+	
+	j <- 15; plot(V[,j],V[,j+1],col="gray", xlab=paste("LSA",j), ylab=paste("LSA",j+1)); 
+	w<-order(rowSums(V[,c(j,j+1)]^2),decreasing=T)[1:60]; 
+	text(V[w,j],V[w,j+1],colnames(W)[w],cex=0.75, offset=1, pos=c(2,3,4,1,2,3,1))
+
+# --- Rotate the LSA components as in factor analysis
+
+	image(z=rV[,1:40])
+
+	rLSA <- varimax(LSA[,2:50])
+	rV   <- V[,2:50] %*% rLSA$rotmat
+	
+	hist(rV[,2], breaks=100)
+	hist( V[,2], breaks=100)
+	
+	x <- rLSA$loadings
+	r <- lm(logPrice ~ poly(logTokens,5) + x); summary(r)
+	
+	x <- LSA[,2:50]
+	r <- lm(logPrice ~ poly(logTokens,5) + x); summary(r)
+
+	j <- 1; plot(rV[,j],rV[,j+1],col="gray", xlab=paste("LSA",j), ylab=paste("LSA",j+1)); 
+	w<-order(rowSums(rV[,c(j,j+1)]^2),decreasing=T)[1:60]; 
+	text(rV[w,j],rV[w,j+1],colnames(W)[w],cex=0.75, offset=1, pos=c(2,3,4,1,2,3,1))
+
 # --- plot of spectrum                                      # [ spectrum.pdf ]
 	sv.raw <- scan(paste(path,"svd_exact_d_raw.txt",sep=""))
 	sv.row <- scan(paste(path,"svd_exact_d_row.txt",sep=""))
@@ -609,6 +656,12 @@ plot (cv.results.1.10[,"AICc"], log="y", type="l",   xlim=xlim, ylim=ylim,
 	lines(cv.results.5.40 [,"CVSS"]-2000, col="green")
 	
 	lines(cv.results.4.40o[,"CVSS"]-2000, col="cyan")
+
+# add leverage from partial regressions
+	models <- 1:100;
+	lev <- mapply( function(k) max(hat(LSA[,1:k])), models)
+	y <- log(diff(lev)/(1-lev)[-1])
+	lines( (y - min(y))/(diff(range(y))) * diff(ylim) + ylim[1] ,col="yellow"  )
 
 
 #	highly correlated after orthogonalization
