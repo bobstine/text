@@ -136,7 +136,7 @@ int main(int argc, char** argv)
   std::clog << "MAIN: Preparing for random projection of W[" << W.rows() << "," << W.cols() << "]\n";
   Matrix P(nDocs, nProjections);
   Vector sv(nProjections);
-  Matrix V (nDocs,25);
+  Matrix V (nDocs, MIN(100, nProjections));
   if (! quadratic)                                                                          
     Helper::fill_random_projection_svd(&P,&sv,&V, W,powerIterations);
   else  // quadratic

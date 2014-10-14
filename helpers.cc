@@ -270,7 +270,7 @@ Helper::fill_random_projection_svd(Matrix* P, Vector* sv, Matrix *V, Vocabulary:
   std::clog << "MAIN: Check norms after Householder orthgonalization in random projection; 0'0="
 	      << localP.col(0).dot(localP.col(0)) << "   0'1=" << localP.col(0).dot(localP.col(1)) << "   1'1=" << localP.col(1).dot(localP.col(1)) << std::endl;
   Matrix rB = localP.transpose() * B;
-  print_with_time_stamp("Computing SVD of reduced matrix", std::clog);
+  print_with_time_stamp("Computing SVD of reduced matrix 'rB' with dim " + std::to_string(rB.rows()) + "x" + std::to_string(rB.cols()), std::clog);
   Eigen::JacobiSVD<Matrix> svd(rB, Eigen::ComputeThinU|Eigen::ComputeThinV);
   *sv = svd.singularValues();
   Matrix U = svd.matrixU()  ;   // nProjections x nProjections

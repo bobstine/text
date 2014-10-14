@@ -140,28 +140,27 @@ fit_models(int  n, std::istream &yStream,                  // ystream has 1 col,
       xStream >> X(i,j);
   // following applies an orthogonal rotation to y, Xi, and X prior to regression
   if (rotate)
-  { std::clog << "MAIN: Initialize random matrix with dimensions " << n << "x" << n << std::endl;
+  { std::clog << "MAIN: Centering prior to rotations.\n";
+    double ySum = Y.sum();
+    Y = Y.array() - ySum/n;
+    Vector mXi = Xi.colwise().sum()/(double)n;
+    for(int i=0; i<Xi.rows(); ++i)
+      Xi.row(i) -= mXi;
+    std::clog << "MAIN: Column sums of Y and Xi after centering:  " << Y.sum() << " and " << Xi.colwise().sum() << std::endl;
+    Vector mX = X.colwise().sum()/(double)n;
+    for(int i=0; i<X.rows(); ++i)
+      X.row(i) -= mX;
+    std::clog << "MAIN: Initialize random matrix with dimensions " << n << "x" << n << std::endl;
     Matrix R = Eigen::MatrixXd::Random(n,n);
     std::clog << "MAIN: Computing Householder orthogonal matrix Q from random start." << std::endl;
     Matrix Q = Eigen::HouseholderQR<Matrix>(R).householderQ();
-    std::clog << "MAIN: Computed orthgonal matrix with dimensions " << Q.rows() << "x" << Q.cols() << std::endl;
-    // center prior to rotations
-    double initialSum = Y.sum();
-    Y = Y.array() - Y.sum()/n;
     Y = Q * Y;
-    Vector mXi = Xi.colwise().sum()/n;
-    for(int i=0; i<Xi.rows(); ++i)
-      Xi.row(i) -= mXi;
     Xi= Q * Xi;
-    Vector mX = X.colwise().sum()/n;
-    for(int i=0; i<X.rows(); ++i)
-      X.row(i) -= mX;
     X = Q * X;
-    std::clog << "Check of column sum of Y dropped  from " << initialSum << " to " << Y.sum() << ".  For Xi, " << Xi.colwise().sum() << std::endl;
-    std::clog << "MAIN: Orthogonal rotations completed\n";
   }
   // call code to validate using threads
   Eigen::MatrixXd results(1+X.cols(),4);            // R2, RSS, AICc, CVSS, starting with preconditions
+  std::clog << "MAIN: Preparing validation threads.\n";
   validate_regression(Y, Xi, X, nFolds, results, seed);
   Eigen::IOFormat fmt(Eigen::StreamPrecision,Eigen::DontAlignCols,"\t","\n","","","","");
   output << "R2\tRSS\tAICc\tCVSS\n" << results.format(fmt);
