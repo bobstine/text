@@ -42,7 +42,7 @@ int main(int argc, char** argv)
   
   // read input options
   string fileName        (  ""   );  // used to build regression variables from document text (leading y_i)
-  bool   markEndOfLine   ( false );  // avoid end-of-document token
+  bool   markEndOfLine   ( false );  // avoid end-of-document token by setting this to 'false'
   char   adjust          (  'w'  );  // use raw counts  (ignored if quadratic space)
   bool   quadratic       ( false );  // use second order token variables
   bool   hasY            ( false );  // data includes a response
@@ -53,8 +53,6 @@ int main(int argc, char** argv)
   int    nProjections    (  50   );
   int    randomSeed      ( 77777 );  // used to replicate random projection
 
-  int    nSkipInitToken  = (hasY) ? 1 : 0;  // regression response at start of line (to isolate y_i from vocab)
-  
   parse_arguments(argc, argv, fileName, hasY, useLog, minFrequency, nProjections, adjust, quadratic, powerIterations, randomSeed, outputPath);
   {
     std::string qStr = (quadratic) ? " --quadratic" : "";
@@ -65,6 +63,7 @@ int main(int argc, char** argv)
 	      << " --power_iter " << powerIterations << " --random_seed=" << randomSeed << endl;
   }
 
+  int    nSkipInitToken  = (hasY) ? 1 : 0;  // regression response at start of line (to isolate y_i from vocab)
   string powerTag = "_p" + std::to_string(powerIterations);
   string wTag;
   switch (adjust)
@@ -82,6 +81,7 @@ int main(int argc, char** argv)
   srand(randomSeed);
 
   // build vocabulary
+  std::clog << "DEBUG: " << nSkipInitToken << "  " << markEndOfLine << std::endl;
   Vocabulary vocabulary(fileName, nSkipInitToken, markEndOfLine, minFrequency);
   std::clog << "MAIN: " << vocabulary << endl;
   {
@@ -111,8 +111,8 @@ int main(int argc, char** argv)
   }
 
   // optionally write W to file
-  if (false)
-    { const int numWords (MIN(W.cols(), 6000));
+  if (true)
+    { const int numWords (MIN(W.cols(), 7500));
       std::string name ("w" + std::to_string(numWords) + ".txt");
       Helper::write_word_counts_to_file (outputPath + name, W, numWords, vocabulary);
       std::clog << "MAIN: Wrote W matrix to file " << name << std::endl;
