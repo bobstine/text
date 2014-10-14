@@ -203,11 +203,24 @@ mse <- show.cv(regr.parsed,5)
 	d.long  <- density(W.common[ long,j])
 	plot(d.short, type="l"); lines(d.long)
 	
+# --- leverages, with and without CCA scaling
+	lev <- hat(W[,1:250]); hist( log(lev) )   # very fat tailed
+	qqnorm(log(lev)); abline(a=mean(log(lev)), b=sd(log(lev)))
+	
+	w <- W[,1:250]
+	type.freq <- colSums(w)
+	w <- t( t(w) * 1/(sqrt(type.freq)) )
+	w <- w * (1/sqrt(nTokens)) 				# skew if use 1/n wo sqrt
+
+	lev <- hat(w); hist( log(lev) )   # still long tails, but much better
+	qqnorm(log(lev)); abline(a=mean(log(lev)), b=sd(log(lev)))
+
+
 # --- check some fits; 5th degree from C++ with centering gets diff R2
-	sr.0    <- summary(r.0<-lm(logPrice ~ poly(logTokens,5)           )); sr.0
-	sr      <- summary(lm(logPrice ~ poly(logTokens,5) + W[,   1:2])); sr
-	sr      <- summary(lm(logPrice ~ poly(logTokens,5) + W[,  1:20])); sr
-	sr.500 <- summary(r.500<-lm(logPrice ~ poly(logTokens,5) + W[,1:500])); sr.500
+	sr.0    <- summary(r.0  <-lm(logPrice ~ poly(logTokens,5)             )); sr.0
+	sr      <- summary(       lm(logPrice ~ poly(logTokens,5) + W[,   1:2])); sr
+	sr      <- summary(       lm(logPrice ~ poly(logTokens,5) + W[,  1:20])); sr
+	sr.500  <- summary(r.500<-lm(logPrice ~ poly(logTokens,5) + W[, 1:500])); sr.500
 	predictive.r2(r.500)
 	
 	anova(r.0, r.500)	
@@ -459,6 +472,40 @@ plot(wregr)
 	quartz(width=6.5,height=3); reset()
 	coef.summary.plot(sr.lsa, "LSA Component", omit=6)		# [ lsa_tstats.pdf ]  
 	
+# --- Which words make up the LSA components?
+	
+	V<- as.matrix(read.table(paste(path,"svd_exact_v_cca.txt",sep=""),header=FALSE)); dim(V)
+	type.freq <- colSums(W)
+	plot(V[,1]^2, type.freq)   # nails that one (note that these are CCA scaled)
+	
+	x <- 1:nrow(V)
+	j <- 17; plot(V[,j],col="gray"); w<-order(abs(V[,j]),decreasing=T)[1:50]; 
+	text(x[w],V[w,j],colnames(W)[w],cex=0.75)
+	
+	j <- 15; plot(V[,j],V[,j+1],col="gray", xlab=paste("LSA",j), ylab=paste("LSA",j+1)); 
+	w<-order(rowSums(V[,c(j,j+1)]^2),decreasing=T)[1:60]; 
+	text(V[w,j],V[w,j+1],colnames(W)[w],cex=0.75, offset=1, pos=c(2,3,4,1,2,3,1))
+
+# --- Rotate the LSA components as in factor analysis
+
+	image(z=rV[,1:40])
+
+	rLSA <- varimax(LSA[,2:50])
+	rV   <- V[,2:50] %*% rLSA$rotmat
+	
+	hist(rV[,2], breaks=100)
+	hist( V[,2], breaks=100)
+	
+	x <- rLSA$loadings
+	r <- lm(logPrice ~ poly(logTokens,5) + x); summary(r)
+	
+	x <- LSA[,2:50]
+	r <- lm(logPrice ~ poly(logTokens,5) + x); summary(r)
+
+	j <- 1; plot(rV[,j],rV[,j+1],col="gray", xlab=paste("LSA",j), ylab=paste("LSA",j+1)); 
+	w<-order(rowSums(rV[,c(j,j+1)]^2),decreasing=T)[1:60]; 
+	text(rV[w,j],rV[w,j+1],colnames(W)[w],cex=0.75, offset=1, pos=c(2,3,4,1,2,3,1))
+
 # --- plot of spectrum                                      # [ spectrum.pdf ]
 	sv.raw <- scan(paste(path,"svd_exact_d_raw.txt",sep=""))
 	sv.row <- scan(paste(path,"svd_exact_d_row.txt",sep=""))
@@ -545,13 +592,27 @@ cor(fitted.values(regr.lsa), f <- fitted.values(br2))
 	write.table(poly, paste(path,"logtoken_poly_5.txt",sep=""), row.names=F)
 
 # --- read C++ CV results
-	cv.results.1    <- read.delim(paste(path,"cv_53853/aic_lsa.txt",sep=""))
-	cv.results.2    <- read.delim(paste(path,"cv_24387/aic_lsa.txt",sep=""))
-	cv.results.3    <- read.delim(paste(path,"cv_31427/aic_lsa.txt",sep=""))
-	cv.results.3.01 <- read.delim(paste(path,"cv_31427/aic_lsa_01.txt",sep=""))  # threshold 0.01
-	cv.results.3.20 <- read.delim(paste(path,"cv_31427/aic_lsa_20f.txt",sep=""))  # 20 folds
+	cv.results.1.10 <- read.delim(paste(path,"cv_15242/aic_lsa_10f.txt",sep="")) 
+	cv.results.1.20 <- read.delim(paste(path,"cv_24387/aic_lsa_10f.txt",sep=""))
+	cv.results.3.10 <- read.delim(paste(path,"cv_31427/aic_lsa_10f.txt",sep=""))
+	cv.results.4.10 <- read.delim(paste(path,"cv_53853/aic_lsa_10f.txt",sep=""))
+	cv.results.5.10 <- read.delim(paste(path,"cv_73241/aic_lsa_10f.txt",sep=""))
+	cv.results.1.20 <- read.delim(paste(path,"cv_15242/aic_lsa_20f.txt",sep="")) 
+	cv.results.2.20 <- read.delim(paste(path,"cv_24387/aic_lsa_20f.txt",sep=""))
+	cv.results.3.20 <- read.delim(paste(path,"cv_31427/aic_lsa_20f.txt",sep=""))
+	cv.results.4.20 <- read.delim(paste(path,"cv_53853/aic_lsa_20f.txt",sep=""))
+	cv.results.5.20 <- read.delim(paste(path,"cv_73241/aic_lsa_20f.txt",sep=""))
+	cv.results.1.40 <- read.delim(paste(path,"cv_15242/aic_lsa_40f.txt",sep="")) 
+	cv.results.2.40 <- read.delim(paste(path,"cv_24387/aic_lsa_40f.txt",sep=""))
 	cv.results.3.40 <- read.delim(paste(path,"cv_31427/aic_lsa_40f.txt",sep=""))  # 40 folds
+	cv.results.4.40 <- read.delim(paste(path,"cv_53853/aic_lsa_40f.txt",sep=""))
+	cv.results.5.40 <- read.delim(paste(path,"cv_73241/aic_lsa_40f.txt",sep=""))
+	
+	cv.results.4.40o<- read.delim(paste(path,"cv_15242/aic_lsa_40fo.txt",sep="")) 
 	colnames(cv.results.1)
+
+	cv.results.5.40 <- read.delim(paste(path,"cv_73241/aic_lsa_40f.txt",sep="")) 
+	cv.results.5.40o<- read.delim(paste(path,"cv_73241/aic_lsa_40fo.txt",sep="")) 
 
 # --- Compare to those done in R (above section)
 #		Compare first two columns of following to next two columns
@@ -560,24 +621,53 @@ cor(fitted.values(regr.lsa), f <- fitted.values(br2))
 # --- scatterplot of CV runs
 	plot(CVSS ~ AICc, data=cv.results.3, log="xy", type="b")
 	
-# --- AICc for LSA falls off much more steeply than for words
+# --- AICc for LSA falls off much more steeply than for words (done in prior section)
 #     One is for words, other is for LSA...
 	plot(r2.words.for[1:1500,"AICc"], xlab="Model Dimension", ylab="AICc", type="l")
 	lines(rescale(cv.results.2[,"AICc"],r2.words.for[1:1500,"AICc"] ), col="red" )
 	
-# --- This plot shows monotone AIC with pronounced bumps in CVSS
-xlim <- NULL;      ylim <- c(2000,7000)
+#                   --- key plot --- 
+# --- This plot shows monotone AIC with pronounced bumps in CVSS   
+
+# pick range for x axis (first gives default)
+xlim <- NULL;       ylim <- c(1500,7000)
 xlim <- c( 25, 35); ylim <- c(2800,5500)	# 20% bump up
 xlim <- c(100,110); ylim <- c(2100,2300)	# same point is good/bad leverage
 xlim <- c(135,140); ylim <- c(2100,2600)	#
-plot (cv.results.3[,"AICc"], log="y", type="l",   xlim=xlim, ylim=ylim,
-			ylab="Multi-Fold CVSS", xlab="Model Dimension")
-	lines(cv.results.1   [,"CVSS"]-2000, col="red")
-	lines(cv.results.2   [,"CVSS"]-2000, col="red")
-	lines(cv.results.3   [,"CVSS"]-2000, col="red")
-	lines(cv.results.3.20[,"CVSS"]-2000, col="green") 
-	lines(cv.results.3.40[,"CVSS"]-2000, col="blue")   
 
+plot (cv.results.1.10[,"AICc"], log="y", type="l",   xlim=xlim, ylim=ylim,
+			ylab="Multi-Fold CVSS", xlab="Model Dimension")
+	lines(cv.results.1.10 [,"CVSS"]-2000, col="red")   # 10 fold
+	lines(cv.results.2.10 [,"CVSS"]-2000, col="red")
+	lines(cv.results.3.10 [,"CVSS"]-2000, col="red")
+	lines(cv.results.4.10 [,"CVSS"]-2000, col="red")
+	lines(cv.results.5.10 [,"CVSS"]-2000, col="red")
+
+	lines(cv.results.1.20 [,"CVSS"]-2000, col="blue")   # 20 fold
+	lines(cv.results.2.20 [,"CVSS"]-2000, col="blue")
+	lines(cv.results.3.20 [,"CVSS"]-2000, col="blue")
+	lines(cv.results.4.20 [,"CVSS"]-2000, col="blue")
+	lines(cv.results.5.20 [,"CVSS"]-2000, col="blue")
+
+	lines(cv.results.1.40 [,"CVSS"]-2000, col="green")   # 40 fold
+	lines(cv.results.2.40 [,"CVSS"]-2000, col="green")
+	lines(cv.results.3.40 [,"CVSS"]-2000, col="green")
+	lines(cv.results.4.40 [,"CVSS"]-2000, col="green")
+	lines(cv.results.5.40 [,"CVSS"]-2000, col="green")
+	
+	lines(cv.results.4.40o[,"CVSS"]-2000, col="cyan")
+
+# add leverage from partial regressions
+	models <- 1:100;
+	lev <- mapply( function(k) max(hat(LSA[,1:k])), models)
+	y <- log(diff(lev)/(1-lev)[-1])
+	lines( (y - min(y))/(diff(range(y))) * diff(ylim) + ylim[1] ,col="yellow"  )
+
+
+#	highly correlated after orthogonalization
+	plot(cv.results.4.40o[,"CVSS"],cv.results.1.10[,"AICc"], xlab="Orthogonal CVSS", ylab="AICc")
+	
+	
 # --- find the inversion (CVSS up, AICc down between 28 and 29)
 	rows <- 25:35
 	cv.results.3[rows,c("RSS","AICc","CVSS")]
