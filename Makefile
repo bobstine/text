@@ -13,11 +13,10 @@ PROJECT_NAME = text
 
 # OPT = -O3 -std=c++0x -DNDEBUG
 
-OPT = -O3 -fopenmp -std=c++0x
+OPT = -O3 -fopenmp
 
 USES = eigen utils
 
-# mpi boost_system boost_thread boost_regex
 EXTERNAL_USES =  gomp
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -260,11 +259,12 @@ dobigram: $(bigramPath)date.txt
 
 cvInputPath = ~/C/text/text_src/temp/ChicagoOld3/
 nDocs = 7384
-
 cvProj = 500
 
-# 53853 24387 31427
-cvseed = 15242
+# 15242 24387 31427 53853 73241
+cvseed = 73241
+
+cvFolds = 10
 
 cvOutputPath = $(cvInputPath)cv_$(cvseed)/
 
@@ -273,18 +273,18 @@ $(cvOutputPath).directory_built:
 	mkdir $(cvOutputPath)
 	touch $@
 
-#		precondition on doc length variable included in the ym.txt file
+#		precondition on doc length variable included in the logToken_poly_5 file (exported from R)
 
 $(cvInputPath)lsa_y.txt: $(cvInputPath)lsa_ym.txt
 	cut -f 1 $< > $@
 
-$(cvOutputPath)aic_lsa_40f.txt: seq_regression $(cvInputPath)lsa_y.txt $(cvInputPath)lsa_cca_$(cvProj)_p4.txt $(cvOutputPath).directory_built
-	./$< -Y $(word 2,$^) -X $(word 3,$^) -x $(cvProj)   -I $(cvInputPath)logtoken_poly_5.txt -i 5   -n $(nDocs) -s $(cvseed) -v 40    -o $@
+$(cvOutputPath)aic_lsa_$(cvFolds)f.txt: seq_regression $(cvInputPath)lsa_y.txt $(cvInputPath)lsa_cca_$(cvProj)_p4.txt $(cvOutputPath).directory_built
+	./$< -Y $(word 2,$^) -X $(word 3,$^) -x $(cvProj) -I $(cvInputPath)logtoken_poly_5.txt -i 5 -n $(nDocs) -s $(cvseed) -v $(cvFolds)    -o $@
 
-$(cvOutputPath)aic_lsa_40fo.txt: seq_regression $(cvInputPath)lsa_y.txt $(cvInputPath)lsa_cca_$(cvProj)_p4.txt $(cvOutputPath).directory_built
-	./$< -Y $(word 2,$^) -X $(word 3,$^) -x $(cvProj)   -I $(cvInputPath)logtoken_poly_5.txt -i 5   -n $(nDocs) -s $(cvseed) -v 40 -r -o $@
+$(cvOutputPath)aic_lsa_$(cvFolds)fo.txt: seq_regression $(cvInputPath)lsa_y.txt $(cvInputPath)lsa_cca_$(cvProj)_p4.txt $(cvOutputPath).directory_built
+	./$< -Y $(word 2,$^) -X $(word 3,$^) -x $(cvProj) -I $(cvInputPath)logtoken_poly_5.txt -i 5 -n $(nDocs) -s $(cvseed) -v $(cvFolds) -r -o $@
 
-docv : $(cvOutputPath)aic_lsa_40fo.txt
+docv : $(cvOutputPath)aic_lsa_$(cvFolds)f.txt
 	echo Run AIC cross validation
 
 
