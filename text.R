@@ -2,25 +2,6 @@ source("~/C/text/functions.R")
 source("~/R/cross_validation_vs_AIC.R")
 
 ##################################################################################
-#  type counts, zipf
-##################################################################################
-
-# --- look at type frequencies, zipf plot   (zipf.pdf)
-type.cts <- sort(scan("/Users/bob/C/text/text_src/temp/ChicagoOld3/type_freq.txt"), decreasing=TRUE)
-
-	x<-1:length(type.cts); y<-type.cts
-	zipf.data <- data.frame(list(x=x,y=y,lx=log(x),ly=log(y)))
-
-	plot(y~x, xlab="rank", ylab="frequency", log="xy", data=zipf.data)
-	common.words <- c(".", ",", "and", "-", "in")
-	text(0.9*x[1:5],0.7*y[1:5],common.words,cex=c(1,1,0.5,1,0.5))
-
-	regr<-lm(ly~lx, data=zipf.data[1:500,]); coefficients(regr)
-	lx <- log(x<-c(1,5000)); y <- exp(predict(regr, data.frame(lx=lx)))
-	lines(x,y,col="red")
-
-
-##################################################################################
 #
 # Response and document lengths
 #
@@ -89,7 +70,6 @@ svd(sp.basis)$d
 # Parsed variables
 #
 ##################################################################################
-
 	
 	sqft  <- Data[,"SqFt"];      sqft.obs <- 0<Data[,"SqFt"]         
 	sqft[!sqft.obs] <- mean( sqft[sqft.obs] )
@@ -155,7 +135,6 @@ ii <- which(nTokens==265); length(ii)
 mse <- show.cv(regr.parsed,5)
 
 
-
 ##################################################################################
 #  
 #   Raw word regression
@@ -163,19 +142,37 @@ mse <- show.cv(regr.parsed,5)
 ##################################################################################
 	
 	path <- "/Users/bob/C/text/text_src/temp/ChicagoOld3/"
+	
 	YM <- as.matrix(read.table(paste(path,"lsa_ym.txt",sep=""),header=T,as.is=T))
-	W  <- as.matrix(read.table(paste(path,"w5708.txt",sep=""),header=T,as.is=T))
-
 	logPrice  <- YM[,1];
 	nTokens   <- YM[,2];
 	logTokens <- log(YM[,2])
+	
+	# fix column names to remove embedded quote
+	W  <- as.matrix(read.table(paste0(path,"w5704.txt"),header=T,as.is=T))
+	names <- scan(paste0(path,"types_5704.txt"), what="character")        
+	colnames(W) <- names
+	type.freq <- colSums(W)
 
-	colnames(W)[1:10]         	# remove the EOL column, relabel others
-	W <- W[,-7]
-	colnames(W)[c(1,2,5,11,12,14,16,35,40,53,54,57)] <- c(".period.",".comma.",".exclamation.", 
-	                                       ".amp.",".slash.","w.slash","2","3",".semi.",
-	                                       "1", ".lparen.",".rparen.")
-	colnames(W)[1:60]
+##################################################################################
+#  type counts, zipf
+##################################################################################
+
+# --- look at type frequencies, zipf plot   (zipf.pdf)
+
+	x<-1:length(type.freq); y<-type.freq
+	zipf.data <- data.frame(list(x=x,y=y,lx=log(x),ly=log(y)))
+
+	plot(y~x, xlab="rank", ylab="frequency", log="xy", data=zipf.data)
+	common.words <- c(".", ",", "and", "-", "in")
+	text(0.9*x[1:5],0.7*y[1:5],common.words,cex=c(1,1,0.5,1,0.5))
+
+	regr<-lm(ly~lx, data=zipf.data[1:500,]); coefficients(regr)
+	lx <- log(x<-c(1,5000)); y <- exp(predict(regr, data.frame(lx=lx)))
+	lines(x,y,col="red")
+
+##################################################################################
+
 
 # --- simple composition analysis  
 	short <- which((20<nTokens) & (nTokens<60)); length(short)
@@ -248,8 +245,6 @@ mse <- show.cv(regr.parsed,5)
 	w <- t( t(w) * 1/(sqrt(type.freq)) )
 	w <- w * (1/sqrt(nTokens))
 	predictive.r2( regr.recip <- lm(logPrice ~ poly(logTokens,5) + w) )
-	
-
 
 # --- sequence of R2 statistics (rest done in C++)
 	W.scaled <- W / matrix(nTokens,nrow=nrow(W), ncol=ncol(W), byrow=FALSE)  # rows sum to 1
@@ -457,9 +452,13 @@ plot(wregr)
 	nProj   <- 500
 	weights <- "cca"
 	city    <- "ChicagoOld3/"
-	path    <- paste("/Users/bob/C/text/text_src/temp/",city,sep="")
-	file    <- paste(path,"lsa_",weights,"_", nProj,"_p4.txt",sep="")
+	path    <- paste0("/Users/bob/C/text/text_src/temp/",city)
+	file    <- paste0(path,"lsa_",weights,"_", nProj,"_p4_u.txt")
 	LSA     <- as.matrix(read.table(file, header=TRUE)); dim(LSA)
+	file    <- paste0(path,"lsa_",weights,"_", nProj,"_p4_d.txt")
+	D       <- scan(file)
+	file    <- paste0(path,"lsa_",weights,"_", nProj,"_p4_v.txt")
+	V       <- as.matrix(read.table(file, header=TRUE)); dim(V)
 
 
 # --- LSA analysis from matrix W    adj R2=0.6567 with 1000 and log tokens
@@ -473,38 +472,51 @@ plot(wregr)
 	coef.summary.plot(sr.lsa, "LSA Component", omit=6)		# [ lsa_tstats.pdf ]  
 	
 # --- Which words make up the LSA components?
-	
-	V<- as.matrix(read.table(paste(path,"svd_exact_v_cca.txt",sep=""),header=FALSE)); dim(V)
+
 	type.freq <- colSums(W)
 	plot(V[,1]^2, type.freq)   # nails that one (note that these are CCA scaled)
 	
+	# plot a component in type freq order 
 	x <- 1:nrow(V)
 	j <- 17; plot(V[,j],col="gray"); w<-order(abs(V[,j]),decreasing=T)[1:50]; 
 	text(x[w],V[w,j],colnames(W)[w],cex=0.75)
 	
-	j <- 15; plot(V[,j],V[,j+1],col="gray", xlab=paste("LSA",j), ylab=paste("LSA",j+1)); 
-	w<-order(rowSums(V[,c(j,j+1)]^2),decreasing=T)[1:60]; 
-	text(V[w,j],V[w,j+1],colnames(W)[w],cex=0.75, offset=1, pos=c(2,3,4,1,2,3,1))
+	# 46 has very clear rays; 8/9 have the auction ray (sale process; also in 12-13)
+	# 14-15 is the almost 'ideal' with roughly orthogonal terms; 26-27,50-51 have oblique
+	# 18-19 is just interesting; 32-33 has several (weaker) rays
+	# Special chars: 20 is an asterisk and 23 (and 25) is ~; 24 is date(2013-06-09) and ---
+	# need to remove: "php?action=listingview&listingid=29" "20-04-416-028-0000" (both in 30)
+	# what is "kedvale" and "R3" (in 35,37)  Kedvale is a neighborhood, R3 is a zoning category
+	j <- 21; k<-j+1; plot(V[,j],V[,k],col="gray", xlab=paste("LSA",j), ylab=paste("LSA",k)); 
+	w<-order(rowSums(V[,c(j,k)]^2),decreasing=T)[1:60]; 
+	text(V[w,j],V[w,k],colnames(W)[w],cex=0.75, offset=1, pos=c(2,3,4,1,2,3,1))
 
-# --- Rotate the LSA components as in factor analysis
-
-	image(z=rV[,1:40])
-
-	rLSA <- varimax(LSA[,2:50])
-	rV   <- V[,2:50] %*% rLSA$rotmat
+# --- Rotate the leading k LSA components as in factor analysis
+	k <- 250
+	vm <- varimax(V[,2:k])				# skip first as its the logToken effect
+	v <- vm$loadings
 	
-	hist(rV[,2], breaks=100)
-	hist( V[,2], breaks=100)
+	(V[,2:k] %*% vm$rotmat)[1:3,1:6]    # match: V T = new loading matrix
+	v[1:3,1:6]
 	
-	x <- rLSA$loadings
-	r <- lm(logPrice ~ poly(logTokens,5) + x); summary(r)
-	
-	x <- LSA[,2:50]
-	r <- lm(logPrice ~ poly(logTokens,5) + x); summary(r)
+	# rotated components are more orthogonal/interpretable in variables
+	# 5-6 is particularly nice; 7-8 gets a clear auction factor
+	# clear structure (though without so much meaning perhaps) even for later terms 100
+	j <- 21; j1<-j+1; plot(v[,j],v[,j1],col="gray", xlab=paste("Rotated",j), ylab=paste("Rotated",j1)); 
+	w<-order(rowSums(v[,c(j,j1)]^2),decreasing=T)[1:60]; 
+	abline(h=0,v=0,col="gray")
+	text(v[w,j],v[w,j1],colnames(W)[w],cex=0.65, offset=0.5, pos=c(1:4))
 
-	j <- 1; plot(rV[,j],rV[,j+1],col="gray", xlab=paste("LSA",j), ylab=paste("LSA",j+1)); 
-	w<-order(rowSums(rV[,c(j,j+1)]^2),decreasing=T)[1:60]; 
-	text(rV[w,j],rV[w,j+1],colnames(W)[w],cex=0.75, offset=1, pos=c(2,3,4,1,2,3,1))
+	# create new regressors
+	lsa <- LSA[,2:k] %*% (D[2:k] * vm$rotmat)
+
+	# try these in regression (first compare to regr with original unrotated scores)
+	r <- lm(logPrice ~ poly(logTokens,5) + LSA[,2:k]); summary(r)
+	# vmx 21 (a tilde) adds *nothing* and is single char; 17 adds nothing but mixture (no harm)
+	rr<- lm(logPrice ~ poly(logTokens,5) + lsa[,1:21]      ); summary(rr)  
+
+	# write these rotated scores out for use in seq_regr for CVSS... manually without " in names
+	write.table(lsa, paste0(path,"vmx_2_250.txt"), row.names=F, col.names=T, sep="\t")
 
 # --- plot of spectrum                                      # [ spectrum.pdf ]
 	sv.raw <- scan(paste(path,"svd_exact_d_raw.txt",sep=""))
@@ -593,7 +605,7 @@ cor(fitted.values(regr.lsa), f <- fitted.values(br2))
 
 # --- read C++ CV results
 	cv.results.1.10 <- read.delim(paste(path,"cv_15242/aic_lsa_10f.txt",sep="")) 
-	cv.results.1.20 <- read.delim(paste(path,"cv_24387/aic_lsa_10f.txt",sep=""))
+	cv.results.2.10 <- read.delim(paste(path,"cv_24387/aic_lsa_10f.txt",sep=""))
 	cv.results.3.10 <- read.delim(paste(path,"cv_31427/aic_lsa_10f.txt",sep=""))
 	cv.results.4.10 <- read.delim(paste(path,"cv_53853/aic_lsa_10f.txt",sep=""))
 	cv.results.5.10 <- read.delim(paste(path,"cv_73241/aic_lsa_10f.txt",sep=""))
@@ -612,7 +624,10 @@ cor(fitted.values(regr.lsa), f <- fitted.values(br2))
 	colnames(cv.results.1)
 
 	cv.results.5.40 <- read.delim(paste(path,"cv_73241/aic_lsa_40f.txt",sep="")) 
-	cv.results.5.40o<- read.delim(paste(path,"cv_73241/aic_lsa_40fo.txt",sep="")) 
+	cv.results.5.40o<- read.delim(paste(path,"cv_73241/aic_lsa_40fo.txt",sep=""))
+	
+	cv.results.5.vmx<- read.delim(paste0(path,"cv_73241/aic_vmx_20_2_250.txt")) 
+
 
 # --- Compare to those done in R (above section)
 #		Compare first two columns of following to next two columns
@@ -642,6 +657,10 @@ plot (cv.results.1.10[,"AICc"], log="y", type="l",   xlim=xlim, ylim=ylim,
 	lines(cv.results.3.10 [,"CVSS"]-2000, col="red")
 	lines(cv.results.4.10 [,"CVSS"]-2000, col="red")
 	lines(cv.results.5.10 [,"CVSS"]-2000, col="red")
+	
+	plot(cv.results.5.vmx[,"AICc"], log="y", type="l", xlim=c(1,50),   # varimax
+			ylab="Multi-Fold CVSS", xlab="Model Dimension")
+	lines(cv.results.5.vmx[,"CVSS"], col="red")
 
 	lines(cv.results.1.20 [,"CVSS"]-2000, col="blue")   # 20 fold
 	lines(cv.results.2.20 [,"CVSS"]-2000, col="blue")
