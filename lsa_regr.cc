@@ -81,7 +81,6 @@ int main(int argc, char** argv)
   srand(randomSeed);
 
   // build vocabulary
-  std::clog << "DEBUG: " << nSkipInitToken << "  " << markEndOfLine << std::endl;
   Vocabulary vocabulary(fileName, nSkipInitToken, markEndOfLine, minFrequency);
   std::clog << "MAIN: " << vocabulary << endl;
   {
@@ -136,7 +135,7 @@ int main(int argc, char** argv)
   std::clog << "MAIN: Preparing for random projection of W[" << W.rows() << "," << W.cols() << "]\n";
   Matrix P(nDocs, nProjections);
   Vector sv(nProjections);
-  Matrix V (nDocs, MIN(100, nProjections));
+  Matrix V (nDocs, MIN(250, nProjections));
   if (! quadratic)                                                                          
     Helper::fill_random_projection_svd(&P,&sv,&V, W,powerIterations);
   else  // quadratic
@@ -223,7 +222,7 @@ int main(int argc, char** argv)
       string dim  (std::to_string(nProjections));
       string prefix = outputPath + label + "_" + dim + powerTag;
       {
-	std::ofstream os (prefix + ".txt");      // write the singular vectors
+	std::ofstream os (prefix + "_u.txt");    // write the singular vectors
 	os << varSymbol << "0";                  // add col labels for reading into R
 	for(int i=1; i<P.cols(); ++i) os << "\t" << varSymbol << i;
 	os << endl << P.format(fmt) << endl;

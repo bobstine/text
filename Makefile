@@ -264,7 +264,7 @@ cvProj = 500
 # 15242 24387 31427 53853 73241
 cvseed = 73241
 
-cvFolds = 10
+cvFolds = 20
 
 cvOutputPath = $(cvInputPath)cv_$(cvseed)/
 
@@ -273,7 +273,8 @@ $(cvOutputPath).directory_built:
 	mkdir $(cvOutputPath)
 	touch $@
 
-#		precondition on doc length variable included in the logToken_poly_5 file (exported from R)
+#	precondition on doc length variable included in the logToken_poly_5 file (exported from R)
+#	r option applies random orthogonal rotation to components of model (removes leverage effect)
 
 $(cvInputPath)lsa_y.txt: $(cvInputPath)lsa_ym.txt
 	cut -f 1 $< > $@
@@ -283,6 +284,11 @@ $(cvOutputPath)aic_lsa_$(cvFolds)f.txt: seq_regression $(cvInputPath)lsa_y.txt $
 
 $(cvOutputPath)aic_lsa_$(cvFolds)fo.txt: seq_regression $(cvInputPath)lsa_y.txt $(cvInputPath)lsa_cca_$(cvProj)_p4.txt $(cvOutputPath).directory_built
 	./$< -Y $(word 2,$^) -X $(word 3,$^) -x $(cvProj) -I $(cvInputPath)logtoken_poly_5.txt -i 5 -n $(nDocs) -s $(cvseed) -v $(cvFolds) -r -o $@
+
+$(cvOutputPath)aic_vmx_$(cvFolds)_2_250.txt: seq_regression $(cvInputPath)lsa_y.txt $(cvInputPath)vmx_2_250.txt $(cvOutputPath).directory_built
+	./$< -Y $(word 2,$^) -X $(word 3,$^) -x   249     -I $(cvInputPath)logtoken_poly_5.txt -i 5 -n $(nDocs) -s $(cvseed) -v $(cvFolds)    -o $@
+
+#	$(cvOutputPath)aic_vmx_$(cvFolds)_2_250.txt
 
 docv : $(cvOutputPath)aic_lsa_$(cvFolds)f.txt
 	echo Run AIC cross validation
