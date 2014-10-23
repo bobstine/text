@@ -689,7 +689,7 @@ plot (cv.results.1.10[,"AICc"], log="y", type="l",   xlim=xlim, ylim=ylim,
 	n.folds <- 10	
 	n <- length(logPrice)
 	folds <- c(rep(1:n.folds,ceiling(n/n.folds)))[1:n]
-	folds <- sample(folds,n)
+	folds <- sample(folds,n, replace=F)
 
 	# --- play with parallel
 	library(parallel)
@@ -727,7 +727,7 @@ plot (cv.results.1.10[,"AICc"], log="y", type="l",   xlim=xlim, ylim=ylim,
 	#     ONE case produces the huge jump in the CVSS in a single fold
 	#	  that excludes the outlier
 	folds[outlier]   # outlier fold
-	cv.sse[26:29,]
+	cv.sse
 	plot(rowSums(cv.sse), type="l")
 
 	boxplot(t(sse))
