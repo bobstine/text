@@ -1,3 +1,10 @@
+##################################################################################
+#
+# Note: original text in text_src/real_estate/Set10Tokenized.  That gets parsed
+#		with blank lines (no description) removed into text_src/temp/city.txt
+#
+##################################################################################
+
 source("~/C/text/functions.R")
 source("~/R/cross_validation_vs_AIC.R")
 
@@ -67,7 +74,7 @@ svd(sp.basis)$d
 
 ##################################################################################
 # 
-# Parsed variables
+# Parsed variables		(built as part of regressor code)
 #
 ##################################################################################
 	
@@ -148,9 +155,10 @@ mse <- show.cv(regr.parsed,5)
 	nTokens   <- YM[,2];
 	logTokens <- log(YM[,2])
 	
-	# fix column names to remove embedded quote
+	# fix column names when rebuild count matrix to remove embedded quote
 	W  <- as.matrix(read.table(paste0(path,"w5704.txt"),header=T,as.is=T))
-	names <- scan(paste0(path,"types_5704.txt"), what="character")        
+	# read raw column names to avoid R translation (first line of w5704.txt)
+	names <- scan(paste0(path,"types_5704.txt"), what="character")  
 	colnames(W) <- names
 	type.freq <- colSums(W)
 
@@ -460,7 +468,6 @@ plot(wregr)
 	file    <- paste0(path,"lsa_",weights,"_", nProj,"_p4_v.txt")
 	V       <- as.matrix(read.table(file, header=TRUE)); dim(V)
 
-
 # --- LSA analysis from matrix W    adj R2=0.6567 with 1000 and log tokens
 
 	p      <- 4
@@ -484,12 +491,17 @@ plot(wregr)
 	# 46 has very clear rays; 8/9 have the auction ray (sale process; also in 12-13)
 	# 14-15 is the almost 'ideal' with roughly orthogonal terms; 26-27,50-51 have oblique
 	# 18-19 is just interesting; 32-33 has several (weaker) rays
-	# Special chars: 20 is an asterisk and 23 (and 25) is ~; 24 is date(2013-06-09) and ---
-	# need to remove: "php?action=listingview&listingid=29" "20-04-416-028-0000" (both in 30)
+	# Special chars
+	# 	20,21,   26 feature asterisk
+	#   22,23,25,26 feature tilde ~;
+	#   24 is date (2013-06-09) and ---
+	# Removed: "php?action=listingview&listingid=29" "20-04-416-028-0000" (both in 30)
 	# what is "kedvale" and "R3" (in 35,37)  Kedvale is a neighborhood, R3 is a zoning category
-	j <- 21; k<-j+1; plot(V[,j],V[,k],col="gray", xlab=paste("LSA",j), ylab=paste("LSA",k)); 
-	w<-order(rowSums(V[,c(j,k)]^2),decreasing=T)[1:60]; 
-	text(V[w,j],V[w,k],colnames(W)[w],cex=0.75, offset=1, pos=c(2,3,4,1,2,3,1))
+	j <- 27; k<-j+1; plot(V[,j],V[,k],col="gray", xlab=paste("LSA",j), ylab=paste("LSA",k)); 
+	w<-order(rowSums(V[,c(j,k)]^2),decreasing=T)[1:60]; abline(h=0,v=0,col="gray")
+	text(V[w,j],V[w,k],colnames(W)[w],cex=0.7, offset=0.5, pos=c(2,3,4,1,2,3,1))
+	# adding 28 produces the huge jump
+	
 
 # --- Rotate the leading k LSA components as in factor analysis
 	k <- 250
@@ -500,20 +512,27 @@ plot(wregr)
 	v[1:3,1:6]
 	
 	# rotated components are more orthogonal/interpretable in variables
-	# 5-6 is particularly nice; 7-8 gets a clear auction factor
+	# factor 1 is pretty cool, kitchen and amenities; #3 is hud, distressed
+	# 5-6 is particularly nice; 7-8 gets a clear auction factor; 16 is structure/rooms; abbreviated nice things
 	# clear structure (though without so much meaning perhaps) even for later terms 100
-	j <- 21; j1<-j+1; plot(v[,j],v[,j1],col="gray", xlab=paste("Rotated",j), ylab=paste("Rotated",j1)); 
+	# asterisk * is 19; tilde ~ is factor 21 after rotation; --- is 23; 
+	#    26 is the outlier variable
+	j <- 27; j1<-j+1; plot(v[,j],v[,j1],col="gray", xlab=paste("Rotated",j), ylab=paste("Rotated",j1)); 
 	w<-order(rowSums(v[,c(j,j1)]^2),decreasing=T)[1:60]; 
 	abline(h=0,v=0,col="gray")
 	text(v[w,j],v[w,j1],colnames(W)[w],cex=0.65, offset=0.5, pos=c(1:4))
 
-	# create new regressors
-	lsa <- LSA[,2:k] %*% (D[2:k] * vm$rotmat)
+	# create new regressors (first is not useful since singular)
+	# lsa.vm <- LSA[,2:k] %*% (D[2:k] * vm$rotmat)
+	lsa.vm <- LSA[,2:k] %*% vm$rotmat
+	colnames(lsa.vm) <- paste0("LVM",1:(k-1))
 
 	# try these in regression (first compare to regr with original unrotated scores)
-	r <- lm(logPrice ~ poly(logTokens,5) + LSA[,2:k]); summary(r)
+	# much poorer fit with varimax on first 30; only same if use all (so need some selection)
+	use<- 240
+	r <- lm(logPrice ~ poly(logTokens,5) + LSA[,2:(use+1)]); summary(r)
 	# vmx 21 (a tilde) adds *nothing* and is single char; 17 adds nothing but mixture (no harm)
-	rr<- lm(logPrice ~ poly(logTokens,5) + lsa[,1:21]      ); summary(rr)  
+	rr<- lm(logPrice ~ poly(logTokens,5) + lsa.vm[,1:use]    ); summary(rr)  
 
 	# write these rotated scores out for use in seq_regr for CVSS... manually without " in names
 	write.table(lsa, paste0(path,"vmx_2_250.txt"), row.names=F, col.names=T, sep="\t")
@@ -536,42 +555,10 @@ plot(wregr)
     y <- log(y); coefficients(lm(y ~ x))        	# -0.2     
 
 
-# --- L0 is basically singular given the 5th degree in log tokens
+# --- L0 is basically singular given the 5th degree in log tokens; omit further use
 	plot(logTokens, LSA[,1])
-	p.0  <- lm(LSA[, 1] ~ poly(logTokens,5)             ); summary(p.0)
+	p.0  <- lm(LSA[, 1] ~ poly(logTokens,5)  ); summary(p.0)
 
-
-# --- Replicate CV in R (to check CV in C++)
-	set.seed(23743)
-	n.folds <- 10	
-	n <- length(logPrice)
-	folds <- c(rep(1:n.folds,ceiling(n/n.folds)))[1:n]
-	folds <- sample(folds,n)
-
-	# --- play with parallel
-	library(parallel)
-	doit <- function(fold) { }
-	res <- mclapply(values, doit, mc.cores = numWorkers)
-	
-	# --- via loop
-	lsa <- LSA[,2:50];  		# avoid L0
-	cv.r2 <- cv.sse <- matrix(NA, 1+ncol(lsa), 10)
-	degree <- 5; 
-	for(fold in 1:n.folds) {
-		cat(fold," ");
-		train <- (fold != folds); 
-		data.train <- list(y=logPrice[train], xi=poly(logTokens,degree)[train,], x=lsa[train,])
-		test  <- (fold == folds)
-		data.test  <- list(y=logPrice[ test], xi=poly(logTokens,degree)[ test,], x=lsa[ test,])
-		results <- fit.models(data.train, data.test)
-		cv.sse[,fold] <- results$sse
-		cv.r2[,fold] <- results$r2
-	}
-
-plot(rowSums(cv.sse), type="l")
-
-boxplot(t(sse))
-boxplot(t(r2))
 
 # --- residuals only hint at heteroscedasticity
 plot(regr.lsa)
@@ -591,9 +578,11 @@ br2 <- lm(logPrice ~ . + .*., data = frame); summary(br2)
 anova(br,br2)
 cor(fitted.values(regr.lsa), f <- fitted.values(br2))
 
+
+
 ##################################################################################
 #
-#   data files for CV in C++
+#   CV in C++
 #
 ##################################################################################
 
@@ -642,7 +631,7 @@ cor(fitted.values(regr.lsa), f <- fitted.values(br2))
 	lines(rescale(cv.results.2[,"AICc"],r2.words.for[1:1500,"AICc"] ), col="red" )
 	
 #                   --- key plot --- 
-# --- This plot shows monotone AIC with pronounced bumps in CVSS   
+# --- This plot shows monotone AIC with pronounced bumps in CVSS, particularly var 29
 
 # pick range for x axis (first gives default)
 xlim <- NULL;       ylim <- c(1500,7000)
@@ -652,16 +641,13 @@ xlim <- c(135,140); ylim <- c(2100,2600)	#
 
 plot (cv.results.1.10[,"AICc"], log="y", type="l",   xlim=xlim, ylim=ylim,
 			ylab="Multi-Fold CVSS", xlab="Model Dimension")
+			
 	lines(cv.results.1.10 [,"CVSS"]-2000, col="red")   # 10 fold
 	lines(cv.results.2.10 [,"CVSS"]-2000, col="red")
 	lines(cv.results.3.10 [,"CVSS"]-2000, col="red")
 	lines(cv.results.4.10 [,"CVSS"]-2000, col="red")
 	lines(cv.results.5.10 [,"CVSS"]-2000, col="red")
 	
-	plot(cv.results.5.vmx[,"AICc"], log="y", type="l", xlim=c(1,50),   # varimax
-			ylab="Multi-Fold CVSS", xlab="Model Dimension")
-	lines(cv.results.5.vmx[,"CVSS"], col="red")
-
 	lines(cv.results.1.20 [,"CVSS"]-2000, col="blue")   # 20 fold
 	lines(cv.results.2.20 [,"CVSS"]-2000, col="blue")
 	lines(cv.results.3.20 [,"CVSS"]-2000, col="blue")
@@ -682,17 +668,87 @@ plot (cv.results.1.10[,"AICc"], log="y", type="l",   xlim=xlim, ylim=ylim,
 	y <- log(diff(lev)/(1-lev)[-1])
 	lines( (y - min(y))/(diff(range(y))) * diff(ylim) + ylim[1] ,col="yellow"  )
 
+# after varimax
+	plot(cv.results.5.vmx[,"AICc"], log="y", type="l", xlim=c(1,50),   # varimax
+			ylab="Multi-Fold CVSS", xlab="Model Dimension")
+	lines(cv.results.5.vmx[,"CVSS"], col="red")
 
 #	highly correlated after orthogonalization
 	plot(cv.results.4.40o[,"CVSS"],cv.results.1.10[,"AICc"], xlab="Orthogonal CVSS", ylab="AICc")
 	
 	
-# --- find the inversion (CVSS up, AICc down between 28 and 29)
-	rows <- 25:35
-	cv.results.3[rows,c("RSS","AICc","CVSS")]
+
+##################################################################################
+#
+#   CV in R
+#
+##################################################################################
+
+	set.seed(23743)
+	
+	n.folds <- 10	
+	n <- length(logPrice)
+	folds <- c(rep(1:n.folds,ceiling(n/n.folds)))[1:n]
+	folds <- sample(folds,n)
+
+	# --- play with parallel
+	library(parallel)
+	doit <- function(fold) { }
+	res <- mclapply(values, doit, mc.cores = numWorkers)
+	
+	# --- whole model, all cases
+	#     big outlier/influence point is 3646; most visible in plot of residuals on leverage
+	#	  words developmental, training, skills, saint, rose; these are in this and just few
+	#     starts to emerge at LSA[,2:26] huge by [,2:28]: (on log scale outlier goes from
+	#     -3.8@2:26, -1.4@2:27, -3.8@2:28, -2.0@2:29, -2.6@2:30
+	outlier <- 3646
+	# lsa     <- LSA[,2:30]; 				# avoid L0 which is purely collinear
+	lsa     <- lsa.vm[,1:30]            # already removed L0; larger RSS
+	degree  <- 5; 
+	r <- lm(logPrice ~ poly(logTokens,degree) + lsa);
+	summary(r); c(sum(residuals(r)^2), residuals(r)[outlier])	# 5259.908 for 2:29
+	
+	# --- via loop, does full sequence of models like seq_regression
+	#     use omit to remove special listings
+	omit <- NULL # outlier  
+	cv.r2 <- cv.sse <- matrix(NA, 1+ncol(lsa), n.folds)
+	for(fold in 1:n.folds) {
+		cat(fold," ");
+		train <- (fold != folds); train[omit] <- F
+		data.train <- list(y=logPrice[train], xi=poly(logTokens,degree)[train,], x=lsa[train,])
+		test  <- (fold == folds);  test[omit] <- F
+		data.test  <- list(y=logPrice[ test], xi=poly(logTokens,degree)[ test,], x=lsa[ test,])
+		results <- fit.models(data.train, data.test)
+		cv.sse[,fold] <- results$sse
+		cv.r2[,fold] <- results$r2
+	}
+
+	# --- CVSS jumps up at the addition of var 28
+	#     ONE case produces the huge jump in the CVSS in a single fold
+	#	  that excludes the outlier
+	folds[outlier]   # outlier fold
+	cv.sse[26:29,]
+	plot(rowSums(cv.sse), type="l")
+
+	boxplot(t(sse))
+	boxplot(t(r2))
+	
+	# --- show calibration plot with the leverage point
+	lsa <- LSA[,2:28]
+	i <- (6 != folds)
+	data <- list(y=logPrice[i], xi=poly(logTokens,degree)[i,], x=lsa[i,])
+	r <- lm(y ~ xi + x, data=data );
+	i <- (6 == folds)
+	data <- list(y=logPrice[i], xi=poly(logTokens,degree)[i,], x=lsa[i,])
+	pred <- predict(r, newdata=data)
+	j <- sum((6==folds)[1:3646]); (logPrice[i]-pred)[j]
+	col <- rep("black",sum(i)); col[j]<-"red"
+	plot(logPrice[i]-pred,pch=19, col=col)
+	plot(pred, logPrice[i], pch=19, col=col, xlab="Predicted Log Price", ylab="Log Price") # calibration
+
+# --- find the inversion (CVSS up, AICc down when add row 29 -- which is LSA 28)
 
 	# change is very significant, added variable (L28) highly significant (omit L0 since collinear)
-	sr.27 <- lm(logPrice ~ poly(logTokens,5) + LSA[,2:27]); summary(sr.27)$r.squared
 	sr.28 <- lm(logPrice ~ poly(logTokens,5) + LSA[,2:28]); summary(sr.28)$r.squared
 	sr.29 <- lm(logPrice ~ poly(logTokens,5) + LSA[,2:29]); summary(sr.29)$r.squared
 	anova(sr.28,sr.29)
@@ -716,10 +772,8 @@ plot (cv.results.1.10[,"AICc"], log="y", type="l",   xlim=xlim, ylim=ylim,
 		x <- x[-ii]; y <- y[-ii]
 		abline(r <- lm(y~x), col="red");
 	}
-	# 	not so bad at step 28, but very bad at 29
-	par(mfrow=c(2,2)	);	mapply(pr.plot,  28:31);		reset()
-	par(mfrow=c(2,2));	mapply(pr.plot, 101:104);		reset()
-	par(mfrow=c(2,2));	mapply(pr.plot, 135:138);		reset()
+	# 	observation 3646 is highly leveraged (esp for var 27)
+	par(mfrow=c(2,2)	);	mapply(pr.plot,  26 + 0:3);		reset()
 	
 	
 # --- row variances of LSA columns
