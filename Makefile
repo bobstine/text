@@ -355,6 +355,12 @@ nWineProj = 1000
 vWineFile = $(winePath)RatingsAndNotes.tokens
 outWinePath = $(temppath)wine/
 
+$(winePath)rating.txt: $(winePath)RatingsAndNotes.txt
+	grep -v -e 'NR' $< | cut -f1 -d' ' > $@
+
+$(winePath)description.txt: $(winePath)RatingsAndNotes.txt
+	grep -v -e 'NR' $< | cut -c3-      > $@
+
 
 $(outWinePath).directory_built: 
 	mkdir $(outWinePath)
@@ -368,8 +374,12 @@ $(outWinePath)L$(nWineProj).txt: lsa_regr $(vWineFile)
 	./lsa_regr --hasY --file=$(vWineFile) --output_path=$(outWinePath) -s $(wineSeed) --n_projections $(nWineProj) --power_iter 1 --adjustment 'n'
 	date >> $@
 
-dowine:  $(outWinePath)L$(nWineProj).txt
+#LSA
+# dowine:  $(outWinePath)L$(nWineProj).txt
 
+# data files
+dowine:  $(winePath)description.txt $(winePath)rating.txt
+	echo Done 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  google eigenwords
