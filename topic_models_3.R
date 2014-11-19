@@ -16,41 +16,44 @@
 #
 ##################################################################################
 
-source("/Users/bob/C/text/functions.R")
+source("~/C/text/functions.R")
+
 
 ##################################################################################
 #
 #   Supervised topic model generative process (Blei and McAullife)
 #
+#		P holds topic distributions over words (rows)
+#
 ##################################################################################
-
-
-par(mfrow=c(1,2))				# [P.pdf] 
-	a <- 0.01;
-	p1 <- rdirichlet(rep(a,n.vocab)); 	p2 <- rdirichlet(rep(a,n.vocab))
-	plot(p1,p2, xlab=expression("P"[1]),ylab=expression("P"[2]), 
-				main=expression(paste(alpha,"=0.01")))
-	a <- 0.10;
-	p1 <- rdirichlet(rep(a,n.vocab)); 	p2 <- rdirichlet(rep(a,n.vocab))
-	plot(p1,p2, xlab=expression("P"[1]),ylab=expression("P"[2]), 
-				main=expression(paste(alpha,"=0.10")))
-reset()
 	
 	n.vocab <- 1500
 	K <- 30								# number of topics
 	P <-matrix(0,nrow=K,ncol=n.vocab)	# dist over words for each topic
 	
-	alpha.P <- 0.10
-	for(i in 1:K) P[i,] <- rdirichlet(rep(alpha.P,n.vocab))	
+	alpha.P <- 0.01   					# smaller alpha implies more diffuse, vary over topics
+	for(i in 1:K) P[i,] <- rdirichlet(rep(alpha.P,n.vocab))	# small alpha implies highly skewed
 	
 	plot(sqrt(P[1,]),sqrt(P[2,]))     	# disjoint if alpha = 0.01, more common if .1
-	plot(P[3,])
-	
+	plot(P[3,])							# weights on specific words
+
+										# plot of example topic distributions
+	par(mfrow=c(1,2))					# [P.pdf] 
+		a <- 0.01;
+		p1 <- rdirichlet(rep(a,n.vocab)); 	p2 <- rdirichlet(rep(a,n.vocab))
+		plot(p1,p2, xlab=expression("P"[1]),ylab=expression("P"[2]), 
+				main=expression(paste(alpha,"=0.01")))
+		a <- 0.10;
+		p1 <- rdirichlet(rep(a,n.vocab)); 	p2 <- rdirichlet(rep(a,n.vocab))
+		plot(p1,p2, xlab=expression("P"[1]),ylab=expression("P"[2]), 
+				main=expression(paste(alpha,"=0.10")))
+	reset()
+
 	alpha <- rep(0.4,K)					# mix of topics within documents
 	n <- 5000							# documents
 	avg.len <- 50						# avg document length
 	theta <- matrix(0,nrow=n,ncol=K)	# expected topic mix
-	Z	  <- matrix(0,nrow=n,ncol=K)	# observed topic mix
+	Z	  <- matrix(0,nrow=n,ncol=K)	# number of words from each topic
 	doc.len <- rep(0,n)
 	for(i in 1:n) {						
 		doc.len[i] <- rpois(1,avg.len)
@@ -58,20 +61,34 @@ reset()
 		Z[i,] <- as.vector(rmultinom(1,doc.len[i],theta[i,]))
 	}
 	
-	W <- matrix(0,nrow=n, ncol=n.vocab)	# generate y and W
+	W <- matrix(0,nrow=n, ncol=n.vocab)	# generate y and W, and 
+	W.ev <- W;							#  expected value of W
 	eta <- rnorm(K, mean=2, sd=1) 		# topic regr coefs, need some neg
 	mu.y <- rep(0,n)
-	for(i in 1:n) {						
+	for(i in 1:n) {	
+		W.ev[i,] <- doc.len[i] * theta[i,] %*% P # prob distribution over words for each doc		
 		for(k in 1:K) W[i,]<-W[i,]+rmultinom(1,Z[i,k],P[k,])
-		mu.y[i] <- sum(eta * Z[i,])
+		mu.y[i] <- sum(eta * Z[i,])		# words within a topic are exchangeable
 	}
 	
-	target.r2 <- 0.6
-	Y <- mu.y + rnorm(n, sd=sqrt((1-target.r2) * var(mu.y) / target.r2))
-	summary(regr.z <-	lm(Y ~ Z) )
+	# --- sort based on counts in rows and columns; remove zero counts
+	o <- order(rowSums(W), decreasing=TRUE)
+	W <- W[o,]; W.ev <- W.ev[o,]
+	ni <- rowSums(W)
+	o <- order(colSums(W), decreasing=TRUE)
+	W <- W[,o]; W.ev <- W.ev[,o]
+	fj <- colSums(W)
+	W <- W[,fj>0]; W.ev <- W.ev[,fj>0]; fj <- fj[fj>0]; 
+	dim(W)
+	
+	# --- check that W counts are centered on their means for doc with lots
+	plot(rowSums(W.ev), rowSums(W))		# perfect corr since use Poisson numbers
+	
+	i <- 1; plot(W.ev[i,], W[i,], xlab="Expected Word Counts", ylab="Observed")
+	points( W.ev[i,], fitted.values(lm(W[i,] ~ poly(W.ev[i,],8)) ), col="gray")
 	
 	
-# --- Zipf?
+# --- Zipf?  Right initial shape, but not nearly so steep as needed (power ≈ -0.3)
 
 	freq <- apply(W,2,sum)
 	sort.freq <- sort(freq[freq>0],decreasing=TRUE) 
@@ -85,9 +102,85 @@ reset()
 	
 ##################################################################################
 #
-#   Fit regression models
+#   Analyze term/document counts from topic model
 #
 ##################################################################################
+
+	# --- LSA analysis, raw counts
+	udv <- svd(W)
+	U <- udv$u
+	V <- udv$v
+	
+	# --- LSA analysis, expected counts
+	#		singular values from ev much more distinctive
+	udv.ev <- svd(W.ev)
+	U.ev <- udv.ev$u
+	V.ev <- udv.ev$v
+	
+	par(mfrow=c(2,1))
+		plot(udv   $d[1:100], log="xy", ylab="Singular Values")
+		plot(udv.ev$d[1:100], log="xy", ylab="Singular Values")
+	reset()
+	
+	# --- LSA analysis, CCA scaled
+	W.cca   <- (1/sqrt(ni)) * W
+	W.cca   <- t( (1/sqrt(fj)) * t(W.cca))
+	udv.cca <- svd(W.cca)
+	plot(udv.cca$d[1:100], log="xy")
+	U.cca <- udv.cca$u	
+	V.cca <- udv.cca$v
+	
+	# --- Square root of counts (stabilize Poisson)
+	udv.sr <- svd(sqrt(W))
+	plot(udv.sr$d[1:100], log="xy")
+	U.sr <- udv.sr$u
+	V.sr <- udv.sr$v
+	
+	par(mfrow=c(2,1))				# [spectra.pdf]
+		plot(udv$d[1:100], log="xy", xlab="Component", ylab="Singular Value",
+			main="Raw Frequencies")
+		plot(udv.cca$d[1:100], log="xy", xlab="Component", ylab="Singular Value",
+			main="CCA Normalization")
+	reset()
+
+# --- leading singular vectors determined by word frequency
+	plot(fj, udv    $v[,1])
+	plot(ni, udv    $u[,1])
+	plot(fj, udv.cca$v[,1])
+	plot(ni, udv.cca$u[,1])
+	plot(fj, udv.sr $v[,1])
+	plot(ni, udv.sr $u[,1])
+	
+# --- structure of remaining singular vectors, their loadings
+#     highlight those with large magnitude overall
+	j <- 2; k <- j+1;  
+	plot(V[,j],V[,k], xlab=paste0("V_raw(",j,")"), ylab=paste("V_raw(",k,")"))
+	
+	j <- 2; k <- j+1;  
+	plot(V.cca[,j],V.cca[,k], xlab=paste0("V_cca(",j,")"), ylab=paste("V_cca(",k,")"))
+
+	j <- 2; k <- j+1;  
+	plot(V.sr[,j],V.sr[,k], xlab=paste0("V_sr(",j,")"), ylab=paste("V_sr(",k,")"))
+	
+##################################################################################
+#
+#   Regression models
+#
+##################################################################################
+
+	
+# --- check that W regression is in the right ballpark
+	target.r2 <- 0.6
+	Y <- mu.y + rnorm(n, sd=sqrt((1-target.r2) * var(mu.y) / target.r2))
+	summary(regr.z <-	lm(Y ~ Z) )
+	
+# --- word regressions
+	# saturated model to get max possible R2 with words + len
+	sr <- summary(regr.W <- lm(Y ~ W[,1:200]));  sr
+	coef.summary.plot(sr, "Word Frequencies", omit=2)
+
+	predictive.r2(rz)
+	predictive.r2(regr.W)
 
 # --- fit using expected(theta) and actual(z) topic proportions
 	hist(Y)
@@ -102,51 +195,6 @@ reset()
 	summary(rt <- lm(Y ~ theta) )
 	summary(rz <- lm(Y ~ Z) );
 
-# --- ordered words, drop those absent
-	freq <- apply(W,2,sum)
-	o <- order(freq,decreasing=TRUE); cat("Most common words: ", o[1:20], "\n");
-	o <- o[freq[o]>0]
-	W.ordered <- W[,o]
-	dim(W.ordered)
-	
-# --- word regressions
-	# saturated model to get max possible R2 with words + len
-	sr <- summary(regr.W <- lm(Y ~ W.ordered[,1:200]));  sr
-	coef.summary.plot(sr, "Word Frequencies", omit=2)
-
-	predictive.r2(rz)
-	predictive.r2(regr.W)
-
-# --- SVD 				  **** Be sure to generate W.ordered first  ****
-
-	# --- LSA analysis, raw counts
-	udv <- svd(W.ordered)
-	plot(udv$d[1:100], log="xy")
-	U <- udv$u	
-	
-	# --- LSA analysis, CCA scaled
-	W.cca <- (1/sqrt(doc.len)) * W.ordered
-	w.freq <- apply(W.ordered,2,sum)
-	W.cca <- t( (1/sqrt(w.freq)) * t(W.cca))
-	udv.cca <- svd(W.cca)
-	plot(udv.cca$d[1:100], log="xy")
-	U.cca <- udv.cca$u	
-	
-par(mfrow=c(1,2))				# [spectra.pdf]
-	plot(udv$d[1:100], log="xy", xlab="Component", ylab="Singular Value",
-		main="Raw Frequencies")
-	plot(udv.cca$d[1:100], log="xy", xlab="Component", ylab="Singular Value",
-		main="CCA Normalization")
-reset()
-
-# --- leading singular value determined by word frequency
-f  <- freq[o]; f <- f[f>0]
-ni <- rowSums(W);
-
-plot(f, udv$v[,1])
-plot(f, udv.cca$v[,1])
-plot(ni, udv$u[,1])
-		
 # --- SVD regressions
 	sr <- summary(regr.u <- lm(Y ~ U[,1:100]));  sr
 	coef.summary.plot(sr, "Singular Vectors U", omit=2)

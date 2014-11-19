@@ -1,5 +1,5 @@
 ##################################################################################
-# 
+#
 # Function definitions
 #
 ##################################################################################
@@ -12,13 +12,13 @@ library(leaps)
 predictive.r2 <- function(regr) {  # returns all three
 	n <- length(regr$residuals)
 	aov <- anova(regr)
-	ss <- aov$"Sum Sq"; 
+	ss <- aov$"Sum Sq";
 	rss <- ss[length(ss)]; regr.ss <- sum(ss[-length(ss)]); tss <- regr.ss + rss
 	k <- n - regr$df.residual  # k includes constant
 	c(1-rss/tss,  1 - (rss/(n - k))/(tss/(n-1)), 1 - (rss/(n - 2*k))/(tss/(n-1)))
 	}
-	
-	
+
+
 rdirichlet <- function(a) {
     y <- rgamma(length(a), a, 1)
     return(y / sum(y))
@@ -32,10 +32,10 @@ reset <- function() {
 coef.summary.plot <- function(sr, xlab, show.qq=TRUE, ylim=NULL, omit=1) { # omit intercept
 	if(show.qq) par(mfrow=c(1,2))
 		y <- abs(sr$coefficients[-(1:omit),3])
-		x <- 1:length(y)     
+		x <- 1:length(y)
 		threshold <- -qnorm(.025/length(y))
 		cat("Bonferroni at ",threshold,"\n");
-		plot(x,y, xlab=xlab, ylim=ylim, ylab="|t|", main="", col="darkgray", cex=0.5)
+		plot(x,y, xlab=xlab, ylim=ylim, ylab="Absolute t-statistic", main="", col="darkgray", cex=0.5)
 		abline(h=threshold, col="black", lty=4)
 		abline(h=sqrt(2/pi), col="black")
 		lines(lowess(x,y,f=0.3), col="red")
@@ -45,18 +45,18 @@ coef.summary.plot <- function(sr, xlab, show.qq=TRUE, ylim=NULL, omit=1) { # omi
 
 
 half.normal.plot <- function(y, height=2) {
-	k <- length(y)          
+	k <- length(y)
 	plot(x <- qnorm(.5+(0:(k-1))/(2*k)), y <- sort(y), cex=0.5, col="darkgray",
-		xlab="Normal Quantile", ylab="Sorted |t|"); 
+		xlab="Normal Quantile", ylab="Sorted |t|");
 	k <- floor(0.25*k)
-	cat("Using lower 20% of cases (",k,")\n"); 
+	cat("Using lower 20% of cases (",k,")\n");
 	regr <- lm(y[1:k] ~ x[1:k])
 	abline(0,1, col="black", lty=2)
 	abline(regr,col="red")
 	text(0.25,height,paste("b =",round(coefficients(regr)[2],1)), cex=0.7)
 	cat("t-stat and p-value are ", coefficients(summary(regr))[2,],"\n")
 	}
-	
+
 jitter <- function(x) { x + 0.05 * sd(x) * rnorm(length(x)) }
 
 correctly.ordered <- function(y, y.hat, n) { # percentage of random pairs correctly ordered.
@@ -69,7 +69,7 @@ correctly.ordered <- function(y, y.hat, n) { # percentage of random pairs correc
 	abline(h=0, col="gray"); abline(v=0, col="gray")
 	sum((dy*df)>0)
 	}
-	
+
 
 ################################################################
 #
@@ -78,7 +78,7 @@ correctly.ordered <- function(y, y.hat, n) { # percentage of random pairs correc
 ################################################################
 
 
-cross.validate.mse <- function(data, n.folds=10,seed=23479,n.reps=1) { 	
+cross.validate.mse <- function(data, n.folds=10,seed=23479,n.reps=1) {
 	n <- length(data$y);
 	i <- rep(1:n.folds,ceiling(n/n.folds))
 	if (length(i) != n) cat("Note: n is not multiple of # folds.\n");
@@ -97,7 +97,7 @@ cross.validate.mse <- function(data, n.folds=10,seed=23479,n.reps=1) {
 		}}
 	mse
 	}
-	
+
 show.cv <- function(regr, mse=NULL, reps=1, seed=2382) {
 	if(is.null(mse)) { mse <- cross.validate.mse(regr, n.reps=reps, seed=seed)}
 	hist(sqrt(mse), main=paste("Cross Validation", deparse(formula(regr))))

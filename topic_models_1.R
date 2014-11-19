@@ -1,5 +1,5 @@
 
-source("/Users/bob/C/text/functions.R")
+source("~/C/text/functions.R")
 
 
 ##################################################################################
