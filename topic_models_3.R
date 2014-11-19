@@ -24,6 +24,7 @@ source("~/C/text/functions.R")
 #   Supervised topic model generative process (Blei and McAullife)
 #
 #		P holds topic distributions over words (rows)
+#		Sort P and Z (observed counts) to have largest first
 #
 ##################################################################################
 	
@@ -33,6 +34,7 @@ source("~/C/text/functions.R")
 	
 	alpha.P <- 0.01   					# smaller alpha implies more diffuse, vary over topics
 	for(i in 1:K) P[i,] <- rdirichlet(rep(alpha.P,n.vocab))	# small alpha implies highly skewed
+	P <- P[,order(colSums(P), decreasing=TRUE)]				# sort so big prob are first
 	
 	plot(sqrt(P[1,]),sqrt(P[2,]))     	# disjoint if alpha = 0.01, more common if .1
 	plot(P[3,])							# weights on specific words
@@ -60,6 +62,7 @@ source("~/C/text/functions.R")
 		theta[i,] <- rdirichlet(alpha)		
 		Z[i,] <- as.vector(rmultinom(1,doc.len[i],theta[i,]))
 	}
+	Z <- Z[order(rowSums(Z), decreasing=TRUE),]
 	
 	W <- matrix(0,nrow=n, ncol=n.vocab)	# generate y and W, and 
 	W.ev <- W;							#  expected value of W
@@ -71,15 +74,6 @@ source("~/C/text/functions.R")
 		mu.y[i] <- sum(eta * Z[i,])		# words within a topic are exchangeable
 	}
 	
-	# --- sort based on counts in rows and columns; remove zero counts
-	o <- order(rowSums(W), decreasing=TRUE)
-	W <- W[o,]; W.ev <- W.ev[o,]
-	ni <- rowSums(W)
-	o <- order(colSums(W), decreasing=TRUE)
-	W <- W[,o]; W.ev <- W.ev[,o]
-	fj <- colSums(W)
-	W <- W[,fj>0]; W.ev <- W.ev[,fj>0]; fj <- fj[fj>0]; 
-	dim(W)
 	
 	# --- check that W counts are centered on their means for doc with lots
 	plot(rowSums(W.ev), rowSums(W))		# perfect corr since use Poisson numbers
@@ -124,7 +118,7 @@ source("~/C/text/functions.R")
 	
 	# --- LSA analysis, CCA scaled
 	W.cca   <- (1/sqrt(ni)) * W
-	W.cca   <- t( (1/sqrt(fj)) * t(W.cca))
+	W.cca   <- t( (1/sqrt(fj)) * t(W.cca) )
 	udv.cca <- svd(W.cca)
 	plot(udv.cca$d[1:100], log="xy")
 	U.cca <- udv.cca$u	
@@ -144,24 +138,46 @@ source("~/C/text/functions.R")
 	reset()
 
 # --- leading singular vectors determined by word frequency
-	plot(fj, udv    $v[,1])
-	plot(ni, udv    $u[,1])
-	plot(fj, udv.cca$v[,1])
-	plot(ni, udv.cca$u[,1])
-	plot(fj, udv.sr $v[,1])
-	plot(ni, udv.sr $u[,1])
+	par(mfrow=c(1,2))
+		plot(fj, udv.ev $v[,1])
+		plot(ni, udv.ev $u[,1])
+	reset()
+	par(mfrow=c(1,2))
+		plot(fj, udv    $v[,1])
+		plot(ni, udv    $u[,1])
+	reset()
+	par(mfrow=c(1,2))
+		plot(fj, udv.cca$v[,1])
+		plot(ni, udv.cca$u[,1])
+	reset()
+	par(mfrow=c(1,2))
+		plot(fj, udv.sr $v[,1])
+		plot(ni, udv.sr $u[,1])
+	reset()
+
+# --- structure of singular vectors, loadings highlight those with large magnitude overall
+#		cca components have less 'pointy' loadings
+	j <- 4; k <- j+1;  
 	
-# --- structure of remaining singular vectors, their loadings
-#     highlight those with large magnitude overall
-	j <- 2; k <- j+1;  
+	plot(V.ev[,j],V.ev[,k], xlab=paste0("V_ev(",j,")"), ylab=paste("V_ev(",k,")"))
+	
 	plot(V[,j],V[,k], xlab=paste0("V_raw(",j,")"), ylab=paste("V_raw(",k,")"))
 	
-	j <- 2; k <- j+1;  
+	plot(V.sr[,j],V.sr[,k], xlab=paste0("V_sr(",j,")"), ylab=paste("V_sr(",k,")"))
+
 	plot(V.cca[,j],V.cca[,k], xlab=paste0("V_cca(",j,")"), ylab=paste("V_cca(",k,")"))
 
-	j <- 2; k <- j+1;  
-	plot(V.sr[,j],V.sr[,k], xlab=paste0("V_sr(",j,")"), ylab=paste("V_sr(",k,")"))
-	
+
+# --- relationship between loading spaces
+#		expected values
+	cc   <- cancor(V    [,1:50], V.ev[,1:50]); plot(cc$cor)
+	cc.1 <- cancor(V.cca[,1:50], V.ev[,1:50]); points(cc.1$cor, col="red", cex=.5)
+	cc.2 <- cancor(V.sr [,1:50], V.ev[,1:50]); points(cc.2$cor, col="blue", cex=.5)
+#		topic distributions
+	cc   <- cancor(V    [,1:50], P[,1:50]); plot(cc$cor)
+	cc.1 <- cancor(V.cca[,1:50], V.ev[,1:50]); points(cc.1$cor, col="red", cex=.5)
+	cc.2 <- cancor(V.sr [,1:50], V.ev[,1:50]); points(cc.2$cor, col="blue", cex=.5)
+
 ##################################################################################
 #
 #   Regression models
