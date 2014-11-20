@@ -28,41 +28,42 @@ source("~/C/text/functions.R")
 #
 ##################################################################################
 	
-	n.vocab <- 1500
+	n.outlier.words <- 10				# words that only appear in outlier
+	n.vocab <- 1000 					# insert outlier words later
 	K <- 30								# number of topics
-	P <-matrix(0,nrow=K,ncol=n.vocab)	# dist over words for each topic
+	P <-matrix(0,nrow=K,ncol=n.vocab-n.outlier.words)	# dist over words for each topic; pad with 0
 	
-	alpha.P <- 0.01   					# smaller alpha implies more diffuse, vary over topics
-	for(i in 1:K) P[i,] <- rdirichlet(rep(alpha.P,n.vocab))	# small alpha implies highly skewed
-	P <- P[,order(colSums(P), decreasing=TRUE)]				# sort so big prob are first
+# --- generate topic distributions
+	alpha.P <- 0.03   					# smaller alpha implies high skew, less overlap
+	for(i in 1:K) P[i,] <- rdirichlet(rep(alpha.P,n.vocab-n.outlier.words))	
+	P <- P[,order(colSums(P), decreasing=TRUE)]				# sort so big total prob are first
+	P <- cbind(P, matrix(0,nrow(P), n.outlier.words))
 	
 	plot(sqrt(P[1,]),sqrt(P[2,]))     	# disjoint if alpha = 0.01, more common if .1
 	plot(P[3,])							# weights on specific words
 
-										# plot of example topic distributions
-	par(mfrow=c(1,2))					# [P.pdf] 
-		a <- 0.01;
+	par(mfrow=c(1,2))					# plot of example topic distributions [P.pdf] 
+		a <- 0.02; 
 		p1 <- rdirichlet(rep(a,n.vocab)); 	p2 <- rdirichlet(rep(a,n.vocab))
 		plot(p1,p2, xlab=expression("P"[1]),ylab=expression("P"[2]), 
-				main=expression(paste(alpha,"=0.01")))
+				main=expression(paste(alpha,"=0.02")))
 		a <- 0.10;
 		p1 <- rdirichlet(rep(a,n.vocab)); 	p2 <- rdirichlet(rep(a,n.vocab))
 		plot(p1,p2, xlab=expression("P"[1]),ylab=expression("P"[2]), 
 				main=expression(paste(alpha,"=0.10")))
 	reset()
 
+# --- generate samples from mixture of topics
 	alpha <- rep(0.4,K)					# mix of topics within documents
 	n <- 5000							# documents
 	avg.len <- 50						# avg document length
 	theta <- matrix(0,nrow=n,ncol=K)	# expected topic mix
 	Z	  <- matrix(0,nrow=n,ncol=K)	# number of words from each topic
-	doc.len <- rep(0,n)
+	doc.len <- sort(rpois(n,avg.len), decreasing=TRUE) 
 	for(i in 1:n) {						
-		doc.len[i] <- rpois(1,avg.len)
 		theta[i,] <- rdirichlet(alpha)		
 		Z[i,] <- as.vector(rmultinom(1,doc.len[i],theta[i,]))
 	}
-	Z <- Z[order(rowSums(Z), decreasing=TRUE),]
 	
 	W <- matrix(0,nrow=n, ncol=n.vocab)	# generate y and W, and 
 	W.ev <- W;							#  expected value of W
@@ -70,17 +71,22 @@ source("~/C/text/functions.R")
 	mu.y <- rep(0,n)
 	for(i in 1:n) {	
 		W.ev[i,] <- doc.len[i] * theta[i,] %*% P # prob distribution over words for each doc		
-		for(k in 1:K) W[i,]<-W[i,]+rmultinom(1,Z[i,k],P[k,])
+		for(k in 1:K) if(Z[i,k]>0) W[i,]<-W[i,]+rmultinom(1,Z[i,k],P[k,])
 		mu.y[i] <- sum(eta * Z[i,])		# words within a topic are exchangeable
 	}
-	
 	
 	# --- check that W counts are centered on their means for doc with lots
 	plot(rowSums(W.ev), rowSums(W))		# perfect corr since use Poisson numbers
 	
-	i <- 1; plot(W.ev[i,], W[i,], xlab="Expected Word Counts", ylab="Observed")
-	points( W.ev[i,], fitted.values(lm(W[i,] ~ poly(W.ev[i,],8)) ), col="gray")
-	
+	# --- within document regr of counts on ev
+	#		p-values are not correct since counts are not independent?
+	i <- 2; 
+	summary(r1 <- glm(W[i,] ~      W.ev[i,]   , family="poisson"))
+	summary(rp <- glm(W[i,] ~ poly(W.ev[i,],5), family="poisson"))
+	plot(W.ev[i,], W[i,], xlab="Expected Word Counts", ylab="Observed")
+	points( W.ev[i,], fitted.values(r1), col="red")
+	points( W.ev[i,], fitted.values(rp), col="gray")
+		
 	
 # --- Zipf?  Right initial shape, but not nearly so steep as needed (power ≈ -0.3)
 
@@ -100,6 +106,10 @@ source("~/C/text/functions.R")
 #
 ##################################################################################
 
+	# --- marginals  Leave zeros for outlier insertion
+	fj <- colSums(W)
+	ni <- doc.len  # = rowSums(W)
+	
 	# --- LSA analysis, raw counts
 	udv <- svd(W)
 	U <- udv$u
@@ -113,12 +123,13 @@ source("~/C/text/functions.R")
 	
 	par(mfrow=c(2,1))
 		plot(udv   $d[1:100], log="xy", ylab="Singular Values")
-		plot(udv.ev$d[1:100], log="xy", ylab="Singular Values")
+		plot(udv.ev$d[1:100], log="xy", ylab="Singular Values, EV")
 	reset()
 	
 	# --- LSA analysis, CCA scaled
-	W.cca   <- (1/sqrt(ni)) * W
-	W.cca   <- t( (1/sqrt(fj)) * t(W.cca) )
+	recip.sqrt <- function(n) { if(n>0) return(1/sqrt(n)) else return(1)}
+	W.cca   <- sapply(ni,recip.sqrt) * W
+	W.cca   <- t( sapply(fj,recip.sqrt) * t(W.cca) )
 	udv.cca <- svd(W.cca)
 	plot(udv.cca$d[1:100], log="xy")
 	U.cca <- udv.cca$u	
@@ -159,11 +170,11 @@ source("~/C/text/functions.R")
 #		cca components have less 'pointy' loadings
 	j <- 4; k <- j+1;  
 	
-	plot(V.ev[,j],V.ev[,k], xlab=paste0("V_ev(",j,")"), ylab=paste("V_ev(",k,")"))
+	plot(V.ev[,j],V.ev[,k],   xlab=paste0("V_ev(",j,")"), ylab=paste("V_ev(",k,")"))
 	
-	plot(V[,j],V[,k], xlab=paste0("V_raw(",j,")"), ylab=paste("V_raw(",k,")"))
+	plot(V[,j],V[,k],         xlab=paste0("V_raw(",j,")"), ylab=paste("V_raw(",k,")"))
 	
-	plot(V.sr[,j],V.sr[,k], xlab=paste0("V_sr(",j,")"), ylab=paste("V_sr(",k,")"))
+	plot(V.sr[,j],V.sr[,k],   xlab=paste0("V_sr(",j,")"), ylab=paste("V_sr(",k,")"))
 
 	plot(V.cca[,j],V.cca[,k], xlab=paste0("V_cca(",j,")"), ylab=paste("V_cca(",k,")"))
 
@@ -178,12 +189,13 @@ source("~/C/text/functions.R")
 	cc.1 <- cancor(V.cca[,1:50], V.ev[,1:50]); points(cc.1$cor, col="red", cex=.5)
 	cc.2 <- cancor(V.sr [,1:50], V.ev[,1:50]); points(cc.2$cor, col="blue", cex=.5)
 
+
+
 ##################################################################################
 #
 #   Regression models
 #
 ##################################################################################
-
 	
 # --- check that W regression is in the right ballpark
 	target.r2 <- 0.6
@@ -222,6 +234,48 @@ source("~/C/text/functions.R")
 	               predictive.r2(regr.u), predictive.r2(regr.W))
 	r2
 	round(r2[,3],3)
+
+
+##################################################################################
+#
+#   Outlier effects on components
+#
+#						prob want a smaller vocab to run faster
+#
+##################################################################################
+	
+# --- put outlier in last row by sampling a 'new' topic with weights on last words
+
+	P.out <- c(0.8*rdirichlet(rep(alpha.P,ncol(W)-n.outlier.words)), 	
+			   0.2*rdirichlet(rep(2*alpha.P,n.outlier.words)))
+	ni[n] <- avg.len
+	W[n,] <- as.vector(rmultinom(1,ni[n],P.out))
+	fj    <- colSums(W)
+
+	# --- LSA analysis, CCA scaled with outlier shows another topic before gap
+	W.cca.out   <- 1/sqrt(ni) * W
+	W.cca.out   <- t( sapply(fj,recip.sqrt) * t(W.cca.out) )
+	udv.cca.out <- svd(W.cca.out)
+	plot  (udv.cca.out$d[1:100], log="xy")
+	points(udv.cca    $d[1:100], col="gray", cex=0.5)
+	U.cca.out <- udv.cca.out$u	
+	V.cca.out <- udv.cca.out$v
+
+# --- structure of singular vectors, highlight words with large P.out
+	color <- rep("black", ncol(W))
+	color[ (order(P.out,decreasing=TRUE))[1:20] ] <- "red"
+	j <- 2;  
+	plot(V.cca.out[,j],V.cca[,j], xlab=paste0("V_out(",j,")"), ylab=paste("V_cca(",j,")"), col=color)
+	
+	par(mfrow=c(1,2))
+		j <- 1; k <- j+1
+		plot(V.cca[,j],V.cca[,k], xlab=paste0("V_cca(",j,")"), ylab=paste("V_cca(",k,")"),
+			col=color)
+		sj <- sign(cor(V.cca[,j],V.cca.out[,j]))
+		sk <- sign(cor(V.cca[,k],V.cca.out[,k]))
+		plot(sj*V.cca.out[,j],sk*V.cca.out[,k], xlab=paste0("V_out(",j,")"), ylab=paste("V_out(",k,")"),
+			col=color)
+	reset()
 
 
 
