@@ -18,15 +18,19 @@ predictive.r2 <- function(regr) {  # returns all three
 	c(1-rss/tss,  1 - (rss/(n - k))/(tss/(n-1)), 1 - (rss/(n - 2*k))/(tss/(n-1)))
 	}
 
+reset <- function() {
+	# par(mfrow=c(1,1), mgp=c(3,1,0), mar=c(5,4,4,2)+0.1)      # default
+	par(mfrow=c(1,1), mgp=c(1.5,0.5,0), mar=c(3,2.5,2,1)+0.1)  # bottom left top right
+	}
+	
+dither <- function(x, sd=NULL) {
+	if (is.null(sd)) sd <- sd(x)
+	return (x + rnorm(length(x),0,sd=sd))
+}
 
 rdirichlet <- function(a) {
     y <- rgamma(length(a), a, 1)
     return(y / sum(y))
-	}
-
-reset <- function() {
-	# par(mfrow=c(1,1), mgp=c(3,1,0), mar=c(5,4,4,2)+0.1)      # default
-	par(mfrow=c(1,1), mgp=c(1.5,0.5,0), mar=c(3,2.5,2,1)+0.1)  # bottom left top right
 	}
 
 coef.summary.plot <- function(sr, xlab, show.qq=TRUE, ylim=NULL, omit=1) { # omit intercept

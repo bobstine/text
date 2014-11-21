@@ -28,7 +28,7 @@ source("~/C/text/functions.R")
 #
 ##################################################################################
 	
-	n.outlier.words <- 10				# words that only appear in outlier
+	n.outlier.words <- 20				# words that only appear in outlier
 	n.vocab <- 1000 					# insert outlier words later
 	K <- 30								# number of topics
 	P <-matrix(0,nrow=K,ncol=n.vocab-n.outlier.words)	# dist over words for each topic; pad with 0
@@ -84,9 +84,10 @@ source("~/C/text/functions.R")
 	summary(r1 <- glm(W[i,] ~      W.ev[i,]   , family="poisson"))
 	summary(rp <- glm(W[i,] ~ poly(W.ev[i,],5), family="poisson"))
 	plot(W.ev[i,], W[i,], xlab="Expected Word Counts", ylab="Observed")
+	abline(a=0,b=1,col="gray")
+	lines(lowess(W.ev[i,], W[i,],f=0.2),col="cyan")
 	points( W.ev[i,], fitted.values(r1), col="red")
-	points( W.ev[i,], fitted.values(rp), col="gray")
-		
+	points( W.ev[i,], fitted.values(rp), col="gray")	
 	
 # --- Zipf?  Right initial shape, but not nearly so steep as needed (power ≈ -0.3)
 
@@ -106,7 +107,7 @@ source("~/C/text/functions.R")
 #
 ##################################################################################
 
-	# --- marginals  Leave zeros for outlier insertion
+	# --- marginals  Leave zeros for outlier insertion/handling
 	fj <- colSums(W)
 	ni <- doc.len  # = rowSums(W)
 	
@@ -240,42 +241,137 @@ source("~/C/text/functions.R")
 #
 #   Outlier effects on components
 #
-#						prob want a smaller vocab to run faster
+#						prob want a smallish vocab to run faster
 #
 ##################################################################################
+
+# --- add a row for the outlier  (so can put other outliers without changing rest)
+	W <- rbind(rep(0,ncol(W)),W)
 	
-# --- put outlier in last row by sampling a 'new' topic with weights on last words
-
-	P.out <- c(0.8*rdirichlet(rep(alpha.P,ncol(W)-n.outlier.words)), 	
-			   0.2*rdirichlet(rep(2*alpha.P,n.outlier.words)))
-	ni[n] <- avg.len
-	W[n,] <- as.vector(rmultinom(1,ni[n],P.out))
+# --- put outlier in added row by sampling a 'new' topic (from same Dirichlet)
+	P.out <- c(1.00*rdirichlet(rep(alpha.P,ncol(W)-n.outlier.words)), 	
+			   0.00*rdirichlet(rep(2*alpha.P,n.outlier.words)))
+	W[1,] <- as.vector(rmultinom(1,avg.len,P.out))
+	ni    <- rowSums(W)
 	fj    <- colSums(W)
-
+	
+	# --- LSA analysis, raw counts
+	udv.out <- svd(W)
+	plot  (udv.out$d[1:100], log="xy", xlab="Component", ylab="Singular Value",
+			main="Raw Singular Values, Added Topic Outlier", col="blue")
+	points(udv    $d[1:100], col="black", cex=0.5)
+	U.out <- udv.out$u	
+	V.out <- udv.out$v
+	
 	# --- LSA analysis, CCA scaled with outlier shows another topic before gap
 	W.cca.out   <- 1/sqrt(ni) * W
 	W.cca.out   <- t( sapply(fj,recip.sqrt) * t(W.cca.out) )
 	udv.cca.out <- svd(W.cca.out)
-	plot  (udv.cca.out$d[1:100], log="xy")
-	points(udv.cca    $d[1:100], col="gray", cex=0.5)
+	plot  (udv.cca.out$d[1:100], log="xy", xlab="Component", ylab="Singular Value",
+			main="CCA Normalization, Added Topic", col="blue")
+	points(udv.cca    $d[1:100], col="black", cex=0.5)
 	U.cca.out <- udv.cca.out$u	
 	V.cca.out <- udv.cca.out$v
-
-# --- structure of singular vectors, highlight words with large P.out
-	color <- rep("black", ncol(W))
-	color[ (order(P.out,decreasing=TRUE))[1:20] ] <- "red"
+	
+	# --- find the topic? highlight words with largest 20 probs in P.out, then CCA for recovery
+	color <- rep("gray", ncol(W))
+	color[ (order(P.out,decreasing=TRUE))[1:20] ] <- "blue"	
+	plot(P.out, V.cca.out[,2], col=color)
+	
+	cc <- cancor(V.cca.out[,1:50], cbind(t(P),P.out))
+	# --- the component that is least well explained is the new one
+	plot(cc$cor)
+	j<-31; 
+	par(mfrow=c(2,1)); 
+		plot(cc$xcoef[,j]); abline(h=0,col="gray"); 
+		plot(cc$ycoef[,j]); abline(h=0,col="gray");
+	reset()
+	
+	# --- structure of singular vectors
 	j <- 2;  
 	plot(V.cca.out[,j],V.cca[,j], xlab=paste0("V_out(",j,")"), ylab=paste("V_cca(",j,")"), col=color)
 	
 	par(mfrow=c(1,2))
-		j <- 1; k <- j+1
+		j <- 2; k <- j+1
 		plot(V.cca[,j],V.cca[,k], xlab=paste0("V_cca(",j,")"), ylab=paste("V_cca(",k,")"),
 			col=color)
 		sj <- sign(cor(V.cca[,j],V.cca.out[,j]))
 		sk <- sign(cor(V.cca[,k],V.cca.out[,k]))
-		plot(sj*V.cca.out[,j],sk*V.cca.out[,k], xlab=paste0("V_out(",j,")"), ylab=paste("V_out(",k,")"),
-			col=color)
+		plot(sj*V.cca.out[,j],sk*V.cca.out[,k], xlab=paste0("V_out(",j,")"), 
+												ylab=paste("V_out(",k,")"),col=color)
 	reset()
+	
+
+	
+# --- now slip in the new words as well and look at spectrum
+	P.out.new <- c(0.90*P.out[1:((ncol(W)-n.outlier.words))],	
+			       0.10*rdirichlet(rep(2*alpha.P,n.outlier.words)))
+	plot(P.out,P.out.new)
+	W[n,] <- w.out.new <- as.vector(rmultinom(1,ni[n],P.out.new))
+	fj    <- colSums(W)
+	plot(W[n,])
+
+	# --- LSA analysis, CCA scaled with outlier shows another topic before gap
+	W.cca.out.new <- 1/sqrt(ni) * W
+	W.cca.out.new <- t( sapply(fj,recip.sqrt) * t(W.cca.out.new) )
+	udv.cca.out.new <- svd(W.cca.out.new)
+	plot  (udv.cca.out.new$d[1:100], log="xy", xlab="Component", ylab="Singular Value",
+			main="CCA Normalization, Added Topic with New Words", col="red")
+	points(udv.cca.out    $d[1:100], col="blue", cex=0.5)
+	points(udv.cca        $d[1:100], col="black", cex=0.5)
+	U.cca.out.new <- udv.cca.out.new$u	
+	V.cca.out.new <- udv.cca.out.new$v
+
+
+# --- find the topic? highlight words with largest 20 P.out
+	color <- rep("gray", ncol(W))
+	color[ (order(P.out.new,decreasing=TRUE))[1:20] ] <- "red"	
+	plot(P.out.new, V.cca.out.new[,2], col=color); abline(a=0,b=1,col="gray")
+
+	# --- structure of singular vectors, highlight words with large P.out
+	color <- rep("black", ncol(W))
+	color[ (order(P.out.new,decreasing=TRUE))[1:20] ] <- "red"
+	j <- 2;  
+	plot(V.cca.out.new[,j],V.cca[,j], xlab=paste0("V_out+new(",j,")"), 
+											ylab=paste("V_cca(",j,")"), col=color)
+	
+	par(mfrow=c(1,2))
+		j <- 2; k <- j+1
+		plot(V.cca[,j],V.cca[,k], xlab=paste0("V_cca(",j,")"), ylab=paste("V_cca(",k,")"),
+			col=color)
+		sj <- sign(cor(V.cca[,j],V.cca.out.new[,j]))
+		sk <- sign(cor(V.cca[,k],V.cca.out.new[,k]))
+		plot(sj*V.cca.out[,j],sk*V.cca.out[,k], xlab=paste0("V_out+new(",j,")"), 
+										ylab=paste("V_out+new(",k,")"), col=color)
+	reset()
+
+
+##################################################################################
+#
+#	Fast LSA using random projection
+#
+##################################################################################
+
+sn <- 2000
+sp <-  300
+k  <-   30
+
+# --- structure
+U  <- matrix( rnorm(sn*k), nrow=sn, ncol=k  )
+D  <- 1+rchisq(k, df=2)
+Vt <- matrix( rnorm(k*sp), nrow=k, ncol=sp )
+
+X <- (U %*% (D * Vt)) + matrix( rnorm(sn*sp), nrow=sn, ncol=sp )
+
+udv <- svd(X); u <- udv$u; plot(udv$d,log="xy")
+
+fast.svd <- function(X, k) {
+	u <- X %*% matrix(rnorm(ncol(X)*(k+5)),nrow=ncol(X),ncol=k+5)
+	return (u[,1:k])
+}
+
+u.fast <- fast.svd(X,20)
+plot(u[,1],u.fast[,1])
 
 
 
