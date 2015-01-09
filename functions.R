@@ -22,7 +22,7 @@ reset <- function() {
 	# par(mfrow=c(1,1), mgp=c(3,1,0), mar=c(5,4,4,2)+0.1)      # default
 	par(mfrow=c(1,1), mgp=c(1.5,0.5,0), mar=c(3,2.5,2,1)+0.1)  # bottom left top right
 	}
-	
+
 dither <- function(x, sd=NULL) {
 	if (is.null(sd)) sd <- sd(x)
 	return (x + rnorm(length(x),0,sd=sd))
@@ -47,6 +47,19 @@ coef.summary.plot <- function(sr, xlab, show.qq=TRUE, ylim=NULL, omit=1) { # omi
 	if (show.qq) reset()
 	}
 
+calibration.plot <- function(fit, y, xlab="Fit") {
+    plot(y ~ fit, xlab=xlab)
+    abline(a=0,b=1,col="gray")
+    low <- fitted(loess(y ~ fit, span=0.2, na.action=na.exclude))
+    o <- order(fit)
+    lines(fit[o],low[o])
+    miss <- which(is.na(fit))
+    if(length(miss)>0) { y <- y[-miss]; fit <- fit[-miss] }
+    poly <- fitted(pregr <- lm(y ~ poly(fit,5), na.action=na.exclude))
+    if(0 < length(miss)) o <- order(fit)
+    lines(fit[o],poly[o], col="blue")
+    legend(0.02,0.80, legend=c("Loess","Poly(5)"),fill=c("black","blue"))
+}
 
 half.normal.plot <- function(y, height=2) {
 	k <- length(y)

@@ -28,25 +28,25 @@ source("~/C/text/functions.R")
 #
 ##################################################################################
 	
-	n.outlier.words <- 20				# words that only appear in outlier
-	n.vocab <- 1000 					# insert outlier words later
+	n.outlier.words <- 20				# reserved for words only in outlier listing (optional)
+	n.vocab <- 1000 					# total vocab
 	K <- 30								# number of topics
 	P <-matrix(0,nrow=K,ncol=n.vocab-n.outlier.words)	# dist over words for each topic; pad with 0
 	
 # --- generate topic distributions
-	alpha.P <- 0.03   					# smaller alpha implies high skew, less overlap
+	alpha.P <- 0.02   					# smaller alpha implies high skew, less overlap
 	for(i in 1:K) P[i,] <- rdirichlet(rep(alpha.P,n.vocab-n.outlier.words))	
 	P <- P[,order(colSums(P), decreasing=TRUE)]				# sort so big total prob are first
 	P <- cbind(P, matrix(0,nrow(P), n.outlier.words))
-	
-	plot(sqrt(P[1,]),sqrt(P[2,]))     	# disjoint if alpha = 0.01, more common if .1
+
 	plot(P[3,])							# weights on specific words
+	plot(sqrt(P[1,]),sqrt(P[2,]))     	# disjoint if alpha = 0.01, some common if .1
 
 	par(mfrow=c(1,2))					# plot of example topic distributions [P.pdf] 
-		a <- 0.02; 
+		a <- 0.05; 
 		p1 <- rdirichlet(rep(a,n.vocab)); 	p2 <- rdirichlet(rep(a,n.vocab))
 		plot(p1,p2, xlab=expression("P"[1]),ylab=expression("P"[2]), 
-				main=expression(paste(alpha,"=0.02")))
+				main=expression(paste(alpha,"=0.05")))
 		a <- 0.10;
 		p1 <- rdirichlet(rep(a,n.vocab)); 	p2 <- rdirichlet(rep(a,n.vocab))
 		plot(p1,p2, xlab=expression("P"[1]),ylab=expression("P"[2]), 
@@ -64,6 +64,7 @@ source("~/C/text/functions.R")
 		theta[i,] <- rdirichlet(alpha)		
 		Z[i,] <- as.vector(rmultinom(1,doc.len[i],theta[i,]))
 	}
+	plot(theta[1,], xlab="Topic", ylab="Share of Vocabulary", main="Topic Mix")
 	
 	W <- matrix(0,nrow=n, ncol=n.vocab)	# generate y and W, and 
 	W.ev <- W;							#  expected value of W
@@ -109,7 +110,7 @@ source("~/C/text/functions.R")
 
 	# --- marginals  Leave zeros for outlier insertion/handling
 	fj <- colSums(W)
-	ni <- doc.len  # = rowSums(W)
+	ni <- rowSums(W)  # = doc.len
 	
 	# --- LSA analysis, raw counts
 	udv <- svd(W)
@@ -128,6 +129,7 @@ source("~/C/text/functions.R")
 	reset()
 	
 	# --- LSA analysis, CCA scaled
+	#		gap is evident... but this will be problem later
 	recip.sqrt <- function(n) { if(n>0) return(1/sqrt(n)) else return(1)}
 	W.cca   <- sapply(ni,recip.sqrt) * W
 	W.cca   <- t( sapply(fj,recip.sqrt) * t(W.cca) )
@@ -137,6 +139,7 @@ source("~/C/text/functions.R")
 	V.cca <- udv.cca$v
 	
 	# --- Square root of counts (stabilize Poisson)
+	#		gap is pretty hard to see
 	udv.sr <- svd(sqrt(W))
 	plot(udv.sr$d[1:100], log="xy")
 	U.sr <- udv.sr$u
@@ -149,19 +152,24 @@ source("~/C/text/functions.R")
 			main="CCA Normalization")
 	reset()
 
-# --- leading singular vectors determined by word frequency
+# --- leading singular vectors u_1,v_1 determined by word frequency
 	par(mfrow=c(1,2))
 		plot(fj, udv.ev $v[,1])
 		plot(ni, udv.ev $u[,1])
 	reset()
 	par(mfrow=c(1,2))
-		plot(fj, udv    $v[,1])
-		plot(ni, udv    $u[,1])
+		plot(fj, udv    $v[,1], xlab=expression("f"["j"]),ylab=expression("V"[1]))
+		plot(ni, udv    $u[,1], xlab=expression("n"["i"]),ylab=expression("U"[1]))
 	reset()
+	# CCA produces 'mathematical' fit
 	par(mfrow=c(1,2))
-		plot(fj, udv.cca$v[,1])
-		plot(ni, udv.cca$u[,1])
+		plot(sqrt(fj),-udv.cca$v[,1], xlab=expression(sqrt("f"["j"])),ylab=expression("V"[1]))
+		plot(sqrt(ni),-udv.cca$u[,1], xlab=expression(sqrt("n"["i"])),ylab=expression("U"[1]))
 	reset()
+	udv.cca$d[1:5];
+	v1 <- udv.cca$v[,1]; summary( lm(v1 ~ sqrt(fj)) )
+	u1 <- udv.cca$u[,1]; summary( lm(u1 ~ sqrt(ni)) )
+	#
 	par(mfrow=c(1,2))
 		plot(fj, udv.sr $v[,1])
 		plot(ni, udv.sr $u[,1])
@@ -186,7 +194,7 @@ source("~/C/text/functions.R")
 	cc.1 <- cancor(V.cca[,1:50], V.ev[,1:50]); points(cc.1$cor, col="red", cex=.5)
 	cc.2 <- cancor(V.sr [,1:50], V.ev[,1:50]); points(cc.2$cor, col="blue", cex=.5)
 #		topic distributions
-	cc   <- cancor(V    [,1:50], P[,1:50]); plot(cc$cor)
+	cc   <- cancor(V    [,1:50], t(P[1:10,])); plot(cc$cor)
 	cc.1 <- cancor(V.cca[,1:50], V.ev[,1:50]); points(cc.1$cor, col="red", cex=.5)
 	cc.2 <- cancor(V.sr [,1:50], V.ev[,1:50]); points(cc.2$cor, col="blue", cex=.5)
 
@@ -245,33 +253,53 @@ source("~/C/text/functions.R")
 #
 ##################################################################################
 
-# --- add a row for the outlier  (so can put other outliers without changing rest)
+# --- outlier distribution optionally has disjoint words; check L2 dist from others
+	P.out <- c(1.00*rdirichlet(rep(alpha.P,n.vocab-n.outlier.words)), 	
+			   0.00*rdirichlet(rep(2*alpha.P,n.outlier.words)))
+	# R2 < 0.01 with alpha.P = 0.02; closer to 5% with alpha.P = 0.05
+	summary(lm(P.out ~ t(P)))  
+
+# --- add extra first row for the outlier  (so can put other outliers without changing rest)
 	W <- rbind(rep(0,ncol(W)),W)
 	
-# --- put outlier in added row by sampling a 'new' topic (from same Dirichlet)
-	P.out <- c(1.00*rdirichlet(rep(alpha.P,ncol(W)-n.outlier.words)), 	
-			   0.00*rdirichlet(rep(2*alpha.P,n.outlier.words)))
-	W[1,] <- as.vector(rmultinom(1,avg.len,P.out))
+	W[1,] <- as.vector(rmultinom(1,2*avg.len,P.out))  # add cases to make easier to see?
 	ni    <- rowSums(W)
 	fj    <- colSums(W)
 	
-	# --- LSA analysis, raw counts
+# --- LSA analysis, raw counts
 	udv.out <- svd(W)
+	U.out <- udv.out$u; V.out <- udv.out$v
 	plot  (udv.out$d[1:100], log="xy", xlab="Component", ylab="Singular Value",
 			main="Raw Singular Values, Added Topic Outlier", col="blue")
-	points(udv    $d[1:100], col="black", cex=0.5)
-	U.out <- udv.out$u	
-	V.out <- udv.out$v
+	points(udv    $d[1:100], col="gray", cex=0.5)
 	
-	# --- LSA analysis, CCA scaled with outlier shows another topic before gap
+# --- LSA analysis, CCA scaled with outlier shows another topic before gap
 	W.cca.out   <- 1/sqrt(ni) * W
 	W.cca.out   <- t( sapply(fj,recip.sqrt) * t(W.cca.out) )
 	udv.cca.out <- svd(W.cca.out)
+	U.cca.out <- udv.cca.out$u; V.cca.out <- udv.cca.out$v
 	plot  (udv.cca.out$d[1:100], log="xy", xlab="Component", ylab="Singular Value",
 			main="CCA Normalization, Added Topic", col="blue")
-	points(udv.cca    $d[1:100], col="black", cex=0.5)
-	U.cca.out <- udv.cca.out$u	
-	V.cca.out <- udv.cca.out$v
+	points(udv.cca    $d[1:100], col="gray", cex=0.5)
+	
+	# --- svd fits this outlier row separately (regression)
+	plot(U.cca.out[,2])  						# all weight on this one document
+	cbind(udv.cca.out$d[1:10],udv.cca$d[1:10])	# shifts down by 1
+	pairs(cbind(W[1,], -V.cca.out[,2], P.out), c("Data","V","P.out"))
+	#		can interpret as a fit?  Yep... So if you can fit this without messing
+	#		up the rest, esp if the row offers a particularly large SS
+	#		CCA scaling makes for a large SS since fj is low for its words.
+	y   <- W.cca.out[1,]; c(sqrt(sum(y^2)), udv.cca.out$d[2])  # sing value is sqrt(ss)
+	boxplot(sqrt(rowSums(W.cca.out^2)),log="y")
+	fit <- udv.cca.out$d[2] * U.cca.out[1,2] * V.cca.out[,2]
+	plot(fit,y); abline(a=0,b=1,col="gray")
+	#		ss after scaling
+	d <- (W[1,]/sqrt(n[1])) * sapply(fj,recip.sqrt); d <- d - mean(d); sqrt(d %*% d)
+	
+	# --- How close are LSA and CCA subspaces (before/after outlier)?
+	plot( 	cancor(U[,1:75], U.cca[,1:50])$cor   )
+	p <- rep(1,50); p[31]<-19
+	points( cancor(U.out[,1:75], U.cca.out[,1:50])$cor ,pch=p, col="red"  )
 	
 	# --- find the topic? highlight words with largest 20 probs in P.out, then CCA for recovery
 	color <- rep("gray", ncol(W))
@@ -372,6 +400,51 @@ fast.svd <- function(X, k) {
 
 u.fast <- fast.svd(X,20)
 plot(u[,1],u.fast[,1])
+
+
+##################################################################################
+#
+#	 SVD via alternating least squares ALS 
+#
+##################################################################################
+
+
+normalize <- function(x) { return (x / sqrt(x%*%x)) }
+
+als.svd <- function(X, max.it = 5) {
+	ss0 <- sum(X^2)
+	u <- normalize(rowMeans(X)) # init with row means
+	it <- 0;
+	while(it < max.it) {
+		it <- it + 1
+		v <- normalize(drop(u %*%   X))   # u'u=1
+		u <-           drop(v %*% t(X))   # v'v=1
+		s <- drop(sqrt( u%*%u ))
+		u <- u/s
+		ss1 <- sum((X - s*outer(u,v))^2)
+		cat(ss1,"\n")
+		if (((ss0-ss1)/ss0) < .001) break
+		else ss0 <- ss1
+	}
+	return(list(d=s,u=u,v=v))	
+}
+
+
+X <- matrix( rnorm(1000*200, mean=3), nrow=1000, ncol=200)
+
+cs <- colSums(X)
+rs <- rowSums(X)
+X <- 1/sqrt(rs) * t( 1/sqrt(cs) * t(X) )
+
+
+uv <- als.svd(X)
+plot(sqrt(rs)/sqrt(sum(rs)), uv$u)
+plot(sqrt(cs)/sqrt(sum(cs)), uv$v)
+
+udv <- svd(X)
+c(udv$d[1], uv$d)
+plot(udv$u[,1], -uv$u, xlab="SVD", ylab="ALS", main="First U"); abline(a=0,b=1,col="gray")
+plot(udv$v[,1], -uv$v, xlab="SVD", ylab="ALS", main="First V"); abline(a=0,b=1,col="gray")
 
 
 
