@@ -1,0 +1,9 @@
+*.o
+*.dd
+convert
+embed
+prep_events.txt
+vocabulary.txt
+reversed.eigenwords
+rectangle_data.txt
+embedded_data.txt

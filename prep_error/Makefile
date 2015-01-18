@@ -9,7 +9,7 @@ include ~/C/c_flags
 ###########################################################################
 
 
-PROJECT_NAME = NLP
+PROJECT_NAME = prep_error
 
 OPT = -O3 -std=c++11
 
@@ -23,7 +23,9 @@ cleanup:
 	rm -f prep_events.txt tag_count.txt rectangle_data.txt
 	rm -f vocabulary.txt embedded_data.txt
 
-all: cleanup convert
+.PHONY: all
+
+all: embedded_data.txt
 
 
 ###########################################################################
@@ -35,11 +37,11 @@ all: cleanup convert
 #
 ###########################################################################
 
-nlines = 1000000
+nlines = 10000
 
-prep_events.txt: ~/data/joel/7m-4d-Aug30-events
+prep_events.txt: ~/data/joel/7m-4d-Aug30-events.gz
 	echo Building base file 'prep_events.txt' from $(nlines) sentences.
-	head -n $(nlines) $< > $@
+	gunzip -c $< | head -n $(nlines) > $@
 
 # edit these by hand to define tags.txt  (NINw will add = pairs)
 all_tags.txt : prep_events.txt   # delete everything *except* tags ... uniq -c produces mult space in output... damn
@@ -62,9 +64,9 @@ embed: embed.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
 # reverse to overwrite in dictionary with more common term
-reversed_eigenwords.en: eigenwords.300k.200.en
+reversed_eigenwords.en: ~/C/text/eigenwords/eigenwords.300k.200.en.zip
 	rm -f $@
-	tac $< > $@
+	unzip -p $< | tac > $@
 
 embedded_data.txt: rectangle_data.txt vocabulary.txt reversed_eigenwords.en embed
 	./embed --eigen_file=reversed_eigenwords.en --eigen_dim 15 --vocab=vocabulary.txt < rectangle_data.txt > $@
