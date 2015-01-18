@@ -1,0 +1,161 @@
+%-*- mode: Rnw-mode; outline-regexp:"\\\\section\\|\\\\subsection";fill-column: 95; -*-
+\documentclass{article}
+\usepackage[longnamesfirst]{natbib}
+% \usepackage[usenames]{color}
+\usepackage{amssymb}   % Real number symbol {\Bbb R}
+\usepackage{amsmath}
+\usepackage{bbm}
+\usepackage{subfig}
+\input{../../../work/papers/standard.tex}
+
+% --- margins
+\usepackage{../../../work/papers/sty/simplemargins}
+\setleftmargin{1.25in}   % 1 inch is NSF legal minimum
+\setrightmargin{1.25in}  % 1 inch is NSF legal minimum
+\settopmargin{1in}    % 1 inch is NSF legal minimum
+\setbottommargin{1in} % 1 inch is NSF legal minimum
+
+% --- Paragraph split, indents
+\setlength{\parskip}{0.1in}
+\setlength{\parindent}{0in}
+
+% --- Line spacing
+\renewcommand{\baselinestretch}{1.4}
+
+% --- Commands
+% \newcommand{\bcs}{B-Cookies}
+
+<< bob-setup, echo=FALSE >>=
+
+options(width=200, show.signif.stars=FALSE)
+library(knitr)
+opts_chunk$set(fig.path='figures/',fig.keep='high',dev='pdf')
+opts_chunk$set(fig.width=8, fig.height=6, out.width='0.7\\textwidth', fig.align='center')
+opts_chunk$set(eval=TRUE, highlight=FALSE, cache.path='cache/', cache=FALSE)
+opts_chunk$set(echo=TRUE, results='markup', comment=NA)  # 'hide', 'asis'
+
+# knit("prep_models.Rtex")
+
+@
+
+\begin{document}
+\title{ Modeling Preposition Errors in Text Using Eigenwords }
+\author{RAS}
+\maketitle
+
+\abstract{
+
+ How well do vector space models allow us to model the choice of
+ prepositions in text.  Heading toward correcting grammar errors that
+ involve prepositions.
+
+}
+
+% ------------------------------------------------------------------------------
+\section{ Summary }
+\label{sec:summary}
+% ------------------------------------------------------------------------------
+
+
+% ------------------------------------------------------------------------------
+\clearpage
+\section{Building the Data}
+\label{sec:data}
+% ------------------------------------------------------------------------------
+
+<<"build-data", cache=TRUE, echo=FALSE, results="hide">>=
+
+## install.packages("stringr", dependencies=TRUE)
+ source ("~/C/text/functions.R")
+ library(stringr)
+
+## --- run 'make embedded_data.txt'
+
+##     R has issues reading these due to the quotes
+ Vocabulary <-  scan("vocabulary.txt", what="raw")
+
+ Data <-  read.delim("embedded_data.txt", header=T); dim(Data)
+
+# debug file delimiters
+# d1 <- scan("embedded_data.txt", what="character", nlines=1)
+# dn <- scan("embedded_data.txt", what="character", nlines=1, skip=501)
+
+@
+
+
+% ------------------------------------------------------------------------------
+\section{ Descriptive Statistics }
+\label{sec:descriptive}
+% ------------------------------------------------------------------------------
+
+<<"explore-data", echo=FALSE>>=
+
+## prevalence of prepositions
+table(Data[,"Y"])
+
+## separate?
+color <- rep('lightgray',nrow(Data))
+pch   <- rep(1          ,nrow(Data))
+
+i <- which(Data[,"Y"]=='with'); color[i] <- 'red'; pch[i] <- 19
+
+i <- which(Data[,"Y"]=='of'  ); color[i] <- 'black'; pch[i] <- 19
+
+i <- which(Data[,"Y"]=='in'  ); color[i] <- 'blue' ; pch[i] <- 19
+
+i <- which(Data[,"Y"]=='on'  ); color[i] <- 'green'; pch[i] <- 19
+
+plot(Data[,"BGL_0"],Data[,"BGR_0"],col=color, pch=pch)
+
+@
+
+% ------------------------------------------------------------------------------
+\section{ Fit Regression Model }
+\label{sec:fit-regr}
+% ------------------------------------------------------------------------------
+
+<<regression>>=
+
+  (colnames(Data))[1+c(1,201,401,601,801)]
+
+## use caps to make R happier
+
+  k <- 2
+  xvars <- sapply(c("BGL_","BGR_"), function(str) paste(paste0(str,0:k), collapse="+"))
+  xvars <- paste(xvars,collapse="+")
+
+  v <- Data[,"Y"]=='of'; v <- v+0; Data$OF <- v
+  regr.of <- glm(paste0("OF~",xvars), family=binomial(logit), data=Data)
+  summary(regr.of)
+
+  v <- Data[,"Y"]=='in'; v <- v+0; Data$IN <- v
+  regr.in <- glm(paste0("IN~",xvars), family=binomial(logit), data=Data)
+  summary(regr.in)
+
+@
+
+<<calibration>>=
+
+ calibration.plot(fitted(regr.in),Data$IN)
+
+@
+
+<<roc>>=
+
+ library(pROC)
+
+ color <- 'green'
+ roc.of  <- roc(Data$of, fitted(regr.of)      , plot=T, col=color)
+ (auc.of <- auc(roc.of))
+ text(0.2,0.1, paste("AUC(of) =",round(auc.of,3)), col=color)
+
+ color <- 'red'
+ roc.in  <- roc(y, fitted(regr.in)      , plot=T, add=T, col=color)
+ (auc.in <- auc(roc.in))
+ text(0.2,0.15, paste("AUC(in) =",round(auc.in,3)),col=color)
+
+@
+
+% ------------------------------------------------------------------------------
+% ------------------------------------------------------------------------------
+\end{document}

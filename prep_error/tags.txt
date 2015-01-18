@@ -1,0 +1,10 @@
+BGL
+BGR
+FFword
+FP
+PN
+PNP
+PNword
+PVword
+
+
