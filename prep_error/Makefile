@@ -64,9 +64,9 @@ embed: embed.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
 # reverse to overwrite in dictionary with more common term
-reversed_eigenwords.en: ~/C/text/eigenwords/eigenwords.300k.200.en.zip
+reversed_eigenwords.en: ~/data/text/eigenwords/eigenwords/eigenwords.300k.200.en.gz
 	rm -f $@
-	unzip -p $< | tac > $@
+	gunzip -c $< | tac > $@
 
 embedded_data.txt: rectangle_data.txt vocabulary.txt reversed_eigenwords.en embed
 	./embed --eigen_file=reversed_eigenwords.en --eigen_dim 15 --vocab=vocabulary.txt < rectangle_data.txt > $@

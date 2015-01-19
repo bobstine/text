@@ -4,6 +4,6 @@ convert
 embed
 prep_events.txt
 vocabulary.txt
-reversed.eigenwords
+reversed_eigenwords.en
 rectangle_data.txt
 embedded_data.txt
