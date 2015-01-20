@@ -10,10 +10,15 @@
        into     hurry    the   ,    classroom  [blank]
        around   look     the   IN   [blank]    look
 
-  Output: embeds explanatory features into eigenwords.
-       Y        BGL1 BGL2 ... BGLn  BGR1 BGR2 ... BGRn FF1 FF2 ... FFn ...
-       into     #    #        #     #    #        #    #   #       #
-       around   #    #        #     #    #        #    #   #       #
+  Output: embeds explanatory features into eigenwords in streaming layout
+          wanted by auction
+
+	      response
+	      cv_indicator
+	      eigen_stream_1
+	      eigen_stream_2
+	       ...
+
 
 */
 
@@ -36,7 +41,8 @@
 void
 parse_arguments(int argc, char** argv, bool &placeholder,
 		std::string& vocabularyFileName,
-		std::string& eigenwordFileName, int& eigenwordDimension);
+		std::string& eigenwordFileName, int& eigenwordDimension,
+		std::string& outputDirectory);
 
 template <class T>
 inline
@@ -69,8 +75,8 @@ int main(int argc, char** argv)
   string vocabFileName ("vocabulary.txt");
   string eigenFileName ("eigenwords.test");
   int    nEigenDim     (0);                 // use all that are found
-  bool   temp          (false);
-  parse_arguments(argc, argv, temp, vocabFileName, eigenFileName, nEigenDim);
+  string outputDir     ("data_dir");
+  parse_arguments(argc, argv, vocabFileName, eigenFileName, nEigenDim, outputDir);
 
   // read vocabulary
   set<string> vocabulary;
@@ -154,69 +160,86 @@ int main(int argc, char** argv)
     std::clog << std::endl;
   }
 
-  // process each line to std output; use header line to count fields
-  int nCols = 0;        // number of predictor words
+  // process each *column* to std output; use header line to count fields
+  string responseName;
+  vector<string> bundleNames;             
   if (!std::cin.eof())
-  { string header;
-    std::cin >> header;  // name for Y
-    std::cout << header;
+  { std::cin >> responseName;       
     string headerLine;
-    vector<string> headers;
     std::getline(std::cin, headerLine);
     std::istringstream ss(headerLine);
-    while (ss >> header)
-      headers.push_back(header);
-    // write rest of header line
-    nCols = (int) headers.size();
-    for(int i=0; i<nCols; ++i)
-      for(int j=0; j<nEigenDim; ++j)
-	std::cout << "\t" << headers[i] << "_" << j;
-    std::cout << std::endl;
+    string name
+    while (ss >> name)
+      bundleNames.push_back(name);
   }
-  std::clog << "MAIN: Embedding " << nCols << " blocks of eigen coordinates.\n";
+  std::clog << "MAIN: Reading response and " << bundleNames.size() << " words to define eigen coordinates.\n";
+  std::vector<             string>   response;
+  std::vector< std::vector<string> > theWords(bundleNames.size());
   while (!std::cin.eof())
   { string thePrep;
     std::cin >> thePrep;
     if (thePrep.size() == 0) break;
-    std::cout << thePrep;
-    for(int i=0; i<nCols; ++i)
+    response.push_back(thePrep);
+    for(int i=0; i<(int)bundleNames.size(); ++i)
     { string token;
       std::cin >> token;
-      if (token == "NA")
-      {	for(int j=0; j<nEigenDim; ++j)
-	  std::cout << "\tNA";
+      theWords[i].push_back(token);
+    }
+  }
+  std::clog << "MAIN: Read " << response.size() << " cases for response and " << theWords[0].size() << " words for first predictor.\n";
+  std::clog << "MAIN: Embedding " << bundleNames.size() << " blocks of eigen coordinates.\n";
+  {
+    std::ofstream file (outputDir + "response");
+    file << responseName << std::endl;
+    file << "role y" << std::endl;
+    file << response << std::endl;
+  }
+  {
+    int n = (int)response.size();
+    for(int bundle=0; bundle<(int)bundleNames.size(); ++i)
+    { std::vector<std::ofstream&> files;
+      for(i=0; i<nEigenDim; ++i)
+      { std::ofstream file (outputDir + bundleNames[bundle] + "_" + std::to_string(i));
+	files.push_back(file);
       }
-      else
-      { if (dictionary.count(token) == 0)
+      for (int i=0; i<n; ++i)
+      { string token = theWords[bundle][i];
+	if (dictionary.count(token) == 0)
 	{ if (verbose) std::clog << "WARNING: Token " << token << " was not found. Treating as OOV.\n";
 	  token = "OOV";
 	}
-	std::cout << "\t" << dictionary[token]; // operator<< separates *within* vector
+	std::vector<float> coord = dictionary[token];
+	if(i < n-1)
+	  for(j=0; j<nEigenDim; ++j) files[j] << coord[j] << "\t";
+	else // avoid trailing tab
+	  for(j=0; j<nEigenDim; ++j) files[j] << coord[j];
       }
     }
-    std::cout << std::endl;
   }
 }
 
 void
-parse_arguments(int argc, char** argv, bool &keepPOS, std::string& vocabFileName, std::string& eigenFileName, int& eigenDim)
+parse_arguments(int argc, char** argv,
+		std::string& vocabFileName, std::string& eigenFileName, int& eigenDim, std::string outputDir)
 {
   static struct option long_options[] = {
     {"eigen_dim",  required_argument, 0, 'd'},
     {"eigen_file", required_argument, 0, 'e'},
+    {"output_dir", required_argument, 0, 'o'},
     {"keep_POS",   no_argument,       0, 'p'},
     {"vocab",      required_argument, 0, 'v'},
     {0, 0, 0, 0}                             // terminator
   };
   int key;
   int option_index = 0;
-  while (-1 !=(key = getopt_long (argc, argv, "d:e:pv:", long_options, &option_index))) // colon means has argument
+  while (-1 !=(key = getopt_long (argc, argv, "d:e:o:pv:", long_options, &option_index))) // colon means has argument
   {
     // std::cout << "PARSE: Key " << char(key) << " for option " << long_options[option_index].name << ", option_index=" << option_index << std::endl;
     switch (key)
     {
     case 'd' :  { eigenDim = read_utils::lexical_cast<int>(optarg); break; }
     case 'e' :  { eigenFileName = optarg; break;      }
+    case 'o' :  { outputDir = optarg;     break;      }
     case 'p' :  { keepPOS = true;         break;      }
     case 'v' :  { vocabFileName = optarg; break;      }
     default:

@@ -71,6 +71,9 @@ reversed_eigenwords.en: ~/data/text/eigenwords/eigenwords/eigenwords.300k.200.en
 embedded_data.txt: rectangle_data.txt vocabulary.txt reversed_eigenwords.en embed
 	./embed --eigen_file=reversed_eigenwords.en --eigen_dim 15 --vocab=vocabulary.txt < rectangle_data.txt > $@
 
+auction_data: rectangle_data.txt vocabulary.txt reversed_eigenwords.en embed
+	./embed_auction --eigen_file=reversed_eigenwords.en --eigen_dim 15 --vocab=vocabulary.txt < rectangle_data.txt > $@
+
 ###########################################################################
 
 include ~/C/rules_for_makefiles
