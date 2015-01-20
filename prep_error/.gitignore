@@ -2,6 +2,7 @@
 *.dd
 convert
 embed
+embed_auction
 prep_events.txt
 vocabulary.txt
 reversed_eigenwords.en
