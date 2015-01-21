@@ -15,17 +15,19 @@ OPT = -O3 -std=c++11
 
 # OPT = - -DNDEBUG O3
 
-level_1 = convert.o embed.o
+level_1 = convert.o embed.o embed_auction.o
 level_2 =
 level_3 =
 
 cleanup:
 	rm -f prep_events.txt tag_count.txt rectangle_data.txt
 	rm -f vocabulary.txt embedded_data.txt
+	rm -f reversed_eigenwords.en 
+	rm -rf auction_data
 
 .PHONY: all
 
-all: embedded_data.txt
+all: auction_data
 
 
 ###########################################################################
@@ -37,7 +39,7 @@ all: embedded_data.txt
 #
 ###########################################################################
 
-nlines = 10000
+nlines = 1000
 
 prep_events.txt: ~/data/joel/7m-4d-Aug30-events.gz
 	echo Building base file 'prep_events.txt' from $(nlines) sentences.
@@ -74,10 +76,22 @@ reversed_eigenwords.en: ~/data/text/eigenwords/eigenwords.300k.200.en.gz
 embedded_data.txt: rectangle_data.txt vocabulary.txt reversed_eigenwords.en embed
 	./embed --eigen_file=reversed_eigenwords.en --eigen_dim 15 --vocab=vocabulary.txt < rectangle_data.txt > $@
 
+
+jason_dat: csv_parser data/jason_97.csv
+	rm -rf data/jason.tar; mkdir data/jason.tar
+	./csv_parser -f data/jason_97.csv -d data/jason.tar
+	cd data/jason.tar; chmod +x index.sh; ./index.sh > jason.dat
+
+jason_test: auction.test data/jason.tar/index.sh
+	 ./auction.test -f data/jason.tar/jason.dat -o data/jason.tar/ -r 100 -a 2 -p 3 -c 5
+
+
 auction_data: rectangle_data.txt vocabulary.txt reversed_eigenwords.en embed_auction
 	rm -rf $@
 	mkdir auction_data
-	./embed_auction --eigen_file=reversed_eigenwords.en --eigen_dim 15 --vocab=vocabulary.txt -o $@ < rectangle_data.txt
+	./embed_auction --eigen_file=reversed_eigenwords.en --eigen_dim 5 --vocab=vocabulary.txt -o $@ < rectangle_data.txt
+	chmod +x $@/index.sh
+
 
 ###########################################################################
 
