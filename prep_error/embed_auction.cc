@@ -142,6 +142,7 @@ int main(int argc, char** argv)
   }
   std::clog << "MAIN: Read " << response.size() << " cases for response and " << theWords[0].size() << " words for first predictor.\n";
   std::clog << "MAIN: Embedding " << bundleNames.size() << " blocks of eigen coordinates.\n";
+  // start to write output here
   std::ofstream shellFile (outputDir + "index.sh");
   if (!shellFile.good())
   { std::cerr << "ERROR: Could not place index file in directory " << outputDir << "; exiting.\n";
@@ -166,7 +167,7 @@ int main(int argc, char** argv)
       { string varName = bundleNames[bundle] + "_" + std::to_string(d);
 	shellFile << "cat " << varName << std::endl;
 	std::ofstream *file = new std::ofstream(outputDir + varName);
-	(*file) << bundleNames[d] + "_" + std::to_string(d) << std::endl;   // name
+	(*file) << bundleNames[bundle] + "_" + std::to_string(d) << std::endl;   // name
 	(*file) << "role x stream " << bundleNames[bundle] << std::endl;    // attributes
 	files.push_back(file);
       }

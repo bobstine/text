@@ -39,7 +39,7 @@ all: auction_data
 #
 ###########################################################################
 
-nlines = 1000
+nlines = 10000
 
 prep_events.txt: ~/data/joel/7m-4d-Aug30-events.gz
 	echo Building base file 'prep_events.txt' from $(nlines) sentences.
