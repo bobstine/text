@@ -63,16 +63,21 @@ vocabulary.txt: rectangle_data.txt Makefile   # wipe out header line at start, b
 embed: embed.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
-# reverse to overwrite in dictionary with more common term
-reversed_eigenwords.en: ~/data/text/eigenwords/eigenwords/eigenwords.300k.200.en.gz
+embed_auction: embed_auction.o
+	$(GCC) $^ $(LDLIBS) -o  $@
+
+# reverse Zipf order so later, more common coord overwrite in dictionary
+reversed_eigenwords.en: ~/data/text/eigenwords/eigenwords.300k.200.en.gz
 	rm -f $@
 	gunzip -c $< | tac > $@
 
 embedded_data.txt: rectangle_data.txt vocabulary.txt reversed_eigenwords.en embed
 	./embed --eigen_file=reversed_eigenwords.en --eigen_dim 15 --vocab=vocabulary.txt < rectangle_data.txt > $@
 
-auction_data: rectangle_data.txt vocabulary.txt reversed_eigenwords.en embed
-	./embed_auction --eigen_file=reversed_eigenwords.en --eigen_dim 15 --vocab=vocabulary.txt < rectangle_data.txt > $@
+auction_data: rectangle_data.txt vocabulary.txt reversed_eigenwords.en embed_auction
+	rm -rf $@
+	mkdir auction_data
+	./embed_auction --eigen_file=reversed_eigenwords.en --eigen_dim 15 --vocab=vocabulary.txt -o $@ < rectangle_data.txt
 
 ###########################################################################
 

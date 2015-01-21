@@ -19,7 +19,6 @@
 	      eigen_stream_2
 	       ...
 
-
 */
 
 #include "read_utils.h"
@@ -39,7 +38,7 @@
 
 
 void
-parse_arguments(int argc, char** argv, bool &placeholder,
+parse_arguments(int argc, char** argv,
 		std::string& vocabularyFileName,
 		std::string& eigenwordFileName, int& eigenwordDimension,
 		std::string& outputDirectory);
@@ -71,11 +70,12 @@ int main(int argc, char** argv)
   using std::set;
   using std::map;
 
-  // defaults
+  // parse arguments after setting default parameters
   string vocabFileName ("vocabulary.txt");
   string eigenFileName ("eigenwords.test");
   int    nEigenDim     (0);                 // use all that are found
   string outputDir     ("data_dir");
+
   parse_arguments(argc, argv, vocabFileName, eigenFileName, nEigenDim, outputDir);
 
   // read vocabulary
@@ -160,7 +160,7 @@ int main(int argc, char** argv)
     std::clog << std::endl;
   }
 
-  // process each *column* to std output; use header line to count fields
+  // process each bundle of eigen coordinates to std output; use header line to name bundles
   string responseName;
   vector<string> bundleNames;             
   if (!std::cin.eof())
@@ -168,7 +168,7 @@ int main(int argc, char** argv)
     string headerLine;
     std::getline(std::cin, headerLine);
     std::istringstream ss(headerLine);
-    string name
+    string name;
     while (ss >> name)
       bundleNames.push_back(name);
   }
@@ -180,10 +180,10 @@ int main(int argc, char** argv)
     std::cin >> thePrep;
     if (thePrep.size() == 0) break;
     response.push_back(thePrep);
-    for(int i=0; i<(int)bundleNames.size(); ++i)
+    for(int j=0; j<(int)bundleNames.size(); ++j)
     { string token;
       std::cin >> token;
-      theWords[i].push_back(token);
+      theWords[j].push_back(token);
     }
   }
   std::clog << "MAIN: Read " << response.size() << " cases for response and " << theWords[0].size() << " words for first predictor.\n";
@@ -195,13 +195,18 @@ int main(int argc, char** argv)
     file << response << std::endl;
   }
   {
+    // for each bundle, open multiple files, one for each eigen dim
     int n = (int)response.size();
-    for(int bundle=0; bundle<(int)bundleNames.size(); ++i)
-    { std::vector<std::ofstream&> files;
-      for(i=0; i<nEigenDim; ++i)
-      { std::ofstream file (outputDir + bundleNames[bundle] + "_" + std::to_string(i));
+    for(int bundle=0; bundle<(int)bundleNames.size(); ++bundle)
+    { std::clog << "+++ opening files for bundle " << bundle << std::endl;
+      std::vector<std::ofstream *> files;
+      for(int d=0; d<nEigenDim; ++d)
+      { std::ofstream *file = new std::ofstream(outputDir + bundleNames[bundle] + "_" + std::to_string(d));
+	(*file) << bundleNames[d] + "_" + std::to_string(d) << std::endl;
+	(*file) << "role x stream " << bundleNames[bundle] << std::endl;
 	files.push_back(file);
       }
+      std::clog << "+++ writing coordinates for bundle " << bundle << std::endl;
       for (int i=0; i<n; ++i)
       { string token = theWords[bundle][i];
 	if (dictionary.count(token) == 0)
@@ -210,37 +215,40 @@ int main(int argc, char** argv)
 	}
 	std::vector<float> coord = dictionary[token];
 	if(i < n-1)
-	  for(j=0; j<nEigenDim; ++j) files[j] << coord[j] << "\t";
+	  for(int j=0; j<nEigenDim; ++j) (*files[j]) << coord[j] << "\t";
 	else // avoid trailing tab
-	  for(j=0; j<nEigenDim; ++j) files[j] << coord[j];
+	  for(int j=0; j<nEigenDim; ++j) (*files[j]) << coord[j];
+      }
+      for (auto pFile : files)
+      { pFile->close();
+	delete pFile;
       }
     }
   }
 }
 
+
 void
 parse_arguments(int argc, char** argv,
-		std::string& vocabFileName, std::string& eigenFileName, int& eigenDim, std::string outputDir)
+		std::string& vocabFileName, std::string& eigenFileName, int& eigenDim, std::string& outputDir)
 {
   static struct option long_options[] = {
     {"eigen_dim",  required_argument, 0, 'd'},
     {"eigen_file", required_argument, 0, 'e'},
     {"output_dir", required_argument, 0, 'o'},
-    {"keep_POS",   no_argument,       0, 'p'},
     {"vocab",      required_argument, 0, 'v'},
     {0, 0, 0, 0}                             // terminator
   };
   int key;
   int option_index = 0;
-  while (-1 !=(key = getopt_long (argc, argv, "d:e:o:pv:", long_options, &option_index))) // colon means has argument
+  while (-1 !=(key = getopt_long (argc, argv, "d:e:o:v:", long_options, &option_index))) // colon means has argument
   {
-    // std::cout << "PARSE: Key " << char(key) << " for option " << long_options[option_index].name << ", option_index=" << option_index << std::endl;
+    // std::cout << "Key " << char(key) << " to option " << long_options[option_index].name << " index=" << option_index << std::endl;
     switch (key)
     {
     case 'd' :  { eigenDim = read_utils::lexical_cast<int>(optarg); break; }
     case 'e' :  { eigenFileName = optarg; break;      }
     case 'o' :  { outputDir = optarg;     break;      }
-    case 'p' :  { keepPOS = true;         break;      }
     case 'v' :  { vocabFileName = optarg; break;      }
     default:
       {
