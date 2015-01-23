@@ -68,7 +68,9 @@ std::ostream& operator<< (std::ostream& os, std::vector<T> vec)
 
 ///
 
-const bool verbose = false;
+const bool verbose = true;
+
+const std::string tag = "EMBD: ";
 
 ///
 
@@ -103,7 +105,7 @@ int main(int argc, char** argv)
       vocabStream >> token;
       vocabulary.insert(token);
     }
-    std::clog << "MAIN: Read vocabulary of " << vocabulary.size() << " tokens\n";
+    std::clog << tag << "Read vocabulary of " << vocabulary.size() << " tokens\n";
   }
 
   // build dictionary and find words that are missing
@@ -130,7 +132,7 @@ int main(int argc, char** argv)
       bundleNames.push_back(name);
   }
   const int nBundles = (int) bundleNames.size();
-  std::clog << "MAIN: Reading response and " << nBundles << " words for each case to define modeling data.\n";
+  std::clog << tag << "Reading response and " << nBundles << " predictive words for each case to define modeling data.\n";
   std::vector<             string>   response;
   std::vector< std::vector<string> > theWords(nBundles);
   while (!std::cin.eof())
@@ -144,8 +146,8 @@ int main(int argc, char** argv)
       theWords[j].push_back(token);
     }
   }
-  std::clog << "MAIN: Read " << response.size() << " cases for response and " << theWords[0].size() << " words for first predictor.\n";
-  std::clog << "MAIN: Embedding " << bundleNames.size() << " blocks of eigen coordinates.\n";
+  std::clog << tag << "Read " << response.size() << " cases for response and " << theWords[0].size() << " words for first predictor.\n";
+  std::clog << tag << "Embedding " << bundleNames.size() << " blocks of eigen coordinates.\n";
   // start to write output here
   std::ofstream shellFile (outputDir + "index.sh");
   if (!shellFile.good())
@@ -175,14 +177,20 @@ int main(int argc, char** argv)
       std::vector<double> sum (nEigenDim, 0.0);
       for (int i=0; i<n; ++i)
       { string token = theWords[bundle][i];
-	if (token == "NA") ++nMissing;
+	bool missing = false;
+	if (token == "NA")
+	{ ++nMissing;
+	  missing = true;
+	}
 	else if (dictionary.count(token) == 0)
-	{ if (verbose) std::clog << "WARNING: Token " << token << " was not found. Treating as OOV.\n";
+	{ // if (verbose) std::clog << "WARNING: Token " << token << " was not found. Treating as OOV.\n";
 	  token = "OOV";
 	}
 	eigenCoord[i] = dictionary[token];
-	for(int j=0; j<nEigenDim; ++j) sum[j] += (double) eigenCoord[i][j];
+	if (!missing) for(int j=0; j<nEigenDim; ++j) sum[j] += (double) eigenCoord[i][j];
       }
+      if (verbose)
+	std::clog << tag << "Found " << nMissing << " missing cases for bundle " << bundleNames[bundle] << std::endl;
       write_bundle(bundleNames[bundle], eigenCoord, sum, nMissing, shellFile, outputDir);
     }
   }
@@ -190,7 +198,6 @@ int main(int argc, char** argv)
 
 //     make_eigen_dictionary     make_eigen_dictionary     make_eigen_dictionary     make_eigen_dictionary     make_eigen_dictionary
 /*
-  build dictionary for this vocab from eigenwords  (Paramveer's is space delimited, *UNKNOWN* first)
   ASSUME
     - coordinates for OOV come first
     - dictionary is in inverse Zipf order (so overwrite less with more common)
@@ -227,7 +234,7 @@ make_eigen_dictionary(std::string filename, int nEigenDim, std::set<std::string>
       { if (nEigenDim < (int)oov.size())
 	{ oov.resize(nEigenDim);
 	  needToFlushEigenStream = true;
-	  if (verbose) std::clog << "       Will need to flush trailing elements in eigen stream.\n";
+	  if (verbose) std::clog << "      Will need to flush trailing elements in eigen stream.\n";
 	}
 	else
 	{ std::cerr << "ERROR: Found eigen dimension " << oov.size() << " which is smaller than requested " << nEigenDim << std::endl;
@@ -248,7 +255,7 @@ make_eigen_dictionary(std::string filename, int nEigenDim, std::set<std::string>
 	  eigenStream >> coor[i];
 	if (needToFlushEigenStream) std::getline(eigenStream, junk);
 	dictionary[token] = coor;        // over-writes if token present
-	if (verbose) std::clog << "      Added dictionary coor for token " << token << std::endl;
+	//  std::clog << "      Added dictionary coor for token " << token << std::endl;
       }
       else // flush rest of line
 	std::getline(eigenStream, junk);
