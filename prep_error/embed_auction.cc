@@ -100,7 +100,7 @@ int main(int argc, char** argv)
     { std::cerr << "ERROR: Vocabulary file `" << vocabFileName << "' not found; terminating.\n";
       return 0;
     }
-    while (! vocabStream.eof() )
+    while (vocabStream.good())
     { string token;
       vocabStream >> token;
       vocabulary.insert(token);
@@ -286,7 +286,7 @@ write_bundle(std::string bundleName, std::vector<std::vector<float>> const& coor
     shellFile << "cat " << varName << std::endl;
     std::ofstream file(outputDir + varName);
     file << varName << std::endl;
-    file << " role x stream " << bundleName << "missing indicator" << std::endl;
+    file << " role x stream " << bundleName << " missing indicator" << std::endl;
     for(int i=0; i<n-1; ++i)
     { if (isnan(coor[i][0]))
 	file << 1 << "\t";

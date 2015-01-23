@@ -103,13 +103,15 @@ word1  = to
 inDir  = auction_data
 outDir = $(inDir)/$(word0)_$(word1)
 
-.PHONY: build_model
+.PHONY: build_auction_data run_auction
 
-build_model: recode_data $(inDir)
+build_auction_data: recode_data $(inDir)
 	rm -rf $(outDir); mkdir $(outDir)
 	cp $(inDir)/index.sh $(outDir)
 	./recode_data --input_dir=$(inDir) --output_dir=$(outDir) --word0=$(word0) --word1=$(word1)
-#	./auction
+
+run_auction: build_auction_data recode_data $(auction_data)
+	./auction
 
 
 
