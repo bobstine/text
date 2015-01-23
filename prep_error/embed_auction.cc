@@ -280,7 +280,22 @@ write_bundle(std::string bundleName, std::vector<std::vector<float>> const& coor
 {
   int n = (int) coor.size();
   int nEigenDim = (int) coor[0].size();
-  
+
+  if (0 < nMissing)  // write missing indicator
+  { std::string varName = bundleName + "_" + "Missing";
+    shellFile << "cat " << varName << std::endl;
+    std::ofstream file(outputDir + varName);
+    file << varName << std::endl;
+    file << " role x stream " << bundleName << "missing indicator" << std::endl;
+    for(int i=0; i<n-1; ++i)
+    { if (isnan(coor[i][0]))
+	file << 1 << "\t";
+      else file << 0 << "\t";
+    }
+    if (isnan(coor[n-1][0]))
+      file << 1;
+    else file << 0;
+  }
   for(int d=0; d<nEigenDim; ++d)
   { std::string varName = bundleName + "_" + std::to_string(d);
     shellFile << "cat " << varName << std::endl;
