@@ -15,7 +15,7 @@ OPT = -O3 -std=c++11
 
 # OPT = - -DNDEBUG O3
 
-level_1 = convert.o embed.o embed_auction.o
+level_1 = convert.o embed.o embed_auction.o recode_data.o
 level_2 =
 level_3 =
 
@@ -39,7 +39,7 @@ all: auction_data
 #
 ###########################################################################
 
-nlines = 10000
+nlines = 1000
 
 prep_events.txt: ~/data/joel/7m-4d-Aug30-events.gz
 	echo Building base file 'prep_events.txt' from $(nlines) sentences.
@@ -68,6 +68,12 @@ embed: embed.o
 embed_auction: embed_auction.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
+recode_data: recode_data.o
+	$(GCC) $^ $(LDLIBS) -o  $@
+
+build_cv: build_cv.o
+	$(GCC) $^ $(LDLIBS) -o  $@
+
 # reverse Zipf order so later, more common coord overwrite in dictionary
 reversed_eigenwords.en: ~/data/text/eigenwords/eigenwords.300k.200.en.gz
 	rm -f $@
@@ -91,6 +97,20 @@ auction_data: rectangle_data.txt vocabulary.txt reversed_eigenwords.en embed_auc
 	mkdir auction_data
 	./embed_auction --eigen_file=reversed_eigenwords.en --eigen_dim 5 --vocab=vocabulary.txt -o $@ < rectangle_data.txt
 	chmod +x $@/index.sh
+
+word0  = in
+word1  = to
+inDir  = auction_data
+outDir = $(inDir)/$(word0)_$(word1)
+
+.PHONY: build_model
+
+build_model: recode_data $(inDir)
+	rm -rf $(outDir); mkdir $(outDir)
+	cp $(inDir)/index.sh $(outDir)
+	./recode_data --input_dir=$(inDir) --output_dir=$(outDir) --word0=$(word0) --word1=$(word1)
+#	./auction
+
 
 
 ###########################################################################

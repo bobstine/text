@@ -148,9 +148,13 @@ int main(int argc, char** argv)
   { std::cerr << "ERROR: Could not place index file in directory " << outputDir << "; exiting.\n";
     return 0;
   }
-  shellFile << "#!/bin/sh" << std::endl
-	    << "echo " << response.size() << std::endl
+  shellFile << "#!/bin/sh"   << std::endl
+	    << "cat n_obs"  << std::endl
 	    << "cat " << responseName << std::endl;
+  {
+    std::ofstream file (outputDir + "n_obs");
+    file << response.size() << std::endl;
+  }
   {
     std::ofstream file (outputDir + responseName);
     file << responseName << std::endl;
@@ -161,7 +165,7 @@ int main(int argc, char** argv)
     // for each bundle, open multiple files, one for each eigen dim
     int n = (int)response.size();
     for(int bundle=0; bundle<nBundles; ++bundle)
-    { std::clog << "+++ opening files for bundle " << bundle << std::endl;
+    { if (verbose) std::clog << "       Opening files for bundle " << bundle << std::endl;
       std::vector<std::ofstream *> files;
       for(int d=0; d<nEigenDim; ++d)
       { string varName = bundleNames[bundle] + "_" + std::to_string(d);
@@ -171,7 +175,7 @@ int main(int argc, char** argv)
 	(*file) << "role x stream " << bundleNames[bundle] << std::endl;    // attributes
 	files.push_back(file);
       }
-      std::clog << "+++ writing coordinates for bundle " << bundle << std::endl;
+      if (verbose) std::clog << "       Writing coordinates for bundle " << bundle << std::endl;
       for (int i=0; i<n; ++i)
       { string token = theWords[bundle][i];
 	if (dictionary.count(token) == 0)
@@ -257,6 +261,13 @@ make_eigen_dictionary(std::string filename, int nEigenDim, std::set<std::string>
       else // flush rest of line
 	std::getline(eigenStream, junk);
     }
+  }
+  // propagate missing values; assign nan to missing
+  {
+    std::vector<float> missing;
+    for(int i=0; i<nEigenDim; ++i)
+      missing.push_back(std::nanf("missing"));
+    dictionary["NA"] = missing;
   }
   std::clog << "      Completed eigenword dictionary of size " << dictionary.size() << std::endl;
   return dictionary;
