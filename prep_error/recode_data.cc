@@ -1,5 +1,5 @@
 /*
-  Converts the base data director into a new 'analysis' directory that has a
+  Converts the base data directory into a new 'analysis' directory that has a
   binary response as well as subsets the data to match cases used in the binary
   response.
 
@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 #include <set>
+#include <numeric>   // accumulate
 
 #include "string_trim.h"
 
@@ -22,9 +23,12 @@
 
 const bool verbose = true;
 
-const std::string tag = "RCDD";
+const std::string tag = "RCDD: ";
 
 /////
+
+std::vector<bool>
+write_binary_response(std::string word0, std::string word1, std::string inputDir, std::string outputDir);
 
 std::vector<std::string>
 files_in_directory (std::string dir);
@@ -48,6 +52,7 @@ parse_arguments(int argc, char** argv,
 		std::string& inputDataDir, std::string& word0, std::string& word1,
 		std::string& outputDataDir);
 
+/////   
 
 int main(int argc, char** argv)
 {
@@ -65,52 +70,12 @@ int main(int argc, char** argv)
 
   std::clog << "recode_data --input_dir=" << inputDataDir << " --output_dir=" << outputDataDir
 	    << " --word0=" << word0 << " --word1=" << word1 << std::endl;
+
   
-  // open input and output response files (which determine subsequent cases to use)
-  int nObs = 0;   // n selected
-  std::vector<bool> selector;
-  {
-    std::ifstream input (inputDataDir + "Y");
-    if (!input.good())
-    { std::cerr << "ERROR: Cannot open input file " << inputDataDir << " Y text to convert to binary.\n";
-      return -1;
-    }
-    std::ofstream output (outputDataDir + "Y");
-    if (!output.good())
-    { std::cerr << "ERROR: Cannot open output file " << outputDataDir << " for binary response.\n";
-      return -2;
-    }
-    // read 3-line file, echoing
-    string line;
-    std::getline(input, line);             // handle names
-    output << "Y" << std::endl;
-    std::getline(input, line);             // attributes
-    output << line << " word0 " << word0 << " word1 " << word1 << std::endl;
-    std::vector<int> binaryY;
-    string word;
-    if (word0.size() == 0) // code all but word1 as 0
-      while(input.good() && (input >> word))
-      { ++nObs;
-	selector.push_back(true);
-	if (word == word1)
-	  binaryY.push_back(1);
-	else
-	  binaryY.push_back(0);
-      }
-    else
-      while(input.good() && (input >> word))
-      { if ((word == word0) || (word == word1))
-	{ selector.push_back(true);
-	  ++nObs;
-	  if (word == word1)
-	    binaryY.push_back(1);
-	  else
-	    binaryY.push_back(0);
-	}
-	else selector.push_back(false);
-      }
-  }
-  if (verbose) std::clog << tag << "Writing " << nObs << " cases for word pair " << word0 << "-" << word1
+  // selector records which cases match word0 or word1
+  std::vector<bool> selector = write_binary_response(word0, word1, inputDataDir, outputDataDir);
+  int nObsSelected = std::accumulate(selector.begin(), selector.end(), 0, [](int tot, bool x) { if(x) return tot+1; else return tot; });
+  if (verbose) std::clog << tag << "Writing " << nObsSelected << " cases for word pair " << word0 << "-" << word1
 			 << " from input dir " << inputDataDir << std::endl;
 
   { // write the file with the number of observations
@@ -119,7 +84,7 @@ int main(int argc, char** argv)
     { std::cerr << tag << "Could not open file `n_obs' for the count.\n";
       return -20;
     }
-    countFile << nObs << std::endl;
+    countFile << nObsSelected << std::endl;
   }
     
   { // process the rest of the files
@@ -134,15 +99,76 @@ int main(int argc, char** argv)
     for (auto filename : filenames)
     { if (verbose) std::clog << "RECODE: Recoding data file " << filename << std::endl;
       int nCasesWritten = rewrite_predictor_file(inputDataDir+filename, selector, outputDataDir + filename);
-      if (nCasesWritten != nObs)
+      if (nCasesWritten != nObsSelected)
       { std::cerr << "ERROR: Number cases written for " << filename << " was " << nCasesWritten
-		  << " != " << nObs << std::endl;
+		  << " != " << nObsSelected << std::endl;
 	return -11;
       }
     }
     return 0;
   }
 }
+
+//     write_binary_response     write_binary_response     write_binary_response     write_binary_response     
+
+//       converts intput text into 0/1, selecting only appropriate cases identified in selector
+//       writes n_obs on first line followed by 3 line auction format.
+
+std::vector<bool>
+write_binary_response(std::string word0, std::string word1, std::string inputDir, std::string outputDir)
+{
+  using std::string;
+  
+  std::vector<bool> selector;
+  std::ifstream input (inputDir + "Y");
+  if (!input.good())
+    { std::cerr << "ERROR: Cannot open input file " << inputDir << " Y text to convert to binary.\n";
+      return selector;
+    }
+  std::ofstream output (outputDir + "Y");
+  if (!output.good())
+    { std::cerr << "ERROR: Cannot open output file " << outputDir << " for binary response.\n";
+      return selector;
+    }
+  // read 3-line file, echoing
+  string line;
+  std::getline(input, line);             // handle names
+  std::istringstream ss(line);
+  string name;
+  ss >> name;
+  std::getline(input, line);             // attributes
+  std::vector<int> binaryY;
+  string word;
+  int nObs = 0;
+  if (word0.size() == 0) // code all but word1 as 0
+    while(input.good() && (input >> word))
+    { ++nObs;
+      selector.push_back(true);
+      if (word == word1)
+	binaryY.push_back(1);
+      else
+	binaryY.push_back(0);
+    }
+  else // code only two selected words
+    while(input.good() && (input >> word))
+    { if ((word == word0) || (word == word1))
+      { ++nObs;
+	selector.push_back(true);
+	if (word == word1)
+	  binaryY.push_back(1);
+	else
+	  binaryY.push_back(0);
+      }
+      else selector.push_back(false);
+    }
+  // write to output
+  output << nObs << std::endl;
+  output << "Y" << std::endl;
+  output << line << " word0 " << word0 << " word1 " << word1 << " name " << name << std::endl;
+  output << binaryY << std::endl;
+  return selector;
+}
+
 
 //     rewrite_predictor_file     rewrite_predictor_file     rewrite_predictor_file     rewrite_predictor_file
 int

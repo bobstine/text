@@ -79,14 +79,8 @@ reversed_eigenwords.en: ~/data/text/eigenwords/eigenwords.300k.200.en.gz
 embedded_data.txt: rectangle_data.txt vocabulary.txt reversed_eigenwords.en embed
 	./embed --eigen_file=reversed_eigenwords.en --eigen_dim 15 --vocab=vocabulary.txt < rectangle_data.txt > $@
 
-
-jason_dat: csv_parser data/jason_97.csv
-	rm -rf data/jason.tar; mkdir data/jason.tar
-	./csv_parser -f data/jason_97.csv -d data/jason.tar
-	cd data/jason.tar; chmod +x index.sh; ./index.sh > jason.dat
-
 jason_test: auction.test data/jason.tar/index.sh
-	 ./auction.test -f data/jason.tar/jason.dat -o data/jason.tar/ -r 100 -a 2 -p 3 -c 5
+	 ./auction.test -f data/jason.tar/jason.dat
 
 
 auction_data: rectangle_data.txt vocabulary.txt reversed_eigenwords.en embed_auction
@@ -100,18 +94,19 @@ word1  = to
 inDir  = auction_data
 outDir = $(inDir)/$(word0)_$(word1)
 
-.PHONY: build_auction_data run_auction
+.PHONY: doit
 
-build_auction_data: recode_data $(inDir)
+$(outDir): recode_data $(inDir)
 	rm -rf $(outDir); mkdir $(outDir)
-	head -n 3 $(inDir)/index.sh > $(outDir)/Y.sh
-	echo "#!/bin/sh\ncat n_obs\ncat cv_indicator" > $(outDir)/CV.sh
-	echo "#!/bin/sh\ncat n_obs\n" > $(outDir)/CV.sh
-	sed "2,3d" $(inDir)/index.sh > $(outDir)/X.sh
+	sed "3d" $(inDir)/index.sh > $(outDir)/X.sh
+	chmod +x $(outDir)/X.sh
 	./recode_data --input_dir=$(inDir) --output_dir=$(outDir) --word0=$(word0) --word1=$(word1)
+	cat $(outDir)/n_obs | ./random_indicator --header --choose 0.8 > $(outDir)/cv_indicator
 
-run_auction: build_auction_data recode_data $(auction_data)
-	./auction
+doit: $(outDir)
+
+run_auction: $(outDir)
+	./auction  -o data/jason.tar/ -r 100 -a 2 -p 3 -c 5
 
 
 
