@@ -22,6 +22,8 @@
 
 const bool verbose = true;
 
+const std::string tag = "RCDD";
+
 /////
 
 std::vector<std::string>
@@ -108,28 +110,34 @@ int main(int argc, char** argv)
 	else selector.push_back(false);
       }
   }
-  if (verbose) std::clog << "RECODE: Writing " << nObs << " cases for word pair " << word0 << "-" << word1
+  if (verbose) std::clog << tag << "Writing " << nObs << " cases for word pair " << word0 << "-" << word1
 			 << " from input dir " << inputDataDir << std::endl;
-  // process the rest of the files
-  {
+
+  { // write the file with the number of observations
+    std::ofstream countFile (outputDataDir + "n_obs");
+    if (!countFile.good())
+    { std::cerr << tag << "Could not open file `n_obs' for the count.\n";
+      return -20;
+    }
+    countFile << nObs << std::endl;
+  }
+    
+  { // process the rest of the files
     std::vector<string> allfilenames = files_in_directory(inputDataDir);
     std::set<string> removeNames;
-    removeNames.insert(".");   removeNames.insert("nObs");     removeNames.insert("Y");
+    removeNames.insert(".");   removeNames.insert("n_obs");    removeNames.insert("Y");
     removeNames.insert("..");  removeNames.insert("index.sh"); removeNames.insert(word0+"_"+word1);
     std::vector<string> filenames;
     for (auto filename : allfilenames)
       if (0==removeNames.count(filename))
 	filenames.push_back(filename);
     for (auto filename : filenames)
-    { if (verbose) std::clog << "        Processing file " << filename << std::endl;
-      if ((filename != "n_obs") && (filename != "Y") && (filename[0] != '.'))
-      { if (verbose) std::clog << "RECODE: Recoding data file " << filename << std::endl;
-	int nCasesWritten = rewrite_predictor_file(inputDataDir+filename, selector, outputDataDir + filename);
-	if (nCasesWritten != nObs)
-	{ std::cerr << "ERROR: Number cases written for " << filename << " was " << nCasesWritten
-		    << " != " << nObs << std::endl;
-	  return -11;
-	}
+    { if (verbose) std::clog << "RECODE: Recoding data file " << filename << std::endl;
+      int nCasesWritten = rewrite_predictor_file(inputDataDir+filename, selector, outputDataDir + filename);
+      if (nCasesWritten != nObs)
+      { std::cerr << "ERROR: Number cases written for " << filename << " was " << nCasesWritten
+		  << " != " << nObs << std::endl;
+	return -11;
       }
     }
     return 0;

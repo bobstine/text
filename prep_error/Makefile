@@ -71,10 +71,7 @@ embed_auction: embed_auction.o
 recode_data: recode_data.o
 	$(GCC) $^ $(LDLIBS) -o  $@
 
-build_cv: build_cv.o
-	$(GCC) $^ $(LDLIBS) -o  $@
-
-# reverse Zipf order so later, more common coord overwrite in dictionary
+# reverse Zipf order so later, more common words overwrite in dictionary
 reversed_eigenwords.en: ~/data/text/eigenwords/eigenwords.300k.200.en.gz
 	rm -f $@
 	gunzip -c $< | tac > $@
@@ -107,7 +104,10 @@ outDir = $(inDir)/$(word0)_$(word1)
 
 build_auction_data: recode_data $(inDir)
 	rm -rf $(outDir); mkdir $(outDir)
-	cp $(inDir)/index.sh $(outDir)
+	head -n 3 $(inDir)/index.sh > $(outDir)/Y.sh
+	echo "#!/bin/sh\ncat n_obs\ncat cv_indicator" > $(outDir)/CV.sh
+	echo "#!/bin/sh\ncat n_obs\n" > $(outDir)/CV.sh
+	sed "2,3d" $(inDir)/index.sh > $(outDir)/X.sh
 	./recode_data --input_dir=$(inDir) --output_dir=$(outDir) --word0=$(word0) --word1=$(word1)
 
 run_auction: build_auction_data recode_data $(auction_data)
