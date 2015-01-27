@@ -39,7 +39,9 @@ all: auction_data
 #
 ###########################################################################
 
-nlines = 1000
+nlines = 10000
+
+nEigenDim = 15
 
 prep_events.txt: ~/data/joel/7m-4d-Aug30-events.gz
 	echo Building base file 'prep_events.txt' from $(nlines) sentences.
@@ -77,7 +79,7 @@ reversed_eigenwords.en: ~/data/text/eigenwords/eigenwords.300k.200.en.gz
 	gunzip -c $< | tac > $@
 
 embedded_data.txt: rectangle_data.txt vocabulary.txt reversed_eigenwords.en embed
-	./embed --eigen_file=reversed_eigenwords.en --eigen_dim 15 --vocab=vocabulary.txt < rectangle_data.txt > $@
+	./embed --eigen_file=reversed_eigenwords.en --eigen_dim $(nEigenDim) --vocab=vocabulary.txt < rectangle_data.txt > $@
 
 jason_test: auction.test data/jason.tar/index.sh
 	 ./auction.test -f data/jason.tar/jason.dat
@@ -86,7 +88,7 @@ jason_test: auction.test data/jason.tar/index.sh
 auction_data: rectangle_data.txt vocabulary.txt reversed_eigenwords.en embed_auction
 	rm -rf $@
 	mkdir auction_data
-	./embed_auction --eigen_file=reversed_eigenwords.en --eigen_dim 5 --vocab=vocabulary.txt -o $@ < rectangle_data.txt
+	./embed_auction --eigen_file=reversed_eigenwords.en --eigen_dim $(nEigenDim) --vocab=vocabulary.txt -o $@ < rectangle_data.txt
 	chmod +x $@/index.sh
 
 word0  = in
@@ -105,8 +107,11 @@ $(outDir): recode_data $(inDir)
 
 doit: $(outDir)
 
-run_auction: $(outDir)
-	./auction  -o data/jason.tar/ -r 100 -a 2 -p 3 -c 5
+run_auction: # $(outDir)
+	# rm -rf $(outDir)/X  #  build manually while debugging
+	# mkfifo $(outDir)/X 
+	# cat ./$(outDir)/X.sh > $(outDir)/X &
+	./auction -Y$(outDir)/Y -C$(outDir)/cv_indicator -X$(outDir)/X -o auction_run -r 100 -a 2 -p 3 -k 10 -c 0
 
 
 
