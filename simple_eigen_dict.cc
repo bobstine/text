@@ -1,4 +1,4 @@
-#include "eigen_dictionary.h"
+#include "simple_eigen_dict.h"
 
 #include <iostream>
 #include <fstream>
@@ -13,12 +13,12 @@
 
 const bool verbose = true;
 
-EigenDictionary
-make_eigen_dictionary(std::string filename, size_t dimToUse, SimpleVocabulary const& vocabulary)
+SimpleEigenDictionary
+make_simple_eigen_dictionary(std::string filename, size_t dimToUse, SimpleVocabulary const& vocabulary)
 {
   using std::string;
   bool needToFlushEigenStream = false;
-  EigenDictionary dict;
+  SimpleEigenDictionary dict;
   {
     std::ifstream eigenStream (filename.c_str(), std::ifstream::in);
     if (eigenStream.fail())
@@ -83,7 +83,7 @@ make_eigen_dictionary(std::string filename, size_t dimToUse, SimpleVocabulary co
 
 
 void
-compare_dictionary_to_vocabulary(EigenDictionary const& dict, SimpleVocabulary const& vocab) 
+compare_dictionary_to_vocabulary(SimpleEigenDictionary const& dict, SimpleVocabulary const& vocab) 
 {
   if (dict.size() < vocab.size())
   { std::clog << "EDIC:  Dictionary coordinates not found for the following " << vocab.size()-dict.size() << " tokens:\n";

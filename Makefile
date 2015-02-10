@@ -16,10 +16,10 @@ OPT = -O3 -fopenmp
 
 USES = eigen utils
 
-EXTERNAL_USES =  gomp
+EXTERNAL_USES = 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-level_1 = confusion_matrix.o simple_vocabulary.o eigenword_dictionary.o  helpers.o
+level_1 = confusion_matrix.o simple_vocabulary.o simple_eigen_dict.o eigenword_dictionary.o  helpers.o
 
 # --- many of these have a main and are not suited for use in library
 # level_1 = k_means.o token_manager.o vocabulary.o   # porter.o
