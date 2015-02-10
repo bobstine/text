@@ -19,12 +19,14 @@ USES = eigen utils
 EXTERNAL_USES =  gomp
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+level_1 = confusion_matrix.o simple_vocabulary.o eigenword_dictionary.o  helpers.o
 
-level_1 = k_means.o token_manager.o confusion_matrix.o vocabulary.o eigenword_dictionary.o  simple_vocabulary.o  eigen_dictionary.o # porter.o
-level_2 = helpers.o
-level_3 = classifier.o regressor.o bigram.o unified_regressor.o  lsa_regr.o  # bigram_regr.o
-level_4 = cluster.o
-level_5 = 
+# --- many of these have a main and are not suited for use in library
+# level_1 = k_means.o token_manager.o vocabulary.o   # porter.o
+# level_2 = helpers.o
+# level_3 = classifier.o regressor.o bigram.o unified_regressor.o  lsa_regr.o  # bigram_regr.o
+# level_4 = cluster.o
+# level_5 = 
 
 regex_test: regex_test.o
 	$(GCC) $^ $(LDLIBS) -o $@

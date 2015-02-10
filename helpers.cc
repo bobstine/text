@@ -237,8 +237,8 @@ Helper::write_exact_svd_to_path(Vocabulary::SparseMatrix const& B, int nProjecti
     return;
   }
   Eigen::JacobiSVD<Matrix> svd(B, Eigen::ComputeThinU|Eigen::ComputeThinV);
-  Matrix U = svd.matrixU() * Matrix::Identity(B.cols(), nProjections);
-  Matrix V = svd.matrixV() * Matrix::Identity(B.cols(), nProjections);
+  Matrix U = svd.matrixU() * Matrix::Identity((int)B.cols(), nProjections);
+  Matrix V = svd.matrixV() * Matrix::Identity((int)B.cols(), nProjections);
   Vector s = svd.singularValues();
   std::clog << "MAIN: Leading singular values are " << s.transpose().head(20) << endl;
   Eigen::IOFormat fmt(Eigen::StreamPrecision,Eigen::DontAlignCols,"\t","\n","","","","");
