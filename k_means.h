@@ -38,7 +38,7 @@ class KMeansClusters
       mClusterCenters(Matrix::Zero(nClusters,data.cols())), mDataClusterIndex(data.rows())
     { prepare_data(&mData); find_clusters(maxIterations);  }
 
-  int            number_of_cases()                                       const { return mData.rows(); }
+  int            number_of_cases()                                       const { return (int)mData.rows(); }
   int            number_of_clusters()                                    const { return mNClusters; }
   
   ClusterMap     cluster_map  ()                                         const;  // map of vectors for indices in each cluster

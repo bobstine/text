@@ -19,14 +19,14 @@ max(int a, int b) { return (a < b) ? b : a; }
 float
 ConfusionMatrix::accuracy() const         // diagonal sum divided by total sum
 {
-  return ((float) mTable.diagonal().sum())/mN;
+  return ((float) mTable.diagonal().sum())/(float)mN;
 }
 
 
 float
 ConfusionMatrix::purity() const
 {
-  return ((float) mTable.colwise().maxCoeff().sum())/mN;
+  return ((float) mTable.colwise().maxCoeff().sum())/(float)mN;
 }
 
 
@@ -38,7 +38,7 @@ ConfusionMatrix::print_to_stream (std::ostream &os) const
 {
   using std::setw;
   os << messageTag << "Accuracy=" << accuracy() << "  Purity=" << purity() << "      (rows=truth, cols=estimated)" << std::endl;
-  int width = 2 + max(log10((float)mMaxFreq), mMaxLabelLen);
+  int width = 2 + max(int(log10((float)mMaxFreq)), mMaxLabelLen);
   
   os << std::setw(width) << messageTag << "  " << setw(width) << " ";
   for (auto it = mLabels.cbegin(); it != mLabels.cend(); ++it)
@@ -63,7 +63,7 @@ void
 ConfusionMatrix::set_labels(ConfusionMatrix::StrSet const& s)
 {
   for(auto it=s.cbegin(); it!=s.cend(); ++it)
-  { int len (it->size());
+  { int len = (int)it->size();
     if(len > mMaxLabelLen)
       mMaxLabelLen = len;
     mLabels.push_back(*it);

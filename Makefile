@@ -8,7 +8,6 @@ include ../c_flags
 #
 ###########################################################################
 
-
 PROJECT_NAME = text
 
 # OPT = -O3 -std=c++0x -DNDEBUG
@@ -21,9 +20,9 @@ EXTERNAL_USES =  gomp
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-level_1 = k_means.o token_manager.o confusion_matrix.o porter.o vocabulary.o eigenword_dictionary.o 
+level_1 = k_means.o token_manager.o confusion_matrix.o vocabulary.o eigenword_dictionary.o  simple_vocabulary.o  eigen_dictionary.o # porter.o
 level_2 = helpers.o
-level_3 = classifier.o regressor.o bigram.o unified_regressor.o  lsa_regr.o  bigram_regr.o
+level_3 = classifier.o regressor.o bigram.o unified_regressor.o  lsa_regr.o  # bigram_regr.o
 level_4 = cluster.o
 level_5 = 
 

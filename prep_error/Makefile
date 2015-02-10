@@ -8,12 +8,9 @@ include ~/C/c_flags
 #
 ###########################################################################
 
-
 PROJECT_NAME = prep_error
 
 OPT = -O3 -std=c++11
-
-# OPT = - -DNDEBUG O3
 
 level_1 = convert.o embed.o embed_auction.o recode_data.o
 level_2 =
@@ -80,10 +77,6 @@ reversed_eigenwords.en: ~/data/text/eigenwords/eigenwords.300k.200.en.gz
 
 embedded_data.txt: rectangle_data.txt vocabulary.txt reversed_eigenwords.en embed
 	./embed --eigen_file=reversed_eigenwords.en --eigen_dim $(nEigenDim) --vocab=vocabulary.txt < rectangle_data.txt > $@
-
-jason_test: auction.test data/jason.tar/index.sh
-	 ./auction.test -f data/jason.tar/jason.dat
-
 
 auction_data: rectangle_data.txt vocabulary.txt reversed_eigenwords.en embed_auction
 	rm -rf $@

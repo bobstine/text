@@ -1,10 +1,11 @@
 #include "cluster.h"
+#include "eigen_utils.h"
 
 typedef Eigen::VectorXf                   Vector;
 typedef Eigen::VectorXi                   IntVector;
 typedef Eigen::MatrixXf                   Matrix;
 
-typedef Eigen::SparseMatrix<float,Eigen::RowMajor> SparseMatrix;
+typedef Eigen::SparseMatrix<float,Eigen::ColMajor> SparseMatrix;   // was row major???
 
 
 
@@ -22,7 +23,7 @@ fill_sparse_bigram_matrix(SparseMatrix &B, int skip, TokenManager const& tmRow, 
 {
   std::map<std::pair<int,int>,int> bgramMap;
   tmRow.fill_bigram_map(bgramMap, skip, tmCol, transpose);    
-  fill_sparse_matrix(B, bgramMap);
+  EigenUtils::fill_sparse_matrix(B, bgramMap);
 }
 
 
@@ -57,8 +58,6 @@ int main(int argc, char **argv)
 	    << " clusters=" << nClusters << " iterations=" << nIterations
 	    << " print=" << nPrint << " validation=" << vFileName << std::endl;
 
-  const bool useValidation (vFileName.size() > 0);
-  
   // read tagged tokens and pos from input
   clock_t startTime = clock();
 
@@ -72,7 +71,7 @@ int main(int argc, char **argv)
   if (nPrint) tokenManager.print_type_tags(nPrint);
   int nAmbiguous = tokenManager.n_ambiguous();
   ss << "MAIN: Source has " << nAmbiguous << " ambiguous tokens among " << tokenManager.input_length()
-     << "  (" << 100.0*(1.0 - ((float)nAmbiguous)/tokenManager.input_length()) << "% pure)" << std::endl;
+     << "  (" << 100.0*(1.0 - ((float)nAmbiguous)/(float)tokenManager.input_length()) << "% pure)" << std::endl;
   std::cout << ss.str();
   std::clog << ss.str();
   ss.str("");
@@ -114,7 +113,7 @@ int main(int argc, char **argv)
   IntVector wts = IntVector::Ones(B.rows());
   if (weightCentroid)  
   { for(int i=0; i<B.rows(); ++i)
-    { wts(i) = B.row(i).sum();
+    { wts(i) =int( B.row(i).sum() );
       if (0 == wts(i)) std::clog << "MAIN: row " << i << " of B sums to zero.\n";
     }
   }  

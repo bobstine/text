@@ -130,7 +130,7 @@ int main(int argc, char** argv)
 
   // P holds random projections version of SVD of bigram
   Matrix P(nDocs, nProjections);
-  Helper::fill_random_projection(P, B, powerIterations);
+  //  Helper::fill_random_projection(P, B, powerIterations);
   std::clog << "MAIN: Completed bigram projection.  P[" << P.rows() << "x" << P.cols() << "]\n";
 
   if (false)

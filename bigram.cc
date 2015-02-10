@@ -71,7 +71,7 @@ int main(int argc, char** argv)
   
   if (false) // exact decomposition via SVD
   { std::clog << "MAIN: Computing exact SVD of bigram matrix begins.\n";
-    Helper::write_exact_svd_to_path(B, nProjections, outputPath);
+    Helper::write_exact_svd_to_path(B, nProjections, outputPath,"TAG");
   }
   
   Vocabulary::SparseMatrix Bt = B.transpose();
