@@ -18,29 +18,27 @@
 	      eigen_stream_1
 	      eigen_stream_2
 	       ...
-
 */
 
 #include "read_utils.h"
+#include "simple_vocabulary.h"
+#include "eigen_dictionary.h"
+
 #include <getopt.h>
 
 #include <iostream>
 #include <fstream>
-#include <sstream>
 
 #include <string>
 #include <vector>
 #include <map>
 #include <set>
 
-#include <algorithm>
 #include <iterator>
 
-
-typedef std::map<std::string, std::vector<float>> EigenDictionary;
-
-EigenDictionary
-make_eigen_dictionary(std::string filename, int dim, std::set<std::string> const& vocabulary);
+void
+write_bundle(std::string bundleName, std::vector<std::vector<float>> const& coor, std::vector<double> const& sum, int nMissing,
+	     std::ofstream &shellFile, std::string outputDir);
 
 void
 parse_arguments(int argc, char** argv,
@@ -64,7 +62,9 @@ std::ostream& operator<< (std::ostream& os, std::vector<T> vec)
 
 ///
 
-const bool verbose = false;
+const bool verbose = true;
+
+const std::string tag = "EMBD: ";
 
 ///
 
@@ -72,8 +72,6 @@ int main(int argc, char** argv)
 {
   using std::string;
   using std::vector;
-  using std::set;
-  using std::map;
 
   // parse arguments after setting default parameters
   string vocabFileName ("vocabulary.txt");
@@ -87,31 +85,11 @@ int main(int argc, char** argv)
 	    << " --eigen_dim=" << nEigenDim << " --output_dir=" << outputDir << std::endl;
   
   // read vocabulary
-  set<string> vocabulary;
-  {
-    std::ifstream vocabStream (vocabFileName.c_str(), std::ifstream::in);
-    if (vocabStream.fail())
-    { std::cerr << "ERROR: Vocabulary file `" << vocabFileName << "' not found; terminating.\n";
-      return 0;
-    }
-    while (! vocabStream.eof() )
-    { string token;
-      vocabStream >> token;
-      vocabulary.insert(token);
-    }
-    std::clog << "MAIN: Read vocabulary of " << vocabulary.size() << " tokens\n";
-  }
+  SimpleVocabulary vocabulary (vocabFileName);
 
-  // build dictionary and find words that are missing
-  EigenDictionary dictionary = make_eigen_dictionary(eigenFileName, nEigenDim, vocabulary);
-  if (dictionary.size() < vocabulary.size())
-  { std::clog << "      Dictionary coordinates not found for the following " << vocabulary.size()-dictionary.size() << " tokens:\n";
-    for(auto x : vocabulary)
-    { if (dictionary.count(x) == 0)
-	std::clog << " " << x;
-    }
-    std::clog << std::endl;
-  }
+  // build eigen dictionary
+  EigenDictionary eigenDictionary (eigenFileName, nEigenDim, vocabulary);
+  eigenDictionary.compare_to_vocabulary(vocabulary);
 
   // process each bundle of eigen coordinates; use header line to name bundles
   string responseName;
@@ -126,7 +104,7 @@ int main(int argc, char** argv)
       bundleNames.push_back(name);
   }
   const int nBundles = (int) bundleNames.size();
-  std::clog << "MAIN: Reading response and " << nBundles << " words for each case to define modeling data.\n";
+  std::clog << tag << "Reading response and " << nBundles << " predictive words for each case to define modeling data.\n";
   std::vector<             string>   response;
   std::vector< std::vector<string> > theWords(nBundles);
   while (!std::cin.eof())
@@ -140,17 +118,22 @@ int main(int argc, char** argv)
       theWords[j].push_back(token);
     }
   }
-  std::clog << "MAIN: Read " << response.size() << " cases for response and " << theWords[0].size() << " words for first predictor.\n";
-  std::clog << "MAIN: Embedding " << bundleNames.size() << " blocks of eigen coordinates.\n";
+  std::clog << tag << "Read " << response.size() << " cases for response and " << theWords[0].size() << " words for first predictor.\n";
+  std::clog << tag << "Embedding " << bundleNames.size() << " blocks of eigen coordinates.\n";
+
   // start to write output here
   std::ofstream shellFile (outputDir + "index.sh");
   if (!shellFile.good())
   { std::cerr << "ERROR: Could not place index file in directory " << outputDir << "; exiting.\n";
     return 0;
   }
-  shellFile << "#!/bin/sh" << std::endl
-	    << "echo " << response.size() << std::endl
+  shellFile << "#!/bin/sh"   << std::endl
+	    << "cat n_obs"  << std::endl
 	    << "cat " << responseName << std::endl;
+  {
+    std::ofstream file (outputDir + "n_obs");
+    file << response.size() << std::endl;
+  }
   {
     std::ofstream file (outputDir + responseName);
     file << responseName << std::endl;
@@ -158,109 +141,81 @@ int main(int argc, char** argv)
     file << response << std::endl;
   }
   {
-    // for each bundle, open multiple files, one for each eigen dim
+    // for each bundle, must read all before writing due to possible missing data
     int n = (int)response.size();
     for(int bundle=0; bundle<nBundles; ++bundle)
-    { std::clog << "+++ opening files for bundle " << bundle << std::endl;
-      std::vector<std::ofstream *> files;
-      for(int d=0; d<nEigenDim; ++d)
-      { string varName = bundleNames[bundle] + "_" + std::to_string(d);
-	shellFile << "cat " << varName << std::endl;
-	std::ofstream *file = new std::ofstream(outputDir + varName);
-	(*file) << bundleNames[bundle] + "_" + std::to_string(d) << std::endl;   // name
-	(*file) << "role x stream " << bundleNames[bundle] << std::endl;    // attributes
-	files.push_back(file);
-      }
-      std::clog << "+++ writing coordinates for bundle " << bundle << std::endl;
+    { std::vector<std::vector<float>> eigenCoord (n);
+      if (verbose) std::clog << "       Processing eigendata for bundle " << bundle << std::endl;
+      int nMissing = 0;
+      std::vector<double> sum (nEigenDim, 0.0);
       for (int i=0; i<n; ++i)
       { string token = theWords[bundle][i];
-	if (dictionary.count(token) == 0)
-	{ if (verbose) std::clog << "WARNING: Token " << token << " was not found. Treating as OOV.\n";
+	bool missing = false;
+	if (token == "NA")
+	{ ++nMissing;
+	  missing = true;
+	}
+	else if (dictionary.count(token) == 0)
+	{ // if (verbose) std::clog << "WARNING: Token " << token << " was not found. Treating as OOV.\n";
 	  token = "OOV";
 	}
-	std::vector<float> coord = dictionary[token];
-	if(i < n-1)
-	  for(int j=0; j<nEigenDim; ++j) (*files[j]) << coord[j] << "\t";
-	else // avoid trailing tab
-	  for(int j=0; j<nEigenDim; ++j) (*files[j]) << coord[j];
+	eigenCoord[i] = dictionary[token];
+	if (!missing) for(int j=0; j<nEigenDim; ++j) sum[j] += (double) eigenCoord[i][j];
       }
-      for (auto pFile : files)
-      { pFile->close();
-	delete pFile;
-      }
+      if (verbose)
+	std::clog << tag << "Found " << nMissing << " missing cases for bundle " << bundleNames[bundle] << std::endl;
+      write_bundle(bundleNames[bundle], eigenCoord, sum, nMissing, shellFile, outputDir);
     }
   }
 }
 
-//     make_eigen_dictionary     make_eigen_dictionary     make_eigen_dictionary     make_eigen_dictionary     make_eigen_dictionary
-/*
-  build dictionary for this vocab from eigenwords  (Paramveer's is space delimited, *UNKNOWN* first)
-  ASSUME
-    - coordinates for OOV come first
-    - dictionary is in inverse Zipf order (so overwrite less with more common)
-*/
+//     write_bundle     write_bundle     write_bundle     write_bundle     write_bundle     write_bundle     
 
-EigenDictionary
-make_eigen_dictionary(std::string filename, int nEigenDim, std::set<std::string> const& vocabulary)
+void
+write_bundle(std::string bundleName, std::vector<std::vector<float>> const& coor, std::vector<double> const& sum, int nMissing, 
+	     std::ofstream &shellFile, std::string outputDir)      
 {
-  using std::string;
-  EigenDictionary  dictionary;
-  bool needToFlushEigenStream = false;
-  {
-    std::ifstream eigenStream (filename.c_str(), std::ifstream::in);
-    if (eigenStream.fail())
-    { std::cerr << "ERROR: Eigen dictionary file `" << filename << "' not found; terminating.\n";
-      return dictionary;
+  int n = (int) coor.size();
+  int nEigenDim = (int) coor[0].size();
+
+  if (0 < nMissing)  // write missing indicator
+  { std::string varName = bundleName + "_" + "Missing";
+    shellFile << "cat " << varName << std::endl;
+    std::ofstream file(outputDir + varName);
+    file << varName << std::endl;
+    file << " role x stream missing original_stream" << bundleName << " indicator missing" << std::endl;
+    for(int i=0; i<n-1; ++i)
+    { if (isnan(coor[i][0]))
+	file << 1 << "\t";
+      else file << 0 << "\t";
     }
-    std::clog << "DICT: Build eigen dictionary with initial dim " << nEigenDim << " from file " << filename << std::endl;
-    { // special handling for first line, assumed to define OOV coordinates
-      std::vector<float> oov;
-      string token;
-      eigenStream >> token;  // toss file label for OOV; use "OOV"
-      string line;
-      std::getline(eigenStream, line);
-      std::istringstream ss(line);
-      float x;
-      while (ss >> x) oov.push_back(x);
-      if (nEigenDim == 0)
-      { nEigenDim = (int) oov.size();
-	if (verbose) std::clog << "Found eigen dimension = " << oov.size() << " based on found size for OOV.\n";
-	needToFlushEigenStream = false;
-      }
-      else
-      { if (nEigenDim < (int)oov.size())
-	{ oov.resize(nEigenDim);
-	  needToFlushEigenStream = true;
-	  if (verbose) std::clog << "       Will need to flush trailing elements in eigen stream.\n";
-	}
+    if (isnan(coor[n-1][0]))
+      file << 1;
+    else file << 0;
+  }
+  for(int d=0; d<nEigenDim; ++d)
+  { std::string varName = bundleName + "_" + std::to_string(d);
+    shellFile << "cat " << varName << std::endl;
+    std::ofstream file(outputDir + varName);
+    file << varName << std::endl;
+    file << "role x stream " << bundleName << std::endl;    // attributes
+    if(nMissing == 0)
+    { for(int i=0; i<n-1; ++i) file << coor[i][d] << "\t";  // no tab at end
+      file << coor[n-1][d];
+    } else
+    { double mean = sum[d]/(double)(n-nMissing);
+      for(int i=0; i<n; ++i)
+      { float x = coor[i][d];
+	if (isnan(x))
+	  file << mean;
 	else
-	{ std::cerr << "ERROR: Found eigen dimension " << oov.size() << " which is smaller than requested " << nEigenDim << std::endl;
-	  return dictionary;
-	}
+	  file << x;
+	if (i < n-1) file << "\t";
       }
-      dictionary["OOV"] = oov;
-    }
-    while(!eigenStream.eof())
-    { string token;
-      string junk;
-      eigenStream >> token;
-      if(token.size() == 0) break;       // file has trailing blank line
-      std::transform(token.begin(), token.end(), token.begin(), ::tolower);
-      if(vocabulary.count(token) != 0)   // word type found in vocabulary
-      { std::vector<float> coor(nEigenDim);
-	for(int i=0; i<nEigenDim; ++i)
-	  eigenStream >> coor[i];
-	if (needToFlushEigenStream) std::getline(eigenStream, junk);
-	dictionary[token] = coor;        // over-writes if token present
-	if (verbose) std::clog << "      Added dictionary coor for token " << token << std::endl;
-      }
-      else // flush rest of line
-	std::getline(eigenStream, junk);
     }
   }
-  std::clog << "      Completed eigenword dictionary of size " << dictionary.size() << std::endl;
-  return dictionary;
 }
+
 
 void
 parse_arguments(int argc, char** argv,

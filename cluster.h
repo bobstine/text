@@ -1,5 +1,5 @@
-#ifndef _BIGRAM_H_
-#define _BIGRAM_H_
+#ifndef _CLUSTER_H_
+#define _CLUSTER_H_
 
 #include "token_manager.h"
 #include "k_means.h"

@@ -7,7 +7,7 @@
 #include <fstream>  // debug temporary
 #include <set>      // debug temporary
 
-const float sqrt2 = 1.41421356;
+const float sqrt2 = (float)1.41421356;
 
 static std::string messageTag = "KMCS: ";
 
@@ -42,7 +42,7 @@ KMeansClusters::prepare_data(Matrix *mat) const
   if (mScaleData)
   { if (mBidirectional)
     { assert(0 == mat->cols() % 2);
-      const int n = mat->cols()/2;
+      const int n = (int)mat->cols()/2;
       for(int i=0; i<mat->rows(); ++i)
       { mat->row(i).head(n).normalize();
 	mat->row(i).tail(n).normalize();
@@ -92,15 +92,15 @@ KMeansClusters::find_clusters(int maxIterations)
     *pNew = Matrix::Zero(mNClusters, mData.cols());
     for(int i=0; i<mNClusters; ++i) counts[i]=0;
     for(int i=0; i<mData.rows(); ++i)
-    { pNew->row(mDataClusterIndex[i]) += mData.row(i) * mWeights(i);
+      { pNew->row(mDataClusterIndex[i]) += mData.row(i) * (float)mWeights(i);
       counts[mDataClusterIndex[i]] += mWeights(i);
     }
     for(int c=0; c<mNClusters; ++c)
       if(counts[c])
-      {	pNew->row(c).array() /= counts[c];
+	{	pNew->row(c).array() /= (float) counts[c];
 	if (mScaleCentroid)
 	{ if (mBidirectional)
-	  { int half = mData.cols()/2;
+	    { int half = (int) mData.cols()/2;
 	    pNew->row(c).head(half).normalize();
 	    pNew->row(c).tail(half).normalize();
 	  }
@@ -150,7 +150,7 @@ KMeansClusters::summarize_rare_cases(std::ostream &os) const
 void
 KMeansClusters::print_summary_stats(std::ostream &os)                         const
 {
-  RowVector mean = mData.colwise().sum().array()/mData.rows();  // global mean
+  RowVector mean = mData.colwise().sum().array()/(float)mData.rows();  // global mean
   float maxClusterDist = 0.0;
   float avgGlobalDist  = 0.0;
   float avgClusterDist = 0.0;
@@ -161,12 +161,12 @@ KMeansClusters::print_summary_stats(std::ostream &os)                         co
     float dist = distance(mData.row(i), mClusterCenters.row(mDataClusterIndex[i]));
     if (dist > maxClusterDist) maxClusterDist = dist;
     avgClusterDist      += dist;
-    sumWeights          += mWeights(i);
-    weightedClusterDist += mWeights(i) * dist;
+    sumWeights          += (float)mWeights(i);
+    weightedClusterDist += (float)mWeights(i) * dist;
   }
-  avgGlobalDist       /= mData.rows();
-  avgClusterDist      /= mData.rows();
-  weightedClusterDist /= sumWeights;
+  avgGlobalDist       /= (float)mData.rows();
+  avgClusterDist      /= (float)mData.rows();
+  weightedClusterDist /= (float)sumWeights;
    os << messageTag
       << "k-means summary stats [k=" << mNClusters << ", n=" << mData.rows() << "]   "
       << "  avg(dist to mean)=" << avgGlobalDist << " avg(dist to cluster)=" << avgClusterDist
@@ -188,12 +188,12 @@ KMeansClusters::within_cluster_summary_stats() const         // for each cluster
     float maxD = 0.0;
     for (auto i : m[k])
     { float d = distance(mData.row(i), mClusterCenters.row(k));
-      sumW += mWeights(i);
-      sumD += mWeights(i) * d;
+      sumW += (float)mWeights(i);
+      sumD += (float)mWeights(i) * d;
       if(d > maxD) maxD = d;
     } 
-    results(k,1) = sqrt(sumD/sumW);
-    results(k,2) = sqrt(maxD);
+    results(k,1) = (float)sqrt(sumD/sumW);
+    results(k,2) = (float)sqrt(maxD);
     results(k,3) = mClusterCenters.row(k).norm();
     results.row(k).tail(mClusterCenters.cols()) = mClusterCenters.row(k);
   }
@@ -207,16 +207,16 @@ KMeansClusters::average_within_cluster_variance(Matrix const& centroids) const
   Vector    ss     = Vector::Zero(mNClusters);
   for(int i=0; i<mData.rows(); ++i)
   { counts(mDataClusterIndex[i]) += mWeights(i);
-    ss(mDataClusterIndex[i]) += mWeights(i) * distance(mData.row(i), centroids.row(mDataClusterIndex[i]));
+    ss(mDataClusterIndex[i]) += (float)mWeights(i) * distance(mData.row(i), centroids.row(mDataClusterIndex[i]));
   }
   float avg=0;
   int n = 0;
   for(int c=0; c<mNClusters; ++c)
     if(counts[c]>0)
-    { avg += ss[c]/counts[c];
+      { avg += ss[c]/(float)counts[c];
       ++n;
     }      
-  return avg/n;
+  return avg/(float)n;
 }
 
 
@@ -240,7 +240,7 @@ KMeansClusters::print_to_stream (std::ostream& os) const
   const int maxClustersShown = 15;
   const int maxShownEach     = 15;
   for(int i=0; i<min(mNClusters, maxClustersShown); ++i)
-  { int clusterSize = m[i].size();
+    { int clusterSize = (int)m[i].size();
     os << "Cluster " << i << " (" << clusterSize << " items): ";
     { for(int j=0; j<min(clusterSize, maxShownEach); ++j)  os << " " << m[i][j];
       if(clusterSize > maxShownEach)                       os << " + " << clusterSize-maxShownEach << " more.";

@@ -53,7 +53,7 @@ TokenManager::init_from_stream(std::istream &input, float posThreshold)
   { std::map<POS,bool> reduce;
     int reduceCount = 0;
     for(auto it=posMap.cbegin(); it != posMap.cend(); ++it)
-    { float freq = ((float)it->second)/mTokens.size();
+      { float freq = ((float)it->second)/(float)mTokens.size();
       if (freq < posThreshold)
       { reduce[it->first] = true;
 	++reduceCount;

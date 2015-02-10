@@ -3,8 +3,12 @@
 convert
 embed
 embed_auction
+recode_data
 prep_events.txt
 vocabulary.txt
 reversed_eigenwords.en
 rectangle_data.txt
 embedded_data.txt
+auction_data
+auction_run
+	

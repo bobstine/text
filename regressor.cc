@@ -138,7 +138,7 @@ int main(int argc, char** argv)
     { YY(i) = log(Y(i));
       mm(i) = log(nTokens(i));
     }
-    mm = mm.array() - mm.sum()/mm.size();                  // center to reduce collinearity
+    mm = mm.array() - mm.sum()/(float)mm.size();                  // center to reduce collinearity
     bool reverse (false);                                  // reverse tests low frequency words first
     std::string fileName (outputPath + "word_regr_fit_");
     if (nTokens.size() > 0) fileName += "with_m";
@@ -173,11 +173,11 @@ int main(int argc, char** argv)
   { Vector dest (Vector::Zero(P.cols()));
     int mi (0);
     for (Vocabulary::SparseMatrix::InnerIterator it(W,i); it; ++it)
-    { mi += it.value();
+      { mi += (float)it.value();
       dest += P.row(it.col()) * it.value();
     }
     if(mi != nTokens(i)) std::clog << "MAIN: ********  Word count mismatched !!!\n";
-    A.row(i) = dest.array() / mi;
+    A.row(i) = dest.array() / (float) mi;
   }
 
   // form random projections of LSA variables
@@ -210,7 +210,7 @@ int main(int argc, char** argv)
       mm(i) = nTokens(i);
     }
     const bool reverse = false;
-    const int  degree = 0;  // for token adjustment
+    int  degree = 0;  // for token adjustment
     std::string fileName (outputPath + "lsa_regr_fit_");
     if (nTokens.size() > 0)
     { fileName += "with_m";
