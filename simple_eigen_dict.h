@@ -9,12 +9,13 @@
 #include <map>
 #include <vector>
 
-typedef  std::map<std::string, std::vector<float>>  SimpleEigenDictionary;
-
-SimpleEigenDictionary
-make_simple_eigen_dictionary(std::string filename, size_t dimToUse, SimpleVocabulary const& vocabulary);
-
-void compare_dictionary_to_vocabulary(SimpleEigenDictionary const& eigenDict, SimpleVocabulary const& vocab);
-
+namespace Text {
+  typedef  std::map<std::string, std::vector<float>>  SimpleEigenDictionary;
+  
+  SimpleEigenDictionary
+    make_simple_eigen_dictionary(std::string filename, size_t dimToUse, SimpleVocabulary const& vocabulary, bool downcase);
+  
+  void compare_dictionary_to_vocabulary(SimpleEigenDictionary const& eigenDict, SimpleVocabulary const& vocab);
+}
 
 #endif

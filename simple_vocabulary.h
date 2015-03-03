@@ -5,11 +5,12 @@
 #include <set>
 #include <string>
 
-typedef std::set<std::string> SimpleVocabulary;
+namespace Text {
 
+  typedef std::set<std::string> SimpleVocabulary;
 
-SimpleVocabulary
-make_simple_vocabulary(std::string filename);
-
+  SimpleVocabulary
+    make_simple_vocabulary(std::string filename, bool downcase);
+}
 
 #endif

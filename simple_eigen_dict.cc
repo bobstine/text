@@ -13,8 +13,8 @@
 
 const bool verbose = true;
 
-SimpleEigenDictionary
-make_simple_eigen_dictionary(std::string filename, size_t dimToUse, SimpleVocabulary const& vocabulary)
+Text::SimpleEigenDictionary
+Text::make_simple_eigen_dictionary(std::string filename, size_t dimToUse, Text::SimpleVocabulary const& vocabulary, bool downcase)
 {
   using std::string;
   bool needToFlushEigenStream = false;
@@ -26,7 +26,7 @@ make_simple_eigen_dictionary(std::string filename, size_t dimToUse, SimpleVocabu
       return dict;
     }
     std::clog << "DICT: Build eigen dictionary with initial dim " << dimToUse << " from file " << filename << std::endl;
-    { // special handling for first line, assumed to define OOV coordinates
+    { // special handling for first line, assumed to define OOV coordinates; determine if use a subset of coefs
       std::vector<float> oov;
       string token;
       eigenStream >> token;  // toss file label for OOV; use "OOV"
@@ -57,9 +57,9 @@ make_simple_eigen_dictionary(std::string filename, size_t dimToUse, SimpleVocabu
     { string token;
       string junk;
       eigenStream >> token;
-      if(token.size() == 0) break;       // file has trailing blank line
-      std::transform(token.begin(), token.end(), token.begin(), ::tolower);
-      if(vocabulary.count(token) != 0)   // word type found in vocabulary
+      if(token.size() == 0) break;                                                        // file has trailing blank line
+      if (downcase) std::transform(token.begin(), token.end(), token.begin(), ::tolower); // lower case
+      if(vocabulary.count(token) != 0)                                                    // word type found in vocabulary
       { std::vector<float> coor(dimToUse);
 	for(size_t i=0; i<dimToUse; ++i)
 	  eigenStream >> coor[i];
@@ -80,10 +80,8 @@ make_simple_eigen_dictionary(std::string filename, size_t dimToUse, SimpleVocabu
   return dict;
 }
 
-
-
 void
-compare_dictionary_to_vocabulary(SimpleEigenDictionary const& dict, SimpleVocabulary const& vocab) 
+Text::compare_dictionary_to_vocabulary(Text::SimpleEigenDictionary const& dict, Text::SimpleVocabulary const& vocab) 
 {
   if (dict.size() < vocab.size())
   { std::clog << "EDIC:  Dictionary coordinates not found for the following " << vocab.size()-dict.size() << " tokens:\n";
