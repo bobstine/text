@@ -41,10 +41,10 @@ Text::make_simple_eigen_dictionary(std::string filename, size_t dimToUse, Text::
 	needToFlushEigenStream = false;
       }
       else
-      { if (dimToUse < oov.size())
+      { if (dimToUse <= oov.size())
 	{ oov.resize(dimToUse);
 	  needToFlushEigenStream = true;
-	  if (verbose) std::clog << "      Will need to flush trailing elements in eigen stream.\n";
+	  if (verbose && (dimToUse < oov.size())) std::clog << "      Will need to flush trailing elements in eigen stream.\n";
 	}
 	else
 	{ std::cerr << "DICT:  *** ERROR *** Found eigen dimension " << oov.size() << " which is smaller than requested " << dimToUse << std::endl;
