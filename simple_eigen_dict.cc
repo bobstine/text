@@ -84,11 +84,26 @@ void
 Text::compare_dictionary_to_vocabulary(Text::SimpleEigenDictionary const& dict, Text::SimpleVocabulary const& vocab) 
 {
   if (dict.size() < vocab.size())
-  { std::clog << "EDIC:  Dictionary coordinates not found for the following " << vocab.size()-dict.size() << " tokens:\n";
-    for(auto x : vocab)
-    { if (dict.count(x) == 0)
-	std::clog << " " << x;
+  { std::clog << "EDIC:  Dictionary coordinates not found for " << vocab.size()-dict.size()
+	      << " tokens (some shown below); writing all to `missing_words.txt'.\n";
+    std::ofstream os{"missing_words.txt"};
+    if(os.good())
+    { int counter = 0;
+      for(auto x : vocab)
+      { if (dict.count(x) == 0)
+	{ ++counter;
+	  os << " " << x;
+	  if (0 == (counter%128))
+	  { os << std::endl;
+	    std::clog << " " << x;
+	    if (0 == (counter%4096))
+	      std::clog << std::endl;
+	  }
+	}
+      }
+      os << std::endl;
+      std::clog << std::endl;
     }
-    std::clog << std::endl;
+    else std::cerr << "EDIC: Could not open file to write missing words.\n";
   }
 }
