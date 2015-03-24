@@ -14,7 +14,10 @@ namespace Text {
   
   SimpleEigenDictionary
     make_simple_eigen_dictionary(std::string filename, size_t dimToUse, SimpleVocabulary const& vocabulary, bool downcase);
-  
+
+  SimpleEigenDictionary
+    make_random_simple_eigen_dictionary(size_t dimToUse, SimpleVocabulary const& vocabulary);
+
   void compare_dictionary_to_vocabulary(SimpleEigenDictionary const& eigenDict, SimpleVocabulary const& vocab);
 }
 
