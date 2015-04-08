@@ -1,7 +1,7 @@
 #ifndef _EIGENWORD_DICTIONARY_H_
 #define _EIGENWORD_DICTIONARY_H_
 
-#include "base_classes.h"
+#include "text_base_classes.h"
 
 #include <string>
 #include <vector>
@@ -17,8 +17,8 @@ class EigenwordDictionary
  public:
   typedef Eigen::VectorXf         Vector;
   typedef Eigen::MatrixXf         Matrix;
-  typedef std::map<Type,int>      TypeMap;
-  typedef std::vector<Type>       TypeVector;
+  typedef std::map<Text::Type,int>TypeMap;
+  typedef std::vector<Text::Type> TypeVector;
 
  private:
   TypeVector mTypes;
@@ -36,9 +36,9 @@ class EigenwordDictionary
   Matrix     eigenwords()                        const  { return mEigenwords; }
   Matrix     eigenwords(TypeVector const& types) const;
 
-  int        type_index(Type const& t)           const; // -1 if not found
+  int        type_index(Text::Type const& t)     const; // -1 if not found
   Vector     operator[](int row)                 const  { return mEigenwords.row(row); }
-  Vector     operator[](Type const& t)           const;
+  Vector     operator[](Text::Type const& t)     const;
 
   void       print_to_stream(std::ostream &os)   const;
   

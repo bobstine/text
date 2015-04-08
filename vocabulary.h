@@ -8,7 +8,7 @@
 	  * optionally can skip initial tokens in a line (as in regression application)
 */
 
-#include "base_classes.h"
+#include "text_base_classes.h"
 
 #include <iostream>
 #include <list>
@@ -23,16 +23,16 @@ using std::string;
 class Vocabulary
 {
  public:
-  typedef std::vector<Type>                          TypeVector;
-  typedef std::list<Type>                            TypeList;
-  typedef std::map<Type,int>                         TypeMap;
+  typedef std::vector<Text::Type>                    TypeVector;
+  typedef std::list<Text::Type>                      TypeList;
+  typedef std::map<Text::Type,int>                   TypeMap;
   typedef std::map<std::pair<int,int>,int>           BigramMap;            // (row,col) positions of frequencies
   typedef Eigen::VectorXf                            Vector;
   typedef Eigen::VectorXi                            IntVector;
   typedef Eigen::SparseMatrix<float,Eigen::ColMajor> SparseMatrix;
 
-  static Type OOV;
-  static Type EOL;
+  static Text::Type OOV;
+  static Text::Type EOL;
   
  private:
   int  const      mSkipInitial;    // skip initial tokens in a line
@@ -62,8 +62,8 @@ class Vocabulary
      mTokens(), mTypeVector(), mTypeFreqVector(), mFreqMap(), mOOVMap(), mIndexMap() { init_from_stream(is); }
 
   int        n_types()                          const { return (int)mFreqMap.size(); }
-  int        type_index(Type const& type)       const;                                // OOV position if not found
-  Type       type (int position)                const { return mTypeVector[position]; }
+  int        type_index(Text::Type const& type) const;                                // OOV position if not found
+  Text::Type type (int position)                const { return mTypeVector[position]; }
   TypeVector types ()                           const { return mTypeVector; }         // types in Frequency order
   Vector     type_frequency_vector()            const { return mTypeFreqVector; }
   TypeMap    oov_map()                          const { return mOOVMap; }
@@ -81,7 +81,7 @@ class Vocabulary
  private:
   void init_from_file  (std::string fileName);
   void init_from_stream(std::istream &is);
-  void parse_line (std::string const& line, std::map<Type,int> &vocab);
+  void parse_line (std::string const& line, std::map<Text::Type,int> &vocab);
   void fill_bigram_map (BigramMap &bm, int skip) const;
 };
 

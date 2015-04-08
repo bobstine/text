@@ -5,7 +5,7 @@
 #include "read_utils.h"
 #include "file_utils.h"
 #include "regex.h"
-#include "regression.h"
+#include "linear_regression.h"
 #include "timing.h"
 
 #include <iostream>
@@ -134,7 +134,7 @@ Helper::scan_google_vocabulary_for_oov (Vocabulary const& vocab)
   // compare vocab to google... did not find 349 types (mostly parsing issues like - $ # @ (as in e-mail))
   if (false)
   { std::ifstream is ("text_src/google/vocab");
-    std::map<Type,int> googleVocab;
+    std::map<Text::Type,int> googleVocab;
     int counter = 0;
     while(true)
     { string line, token, numStr;
@@ -149,12 +149,12 @@ Helper::scan_google_vocabulary_for_oov (Vocabulary const& vocab)
       while(it != line.end())
 	numStr.push_back(*it++);
       count = std::atoi(numStr.c_str());
-      googleVocab[Type(token)] = count;
+      googleVocab[Text::Type(token)] = count;
       if (counter++ < 60)
 	std::clog << "    Google " << token << " has count " << count << endl;
     }
     std::clog << "MAIN: Read " << googleVocab.size() << " types from google vocabulary.\n";
-    std::vector<Type> notFound;
+    std::vector<Text::Type> notFound;
     for (auto t : vocab.types())
     { if(googleVocab.find(t) == googleVocab.end())
 	notFound.push_back(t);

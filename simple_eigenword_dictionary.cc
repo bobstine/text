@@ -1,4 +1,4 @@
-#include "simple_eigen_dict.h"
+#include "simple_eigenword_dictionary.h"
 
 #include <random>
 #include <algorithm>
@@ -7,7 +7,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>   // transform
-#include <cmath>       // nanf
+#include <cmath>       // nan
 /*
   ASSUME
     - coordinates for OOV come first
@@ -18,12 +18,12 @@ typedef float Scalar;
 
 const bool verbose = true;
 
-Text::SimpleEigenDictionary
-Text::make_simple_eigen_dictionary(std::string filename, size_t dimToUse, Text::SimpleVocabulary const& vocabulary, bool downcase)
+Text::SimpleEigenwordDictionary
+Text::make_simple_eigenword_dictionary(std::string filename, size_t dimToUse, Text::SimpleVocabulary const& vocabulary, bool downcase)
 {
   using std::string;
   bool needToFlushEigenStream = false;
-  SimpleEigenDictionary dict;
+  SimpleEigenwordDictionary dict;
   {
     std::ifstream eigenStream (filename.c_str(), std::ifstream::in);
     if (eigenStream.fail())
@@ -77,27 +77,30 @@ Text::make_simple_eigen_dictionary(std::string filename, size_t dimToUse, Text::
   }
   // propagate missing values; assign nan to missing
   {
-    std::vector<float> missing;
+    std::vector<float> missing(dimToUse);
     for(size_t i=0; i<dimToUse; ++i)
-      missing.push_back(std::nanf("missing"));
+      missing[i] = std::nanf("missing");
     dict["NA"] = missing;
   }
   return dict;
 }
 
 
-Text::SimpleEigenDictionary
-Text::make_random_simple_eigen_dictionary(size_t dimToUse, Text::SimpleVocabulary const& vocabulary)
+Text::SimpleEigenwordDictionary
+Text::make_random_simple_eigenword_dictionary(int seed, size_t dimToUse, Text::SimpleVocabulary const& vocabulary)
 {
   std::mt19937 generator;   
   std::normal_distribution<Scalar> normal_dist(0, 1);
-  SimpleEigenDictionary dict;
+  SimpleEigenwordDictionary dict;
 
-  generator.seed(12345);
+  generator.seed(seed); 
   std::vector<Scalar> randomVector (dimToUse);
   std::clog << "DICT: Build *random* simple eigen dictionary of dim " << dimToUse << std::endl;
   // too messy
   // std::generate(randomVector.begin(), randomVector.end(),  [&generator,&normal_dist]()->Scalar { return normal_dist(generator); });
+  // warning message about the use of the random generator being uninitialized???
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
   for(size_t i=0; i<dimToUse; ++i)
     randomVector[i] = normal_dist(generator);
   dict["OOV"] = randomVector;   // special handling for first line, assumed to define OOV coordinates
@@ -106,12 +109,19 @@ Text::make_random_simple_eigen_dictionary(size_t dimToUse, Text::SimpleVocabular
       randomVector[i] = normal_dist(generator);
     dict[type] = randomVector;
   }
+#pragma GCC diagnostic pop
+  // propagate missing values; assign nan to missing
+  {
+    std::vector<float> missing(dimToUse);
+    for(size_t i=0; i<dimToUse; ++i)
+      missing[i] = std::nanf("missing");
+    dict["NA"] = missing;
+  }
   return dict;
 }
 
-
 void
-Text::compare_dictionary_to_vocabulary(Text::SimpleEigenDictionary const& dict, Text::SimpleVocabulary const& vocab) 
+Text::compare_dictionary_to_vocabulary(Text::SimpleEigenwordDictionary const& dict, Text::SimpleVocabulary const& vocab) 
 {
   if (dict.size() < vocab.size())
   { std::clog << "EDIC:  Dictionary coordinates not found for " << vocab.size()-dict.size()

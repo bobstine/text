@@ -42,8 +42,8 @@ EigenwordDictionary::init_from_file(string fileName)
 	++it;
       }
       if (count < 50)
-      { mTypes.push_back(Type(token));
-	mIndexMap[Type(token)] = lineNumber;
+      { mTypes.push_back(Text::Type(token));
+	mIndexMap[Text::Type(token)] = lineNumber;
 	std::istringstream is (line.substr(count));
 	for(int j=0; j<mEigenwords.cols(); ++j)
 	  is >> mEigenwords(lineNumber,j);
@@ -61,7 +61,7 @@ EigenwordDictionary::init_from_file(string fileName)
 //     operator     operator     operator     operator     operator     operator     operator     operator
 
 int
-EigenwordDictionary::type_index(Type const& t) const
+EigenwordDictionary::type_index(Text::Type const& t) const
 {
   auto it = mIndexMap.find(t);
   if(it != mIndexMap.end())
@@ -71,7 +71,7 @@ EigenwordDictionary::type_index(Type const& t) const
 }
 
 EigenwordDictionary::Vector
-EigenwordDictionary::operator[](Type const& t) const
+EigenwordDictionary::operator[](Text::Type const& t) const
 {
   int row = type_index(t);
   if(row < 0)

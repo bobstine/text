@@ -10,16 +10,14 @@ include ../c_flags
 
 PROJECT_NAME = text
 
-# OPT = -O3 -std=c++0x -DNDEBUG
-
-OPT = -O3 -fopenmp
+OPT = -Ofast -mfpmath=sse -msse3 -m64 -march=native
 
 USES = eigen utils
 
-EXTERNAL_USES = 
+# EXTERNAL_USES
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-level_1 = confusion_matrix.o simple_vocabulary.o simple_eigen_dict.o eigenword_dictionary.o  helpers.o
+level_1 = confusion_matrix.o simple_vocabulary.o simple_eigenword_dictionary.o eigenword_dictionary.o  helpers.o
 
 # --- many of these have a main and are not suited for use in library
 # level_1 = k_means.o token_manager.o vocabulary.o   # porter.o
