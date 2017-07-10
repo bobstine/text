@@ -29,7 +29,7 @@ X  <- as.matrix(read.table( paste(path,"lsa_sqrt_1500.txt",sep=""), header=TRUE,
 name <- "Linear, recip"  # conditional prob
 X  <- as.matrix(read.table( paste(path,"lsa_recip_1500.txt",sep=""), header=TRUE, as.is=TRUE))
 
-name <- "Linear, cca" 
+name <- "Linear, cca"
 X  <- as.matrix(read.table( paste(path,"lsa_cca_1500.txt",sep=""), header=TRUE, as.is=TRUE))
 
 name <- "Linear, tf-idf"  # conditional prob
@@ -39,9 +39,9 @@ name <- "Quadratic"
 Xq <- as.matrix(read.table( paste(path,"lsaq_raw_250_p0.txt",sep=""), header=TRUE, as.is=TRUE))
 
 
-#																Adjusted R2
-#														words	Raw		Sqrt	1/ni	cca		tfidf	quad		
-sr <- summary(r <- lm(Y ~ M + lM + X [,1: 250])); sr  #			0.576	0.602	0.573	0.582	0.592	0.390
+#								Adjusted R2
+#							words	Raw	Sqrt	1/ni	cca	tfidf	quad
+sr <- summary(r <- lm(Y ~ M + lM + X [,1: 250])); sr  #	0.576	0.602	0.573	0.582	0.592	0.390
 
 sr <- summary(r <- lm(Y ~ M + lM + X [,1: 500])); sr  #	0.581	0.612	0.640	0.628	0.639	0.628
 
@@ -83,9 +83,9 @@ plot(cca$cor)
 # weights are pretty random on quad components, decay on xcoef
 plot(cca$ycoef[,1])
 
-# add to regression												Linear alone	With Quad
+# add to regression					Linear alone	With Quad
 sr <- summary(r <- lm(Y ~ M + lM + X [,1: 250]     )); sr  #		0.576
-sr <- summary(r <- lm(Y ~ M + lM + X [,1: 250] + Xq)); sr  #					0.594
+sr <- summary(r <- lm(Y ~ M + lM + X [,1: 250] + Xq)); sr  #		0.594
 
 
 ##################################################################################
@@ -127,7 +127,7 @@ X  <- as.matrix(read.table( paste(path,"lsa_sqrt_1000.txt",sep=""), header=TRUE,
 name <- "Linear, recip"  # conditional prob
 X  <- as.matrix(read.table( paste(path,"lsa_recip_1000.txt",sep=""), header=TRUE, as.is=TRUE))
 
-name <- "Linear, CCA" 
+name <- "Linear, CCA"
 X  <- as.matrix(read.table( paste(path,"lsa_cca_1000.txt",sep=""), header=TRUE, as.is=TRUE))
 
 name <- "Linear, tf-idf"  # conditional prob
@@ -137,8 +137,8 @@ name <- "Quadratic"
 X  <- as.matrix(read.table( paste(path,"lsaq_250.txt",sep=""),     header=TRUE, as.is=TRUE))
 
 
-#																Adjusted R2
-#														Raw		Sqrt	1/ni	cca		tfidf	Quad		
+#								Adjusted R2
+#							Raw	Sqrt	1/ni	cca	tfidf	Quad
 sr <- summary(r <- lm(Y ~ M + lM + X [,1: 250])); sr  #	0.673	0.675	0.663	0.650	0.685
 
 sr <- summary(r <- lm(Y ~ M + lM + X [,1: 500])); sr  #	0.706	0.708	0.698	0.689	0.710
