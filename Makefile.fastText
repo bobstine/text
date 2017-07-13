@@ -13,9 +13,9 @@
 
 learn: fasttext
 
-city = newyork
+city = chicago
 
-target: $(city).coord
+target: $(city)_coord
 
 chicago.txt: ~/data/text/real_estate/Set10Tokenized/ChicagoTokenized
 	cut -d ' ' -f 1 --complement $^ > $@
@@ -26,7 +26,9 @@ newyork.txt: ~/data/text/real_estate/Set10Tokenized/NYCTokenized
 
 method = skipgram
 # method = cbow
-$(city).coord: $(city).txt
+
+# application with output two files (.bin, .txt) with this prefix
+$(city)_coord: $(city).txt
 	./fasttext $(method) -dim 100 -input $(city).txt -output $@
 
 
